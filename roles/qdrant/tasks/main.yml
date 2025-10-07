@@ -1,0 +1,33 @@
+---
+- name: Install Python docker dependency
+  apt:
+    name: python3-docker
+    state: present
+  become: yes
+  tags:
+    - vector
+
+- name: Ensure Docker SDK is installed
+  pip:
+    name: docker
+    virtualenv: "{{ app_dir }}/venv"
+  become: yes
+  become_user: agent0
+  tags:
+    - vector
+
+- name: Run Qdrant container
+  community.docker.docker_container:
+    name: qdrant
+    image: qdrant/qdrant:latest
+    restart_policy: always
+    state: started
+    published_ports:
+      - "6333:6333"
+    env:
+      QDRANT__SERVICE__API_KEY: "{{ qdrant_api_key | default('', true) }}"
+    volumes:
+      - /var/lib/qdrant:/qdrant/storage
+  become: yes
+  tags:
+    - vector

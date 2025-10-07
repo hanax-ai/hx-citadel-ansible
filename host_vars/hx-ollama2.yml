@@ -1,0 +1,5 @@
+---
+ollama_models:
+  - cogito:3b
+  - qwen3-coder:30b
+  - qwen2.5:7b

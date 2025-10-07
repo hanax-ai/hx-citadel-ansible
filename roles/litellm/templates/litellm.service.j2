@@ -1,0 +1,11 @@
+[Unit]
+Description=LiteLLM Gateway
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/env litellm --config /etc/litellm/config.yaml
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

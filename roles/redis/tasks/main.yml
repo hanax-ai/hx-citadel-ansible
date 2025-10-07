@@ -1,0 +1,16 @@
+---
+- name: Include Redis role
+  include_role:
+    name: redis_role
+  tags:
+    - cache
+
+- name: Ensure Redis binds to expected interface
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^bind '
+    line: "bind {{ redis_bind_interface }}"
+  notify: restart redis
+  become: yes
+  tags:
+    - cache

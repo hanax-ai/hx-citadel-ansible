@@ -1,0 +1,8 @@
+---
+- name: Deploy base configuration to all nodes
+  hosts: all
+  become: yes
+  roles:
+    - base-setup
+  tags:
+    - base

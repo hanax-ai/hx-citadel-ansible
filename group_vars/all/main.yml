@@ -1,0 +1,6 @@
+---
+ubuntu_version: "24.04"
+python_version: "3.12"
+app_dir: "/opt/hx-citadel-shield"
+log_dir: "/var/log/hx-citadel"
+services_to_restart: []

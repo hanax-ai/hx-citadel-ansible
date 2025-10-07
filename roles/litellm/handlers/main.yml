@@ -1,0 +1,6 @@
+---
+- name: restart litellm
+  systemd:
+    name: litellm
+    state: restarted
+  become: yes

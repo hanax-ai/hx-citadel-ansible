@@ -1,0 +1,6 @@
+---
+fastapi_port: 8000
+orch_env:
+  ORCH_SECRET: "{{ orch_secret | default('changeme', true) }}"
+  QDRANT_URL: "http://hx-vectordb-server:6333"
+  LITELLM_URL: "http://hx-litellm-server:4000"

@@ -1,0 +1,10 @@
+---
+- name: Deploy orchestrator
+  hosts: orchestrator_nodes
+  become: yes
+  roles:
+    - fastapi
+    - observability
+  tags:
+    - orch
+    - observability

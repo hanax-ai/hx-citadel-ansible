@@ -1,0 +1,9 @@
+---
+- name: Deploy API layer
+  hosts: api_nodes
+  become: yes
+  roles:
+    - litellm
+    - prisma
+  tags:
+    - api

@@ -1,0 +1,9 @@
+---
+roles:
+  - src: geerlingguy.postgresql
+    name: postgresql_role
+  - src: geerlingguy.redis
+    name: redis_role
+collections:
+  - name: community.docker
+  - name: community.general

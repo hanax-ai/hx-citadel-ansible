@@ -1,0 +1,15 @@
+---
+- name: Deploy database services
+  hosts: db_nodes
+  become: yes
+  roles:
+    - postgresql
+    - redis
+  post_tasks:
+    - name: Verify PostgreSQL connectivity
+      command: psql -h localhost -U {{ db_owner }} -c "SELECT 1;"
+      register: db_test
+      changed_when: false
+      failed_when: db_test.rc != 0
+  tags:
+    - db

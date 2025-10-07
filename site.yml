@@ -1,0 +1,7 @@
+---
+- import_playbook: playbooks/deploy-base.yml
+- import_playbook: playbooks/deploy-db.yml
+- import_playbook: playbooks/deploy-vector.yml
+- import_playbook: playbooks/deploy-llm.yml
+- import_playbook: playbooks/deploy-api.yml
+- import_playbook: playbooks/deploy-orchestrator.yml

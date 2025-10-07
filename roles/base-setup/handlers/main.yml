@@ -1,0 +1,8 @@
+---
+- name: restart services
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop: "{{ services_to_restart | default([]) }}"
+  when: services_to_restart | length > 0
+  become: yes

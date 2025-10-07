@@ -1,0 +1,65 @@
+---
+- name: Ensure apt cache is up to date
+  apt:
+    update_cache: yes
+  become: yes
+  tags:
+    - always
+
+- name: Install base packages
+  apt:
+    name:
+      - "python{{ python_version }}"
+      - "python{{ python_version }}-venv"
+      - git
+      - curl
+    state: present
+  become: yes
+  tags:
+    - deps
+
+- name: Create application directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: agent0
+    mode: "0755"
+  become: yes
+  tags:
+    - app
+
+- name: Ensure log directory exists
+  file:
+    path: "{{ log_dir }}"
+    state: directory
+    owner: agent0
+    mode: "0755"
+  become: yes
+  tags:
+    - app
+
+- name: Create Python virtual environment
+  command: "python{{ python_version }} -m venv {{ app_dir }}/venv"
+  args:
+    creates: "{{ app_dir }}/venv/bin/activate"
+  become: yes
+  become_user: agent0
+  tags:
+    - python
+
+- name: Install Poetry in the virtual environment
+  pip:
+    name: poetry
+    virtualenv: "{{ app_dir }}/venv"
+  become: yes
+  become_user: agent0
+  tags:
+    - python
+
+- name: Capture realm configuration
+  command: realm list
+  register: realm_check
+  changed_when: false
+  failed_when: realm_check.rc != 0
+  tags:
+    - security

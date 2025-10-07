@@ -1,0 +1,45 @@
+---
+- name: Install Node.js dependencies for Prisma
+  apt:
+    name:
+      - nodejs
+      - npm
+    state: present
+  become: yes
+  tags:
+    - api
+
+- name: Install Prisma CLI globally
+  npm:
+    name: prisma
+    global: yes
+  become: yes
+  tags:
+    - api
+
+- name: Deploy Prisma service directory
+  file:
+    path: "{{ app_dir }}/prisma"
+    state: directory
+    owner: agent0
+    mode: "0755"
+  become: yes
+  tags:
+    - api
+
+- name: Upload Prisma schema
+  template:
+    src: schema.prisma.j2
+    dest: "{{ app_dir }}/prisma/schema.prisma"
+  become: yes
+  notify: restart prisma
+  tags:
+    - api
+
+- name: Run Prisma migrate deploy
+  command: npx prisma migrate deploy
+  args:
+    chdir: "{{ app_dir }}/prisma"
+  become: yes
+  tags:
+    - api

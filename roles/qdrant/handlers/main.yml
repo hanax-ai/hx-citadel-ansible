@@ -1,0 +1,7 @@
+---
+- name: restart qdrant
+  community.docker.docker_container:
+    name: qdrant
+    state: started
+    restart: yes
+  become: yes

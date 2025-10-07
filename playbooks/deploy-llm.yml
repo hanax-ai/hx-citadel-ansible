@@ -1,0 +1,8 @@
+---
+- name: Deploy LLM nodes
+  hosts: llm_nodes
+  become: yes
+  roles:
+    - ollama
+  tags:
+    - models

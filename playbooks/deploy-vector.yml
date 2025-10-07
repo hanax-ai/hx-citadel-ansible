@@ -1,0 +1,8 @@
+---
+- name: Deploy vector database
+  hosts: vector_nodes
+  become: yes
+  roles:
+    - qdrant
+  tags:
+    - vector

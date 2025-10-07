@@ -1,0 +1,45 @@
+---
+- name: Ensure Node.js repository is present
+  apt:
+    deb: https://deb.nodesource.com/node_20.x/pool/main/n/nodejs/nodejs_20.17.0-deb-1nodesource1_amd64.deb
+    state: present
+  become: yes
+  tags:
+    - api
+
+- name: Install LiteLLM dependencies
+  npm:
+    name: litellm
+    global: yes
+  become: yes
+  tags:
+    - api
+
+- name: Deploy LiteLLM configuration
+  template:
+    src: config.yaml.j2
+    dest: /etc/litellm/config.yaml
+    mode: "0640"
+  become: yes
+  notify: restart litellm
+  tags:
+    - api
+
+- name: Ensure LiteLLM service file exists
+  template:
+    src: litellm.service.j2
+    dest: /etc/systemd/system/litellm.service
+    mode: "0644"
+  become: yes
+  notify: restart litellm
+  tags:
+    - api
+
+- name: Ensure LiteLLM service is running
+  systemd:
+    name: litellm
+    state: started
+    enabled: yes
+  become: yes
+  tags:
+    - api

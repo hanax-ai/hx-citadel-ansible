@@ -1,0 +1,6 @@
+---
+- name: restart prisma
+  systemd:
+    name: prisma
+    state: restarted
+  become: yes

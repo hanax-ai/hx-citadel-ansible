@@ -1,0 +1,34 @@
+---
+- name: Include external PostgreSQL role
+  include_role:
+    name: postgresql_role
+  tags:
+    - db
+
+- name: Ensure application database exists
+  postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_owner }}"
+    encoding: UTF8
+  become: yes
+  tags:
+    - db
+
+- name: Ensure application owner exists
+  postgresql_user:
+    name: "{{ db_owner }}"
+    password: "{{ db_password | default('change-me', true) }}"
+    state: present
+  become: yes
+  tags:
+    - db
+
+- name: Configure PostgreSQL to listen on specified address
+  lineinfile:
+    path: /etc/postgresql/16/main/postgresql.conf
+    regexp: '^listen_addresses'
+    line: "listen_addresses = '{{ postgresql_listen_address }}'"
+  notify: restart postgresql
+  become: yes
+  tags:
+    - db

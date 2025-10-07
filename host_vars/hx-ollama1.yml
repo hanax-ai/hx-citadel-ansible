@@ -1,0 +1,5 @@
+---
+ollama_models:
+  - gemma3:27b
+  - gpt-oss:20b
+  - mistral:7b

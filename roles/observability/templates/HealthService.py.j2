@@ -1,0 +1,25 @@
+import asyncio
+import httpx
+from typing import Dict, Callable, Awaitable
+
+
+class HealthService:
+    """Async health checker for downstream services."""
+
+    def __init__(self, checks: Dict[str, Callable[[], Awaitable[bool]]]):
+        self.checks = checks
+
+    async def run(self) -> Dict[str, bool]:
+        results = {}
+        for name, check in self.checks.items():
+            try:
+                results[name] = await check()
+            except Exception:
+                results[name] = False
+        return results
+
+
+async def http_check(url: str) -> bool:
+    async with httpx.AsyncClient(timeout=5) as client:
+        response = await client.get(url)
+        return response.status_code == 200

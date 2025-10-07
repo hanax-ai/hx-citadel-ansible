@@ -1,0 +1,6 @@
+---
+- name: restart orchestrator
+  systemd:
+    name: orchestrator
+    state: restarted
+  become: yes

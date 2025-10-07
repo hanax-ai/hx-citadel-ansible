@@ -1,0 +1,43 @@
+---
+- name: Install Prometheus
+  apt:
+    name: prometheus
+    state: present
+  become: yes
+  tags:
+    - observability
+
+- name: Install Grafana
+  apt:
+    name: grafana
+    state: present
+  become: yes
+  tags:
+    - observability
+
+- name: Deploy HealthService component
+  template:
+    src: HealthService.py.j2
+    dest: "{{ app_dir }}/orchestrator/health_service.py"
+  become: yes
+  become_user: agent0
+  tags:
+    - observability
+
+- name: Install httpx in virtual environment
+  pip:
+    name: httpx
+    virtualenv: "{{ app_dir }}/venv"
+  become: yes
+  become_user: agent0
+  tags:
+    - observability
+
+- name: Deploy Prometheus config
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+  become: yes
+  notify: restart prometheus
+  tags:
+    - observability
