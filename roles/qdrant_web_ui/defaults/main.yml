@@ -1,0 +1,29 @@
+---
+qdrant_ui_repo_url: https://github.com/qdrant/qdrant-web-ui.git
+qdrant_ui_repo_version: master
+qdrant_ui_root: /opt/qdrant-ui
+qdrant_ui_build_artifact_dir: dist
+qdrant_ui_owner: www-data
+qdrant_ui_group: www-data
+qdrant_ui_backend_host: 192.168.10.8
+qdrant_ui_backend_port: 6333
+qdrant_ui_backend_protocol: http
+qdrant_ui_backend_ssl_verify: "off"
+qdrant_ui_backend_api_key: ""
+qdrant_ui_http_port: 80
+qdrant_ui_packages:
+  - nginx
+  - git
+  - nodejs
+  - npm
+  - build-essential
+  - python3
+  - make
+  - curl
+  - netcat-openbsd
+  - tree
+qdrant_ui_logrotate_keep: 14
+qdrant_ui_monitor_interval: "*/5"
+qdrant_ui_backup_retention_days: 7
+qdrant_ui_backup_hour: 2
+qdrant_ui_backup_minute: 0

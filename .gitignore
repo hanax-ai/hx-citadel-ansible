@@ -210,3 +210,6 @@ __marimo__/
 *.retry
 vaults/
 .ansible_cache/
+
+# Archive directories
+archive_*/

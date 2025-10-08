@@ -1,0 +1,15 @@
+/opt/qdrant-ui/logs/*.log {
+    daily
+    rotate {{ qdrant_ui_logrotate_keep }}
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0640 {{ qdrant_ui_owner }} {{ qdrant_ui_group }}
+    sharedscripts
+    postrotate
+        if [ -f /var/run/nginx.pid ]; then
+            kill -USR1 $(cat /var/run/nginx.pid)
+        fi
+    endscript
+}

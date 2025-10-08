@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+BACKUP_DIR="{{ qdrant_ui_root }}/backups"
+TIMESTAMP="$1"
+if [[ -z "${TIMESTAMP}" ]]; then
+  echo "Usage: $0 <backup-timestamp>"
+  ls -1 ${BACKUP_DIR} | grep -o '[0-9]\{8\}-[0-9]\{6\}' | sort -u
+  exit 1
+fi
+
+CONFIG_ARCHIVE="${BACKUP_DIR}/qdrant-ui-backup-${TIMESTAMP}-config.tar.gz"
+BUILD_ARCHIVE="${BACKUP_DIR}/qdrant-ui-backup-${TIMESTAMP}-build.tar.gz"
+
+if [[ ! -f "${CONFIG_ARCHIVE}" ]] || [[ ! -f "${BUILD_ARCHIVE}" ]]; then
+  echo "Backup ${TIMESTAMP} not found"
+  exit 1
+fi
+
+tar -xzf "${CONFIG_ARCHIVE}" -C /
+RESTORE_DIR="{{ qdrant_ui_root }}/builds/build-${TIMESTAMP}-restore"
+mkdir -p "${RESTORE_DIR}"
+tar -xzf "${BUILD_ARCHIVE}" -C "${RESTORE_DIR}"
+ln -sfn "${RESTORE_DIR}" {{ qdrant_ui_root }}/builds/current
+
+systemctl reload nginx
+
+echo "Restore ${TIMESTAMP} complete"

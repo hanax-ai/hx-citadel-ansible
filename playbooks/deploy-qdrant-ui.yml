@@ -1,0 +1,18 @@
+---
+- name: Deploy Qdrant Web UI (HTTP-only)
+  hosts: hx_qwui_target
+  become: yes
+  gather_facts: yes
+  collections:
+    - community.general
+  vars:
+    qdrant_ui_backend_host: 192.168.10.9
+    qdrant_ui_backend_port: 6333
+    qdrant_ui_backend_protocol: https
+    qdrant_ui_backend_ssl_verify: "off"
+    qdrant_ui_backend_api_key: "9381d692ff19c9eace23c8a3a73ffc551fab5281a1e75e10db599cc148558d09"
+    qdrant_ui_http_port: 80
+    qdrant_ui_owner: www-data
+    qdrant_ui_group: www-data
+  roles:
+    - qdrant_web_ui

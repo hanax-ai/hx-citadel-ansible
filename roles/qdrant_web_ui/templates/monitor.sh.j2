@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+LOG_FILE="{{ qdrant_ui_root }}/logs/monitor.log"
+DATE_TS=$(date --iso-8601=seconds)
+
+log() {
+  echo "${DATE_TS}: $1" >> "${LOG_FILE}"
+}
+
+if ! systemctl is-active --quiet nginx; then
+  log "ALERT - Nginx is not running"
+  systemctl start nginx || true
+else
+  log "OK - Nginx active"
+fi
+
+HTTP_CODE_LOCAL=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:{{ qdrant_ui_http_port }})
+if [[ "${HTTP_CODE_LOCAL}" != "200" ]]; then
+  log "ALERT - Local HTTP returned ${HTTP_CODE_LOCAL}"
+else
+  log "OK - Local HTTP ${HTTP_CODE_LOCAL}"
+fi
+
+HTTP_CODE_NET=$(curl -s -o /dev/null -w "%{http_code}" http://{{ ansible_host | default('127.0.0.1') }}:{{ qdrant_ui_http_port }})
+if [[ "${HTTP_CODE_NET}" != "200" ]]; then
+  log "ALERT - Network HTTP returned ${HTTP_CODE_NET}"
+else
+  log "OK - Network HTTP ${HTTP_CODE_NET}"
+fi
+
+if ! curl -s http://{{ qdrant_ui_backend_host }}:{{ qdrant_ui_backend_port }} > /dev/null; then
+  log "ALERT - Cannot reach Qdrant backend {{ qdrant_ui_backend_host }}:{{ qdrant_ui_backend_port }}"
+else
+  log "OK - Qdrant backend reachable"
+fi
+
+DISK_USAGE=$(df -h {{ qdrant_ui_root }} | awk 'NR==2 {gsub("%", "", $5); print $5}')
+if [[ "${DISK_USAGE}" -gt 90 ]]; then
+  log "ALERT - Disk usage at ${DISK_USAGE}%"
+else
+  log "OK - Disk usage ${DISK_USAGE}%"
+fi

@@ -1,0 +1,196 @@
+---
+- name: Ensure required apt packages are present
+  ansible.builtin.apt:
+    name: "{{ qdrant_ui_packages }}"
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Ensure qdrant-ui root exists
+  ansible.builtin.file:
+    path: "{{ qdrant_ui_root }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+    mode: "0755"
+  become: yes
+
+- name: Ensure base directory structure exists
+  ansible.builtin.file:
+    path: "{{ qdrant_ui_root }}/{{ item }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+    mode: "0755"
+  loop:
+    - source
+    - builds
+    - builds/rollback
+    - config
+    - config/nginx
+    - config/env
+    - logs
+    - scripts
+    - backups
+  become: yes
+
+- name: Clone Qdrant Web UI repository
+  ansible.builtin.git:
+    repo: "{{ qdrant_ui_repo_url }}"
+    dest: "{{ qdrant_ui_root }}/source"
+    version: "{{ qdrant_ui_repo_version }}"
+    update: yes
+  become: yes
+  become_user: "{{ ansible_user_id }}"
+
+- name: Install npm dependencies
+  community.general.npm:
+    path: "{{ qdrant_ui_root }}/source"
+  become: yes
+  become_user: "{{ ansible_user_id }}"
+
+- name: Build production assets
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ qdrant_ui_root }}/source"
+  become: yes
+  become_user: "{{ ansible_user_id }}"
+  environment:
+    NODE_ENV: production
+
+- name: Register build timestamp
+  ansible.builtin.set_fact:
+    qdrant_ui_build_timestamp: "{{ ansible_date_time.iso8601_basic | regex_replace('T', '-') | regex_replace('\\+.*', '') }}"
+
+- name: Create build destination directory
+  ansible.builtin.file:
+    path: "{{ qdrant_ui_root }}/builds/build-{{ qdrant_ui_build_timestamp }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+    mode: "0755"
+  become: yes
+
+- name: Copy new build into timestamped directory
+  ansible.builtin.shell: "cp -a {{ qdrant_ui_root }}/source/{{ qdrant_ui_build_artifact_dir }}/. {{ qdrant_ui_root }}/builds/build-{{ qdrant_ui_build_timestamp }}/"
+  args:
+    creates: "{{ qdrant_ui_root }}/builds/build-{{ qdrant_ui_build_timestamp }}/index.html"
+  become: yes
+  become_user: "{{ ansible_user_id }}"
+
+- name: Update current build symlink
+  ansible.builtin.file:
+    src: "{{ qdrant_ui_root }}/builds/build-{{ qdrant_ui_build_timestamp }}"
+    dest: "{{ qdrant_ui_root }}/builds/current"
+    state: link
+  become: yes
+
+- name: Ensure web assets owned by web user
+  ansible.builtin.file:
+    path: "{{ qdrant_ui_root }}/builds/current"
+    state: directory
+    recurse: yes
+    owner: "{{ qdrant_ui_owner }}"
+    group: "{{ qdrant_ui_group }}"
+    mode: "0755"
+  become: yes
+
+- name: Deploy Nginx site configuration
+  ansible.builtin.template:
+    src: qdrant-ui.conf.j2
+    dest: /etc/nginx/sites-available/qdrant-ui
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+  become: yes
+
+- name: Enable qdrant-ui site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/qdrant-ui
+    dest: /etc/nginx/sites-enabled/qdrant-ui
+    state: link
+    force: yes
+  notify: Reload nginx
+  become: yes
+
+- name: Disable default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+  become: yes
+
+- name: Ensure log directory permissions
+  ansible.builtin.file:
+    path: "{{ qdrant_ui_root }}/logs"
+    state: directory
+    owner: "{{ qdrant_ui_owner }}"
+    group: "{{ qdrant_ui_group }}"
+    mode: "0750"
+  become: yes
+
+- name: Deploy logrotate policy
+  ansible.builtin.template:
+    src: logrotate.j2
+    dest: /etc/logrotate.d/qdrant-ui
+    owner: root
+    group: root
+    mode: "0644"
+  become: yes
+
+- name: Deploy monitoring script
+  ansible.builtin.template:
+    src: monitor.sh.j2
+    dest: "{{ qdrant_ui_root }}/scripts/monitor.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  become: yes
+
+- name: Configure monitoring cron job
+  ansible.builtin.cron:
+    name: "qdrant-ui-monitor"
+    job: "{{ qdrant_ui_root }}/scripts/monitor.sh"
+    minute: "{{ qdrant_ui_monitor_interval }}"
+    user: root
+
+- name: Deploy backup script
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: "{{ qdrant_ui_root }}/scripts/backup.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  become: yes
+
+- name: Deploy restore script
+  ansible.builtin.template:
+    src: restore.sh.j2
+    dest: "{{ qdrant_ui_root }}/scripts/restore.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  become: yes
+
+- name: Configure backup cron job
+  ansible.builtin.cron:
+    name: "qdrant-ui-backup"
+    job: "{{ qdrant_ui_root }}/scripts/backup.sh"
+    minute: "{{ qdrant_ui_backup_minute }}"
+    hour: "{{ qdrant_ui_backup_hour }}"
+    user: root
+
+- name: Execute health check probes
+  ansible.builtin.command:
+    cmd: "curl -s -o /dev/null -w '%{http_code}' http://localhost"
+  register: qdrant_ui_local_status
+  changed_when: false
+  failed_when: qdrant_ui_local_status.stdout != '200'
+
+- name: Record API status
+  ansible.builtin.command:
+    cmd: "curl -s http://localhost/api/"
+  register: qdrant_ui_api_status
+  changed_when: false
+  failed_when: qdrant_ui_api_status.rc != 0
