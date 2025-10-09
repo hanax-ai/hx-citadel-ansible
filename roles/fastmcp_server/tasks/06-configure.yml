@@ -1,0 +1,46 @@
+---
+# Application configuration
+
+- name: Generate environment configuration file
+  ansible.builtin.template:
+    src: shield.env.j2
+    dest: "{{ fastmcp_app_dir }}/.env"
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0600'
+  notify: restart fastmcp-server
+
+- name: Deploy Shield MCP server application
+  ansible.builtin.template:
+    src: shield_mcp_server.py.j2
+    dest: "{{ fastmcp_app_dir }}/shield_mcp_server.py"
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0755'
+  notify: restart fastmcp-server
+
+- name: Deploy enhanced health check module
+  ansible.builtin.template:
+    src: enhanced_health_check.py.j2
+    dest: "{{ fastmcp_app_dir }}/enhanced_health_check.py"
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0644'
+  notify: restart fastmcp-server
+
+- name: Deploy structured logging configuration
+  ansible.builtin.template:
+    src: logging_config.py.j2
+    dest: "{{ fastmcp_app_dir }}/logging_config.py"
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0644'
+  notify: restart fastmcp-server
+
+- name: Generate Prometheus scrape configuration
+  ansible.builtin.template:
+    src: prometheus_scrape_config.yml.j2
+    dest: "{{ fastmcp_app_dir }}/prometheus-config.yml"
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0644'

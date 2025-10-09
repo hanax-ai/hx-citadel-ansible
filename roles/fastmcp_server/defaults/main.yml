@@ -1,0 +1,30 @@
+---
+# Default variables for FastMCP Shield server role
+
+# Service user and group
+fastmcp_service_user: fastmcp
+fastmcp_service_group: fastmcp
+fastmcp_user_shell: /bin/bash
+fastmcp_user_home: /home/fastmcp
+
+# Application directories
+fastmcp_app_dir: /opt/fastmcp/shield
+fastmcp_venv_dir: /opt/fastmcp/shield/venv
+
+# Service configuration
+fastmcp_port: 8081
+fastmcp_server_name: "Shield MCP Server"
+fastmcp_log_level: INFO
+fastmcp_log_format: json
+
+# Dependency URLs
+qdrant_url: "https://{{ hostvars[groups['vector_nodes'][0]]['ansible_host'] }}:6333"
+qdrant_api_key: "{{ vault_qdrant_api_key | default('') }}"
+ollama_base_url: "https://{{ hostvars[groups['llm_nodes'][0]]['ansible_host'] }}:11434"
+orchestrator_base_url: "http://{{ hostvars[groups['orchestrator_nodes'][0]]['ansible_host'] }}:8000"
+
+# Python version
+python_version: "3.12"
+
+# Deployment environment
+deployment_environment: production

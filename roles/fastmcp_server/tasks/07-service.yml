@@ -1,0 +1,47 @@
+---
+# Systemd service configuration
+
+- name: Deploy systemd service file
+  ansible.builtin.template:
+    src: shield-mcp-server.service.j2
+    dest: /etc/systemd/system/shield-mcp-server.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart fastmcp-server
+
+- name: Enable and start Shield MCP service
+  ansible.builtin.systemd:
+    name: shield-mcp-server
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Wait for service to be ready
+  ansible.builtin.wait_for:
+    port: "{{ fastmcp_port }}"
+    host: "{{ ansible_host }}"
+    delay: 5
+    timeout: 30
+    state: started
+
+- name: Verify service health
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ fastmcp_port }}/health"
+    method: GET
+    status_code: [200, 503]
+    return_content: yes
+  register: health_check
+  retries: 3
+  delay: 5
+  until: health_check.status == 200
+  failed_when: false
+
+- name: Display health check result
+  ansible.builtin.debug:
+    msg: |
+      Health Check Status: {{ health_check.status | default('Failed') }}
+      Response: {{ health_check.json | default('No response') | to_nice_json }}
+  when: health_check.status is defined

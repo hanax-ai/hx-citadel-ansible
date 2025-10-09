@@ -1,0 +1,61 @@
+---
+# Main tasks file for FastMCP Shield server deployment
+
+- name: Display deployment information
+  ansible.builtin.debug:
+    msg: |
+      ╔════════════════════════════════════════════════════════════╗
+      ║        Shield MCP Server Deployment Starting               ║
+      ╠════════════════════════════════════════════════════════════╣
+      ║  Target: {{ ansible_hostname }} ({{ ansible_host }})
+      ║  Python: {{ python_version }}
+      ║  Port: {{ fastmcp_port }}
+      ║  Qdrant: {{ qdrant_url }}
+      ║  Ollama: {{ ollama_base_url }}
+      ║  Orchestrator: {{ orchestrator_base_url }}
+      ╚════════════════════════════════════════════════════════════╝
+
+- name: Include user and directory setup
+  ansible.builtin.import_tasks: 01-setup.yml
+  tags: [setup, user]
+
+- name: Include Python environment setup
+  ansible.builtin.import_tasks: 02-python.yml
+  tags: [setup, python]
+
+- name: Include Playwright browser installation
+  ansible.builtin.import_tasks: 03-browsers.yml
+  tags: [setup, browsers]
+
+- name: Include FastMCP installation
+  ansible.builtin.import_tasks: 04-fastmcp.yml
+  tags: [install, fastmcp]
+
+- name: Include Shield tools installation
+  ansible.builtin.import_tasks: 05-shield-tools.yml
+  tags: [install, tools]
+
+- name: Include application configuration
+  ansible.builtin.import_tasks: 06-configure.yml
+  tags: [configure]
+
+- name: Include systemd service setup
+  ansible.builtin.import_tasks: 07-service.yml
+  tags: [service]
+
+- name: Display deployment completion
+  ansible.builtin.debug:
+    msg: |
+      ╔════════════════════════════════════════════════════════════╗
+      ║        Shield MCP Server Deployment Complete               ║
+      ╠════════════════════════════════════════════════════════════╣
+      ║  Service: shield-mcp-server
+      ║  Status: {{ 'Running' if ansible_facts.services['shield-mcp-server.service'].state == 'running' else 'Check service' }}
+      ║  Health Check: http://{{ ansible_host }}:{{ fastmcp_port }}/health
+      ║  
+      ║  Next Steps:
+      ║  1. Test health endpoint: curl http://{{ ansible_host }}:{{ fastmcp_port }}/health
+      ║  2. Check service logs: journalctl -u shield-mcp-server -f
+      ║  3. Configure Prometheus monitoring
+      ║  4. Set up automated backups
+      ╚════════════════════════════════════════════════════════════╝

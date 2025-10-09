@@ -1,0 +1,49 @@
+---
+# User and directory setup for FastMCP Shield server
+
+- name: Create FastMCP service group
+  ansible.builtin.group:
+    name: "{{ fastmcp_service_group }}"
+    state: present
+    system: yes
+
+- name: Create FastMCP service user
+  ansible.builtin.user:
+    name: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    shell: "{{ fastmcp_user_shell }}"
+    home: "{{ fastmcp_user_home }}"
+    create_home: yes
+    system: yes
+    comment: "FastMCP Shield MCP Server"
+
+- name: Create FastMCP application directory
+  ansible.builtin.file:
+    path: "{{ fastmcp_app_dir }}"
+    state: directory
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0755'
+
+- name: Create FastMCP logs directory
+  ansible.builtin.file:
+    path: "{{ fastmcp_app_dir }}/logs"
+    state: directory
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0755'
+
+- name: Install system dependencies
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - python3-dev
+      - python{{ python_version }}-venv
+      - curl
+      - wget
+      - git
+      - libssl-dev
+      - libffi-dev
+      - ca-certificates
+    state: present
+    update_cache: yes

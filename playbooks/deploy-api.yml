@@ -15,3 +15,13 @@
   tags:
     - api
     - prisma
+
+- name: Deploy Shield MCP Server
+  hosts: mcp_nodes
+  become: yes
+  roles:
+    - fastmcp_server
+  tags:
+    - api
+    - mcp
+    - fastmcp

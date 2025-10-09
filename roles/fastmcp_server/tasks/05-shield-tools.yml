@@ -1,0 +1,48 @@
+---
+# Shield-specific tools installation
+
+- name: Install Crawl4AI and dependencies
+  ansible.builtin.pip:
+    name:
+      - "crawl4ai>=0.2.0"
+      - "playwright>=1.49.0"
+      - "patchright>=1.49.0"
+    virtualenv: "{{ fastmcp_venv_dir }}"
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"
+
+- name: Install Docling for document processing
+  ansible.builtin.pip:
+    name:
+      - "docling>=1.0.0"
+    virtualenv: "{{ fastmcp_venv_dir }}"
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"
+
+- name: Install LightRAG
+  ansible.builtin.pip:
+    name:
+      - "lightrag>=0.1.0"
+    virtualenv: "{{ fastmcp_venv_dir }}"
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"
+  failed_when: false  # LightRAG may not be in PyPI
+
+- name: Install Qdrant client
+  ansible.builtin.pip:
+    name:
+      - "qdrant-client>=1.7.0"
+    virtualenv: "{{ fastmcp_venv_dir }}"
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"
+
+- name: Install additional utilities
+  ansible.builtin.pip:
+    name:
+      - "aiohttp>=3.9.0"
+      - "beautifulsoup4>=4.12.0"
+      - "lxml>=5.0.0"
+      - "numpy>=1.26.0"
+    virtualenv: "{{ fastmcp_venv_dir }}"
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"

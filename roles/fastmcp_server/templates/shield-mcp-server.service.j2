@@ -1,0 +1,41 @@
+[Unit]
+Description=Shield MCP Server (FastMCP)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ fastmcp_service_user }}
+Group={{ fastmcp_service_group }}
+WorkingDirectory={{ fastmcp_app_dir }}
+Environment="PATH={{ fastmcp_venv_dir }}/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH={{ fastmcp_app_dir }}"
+EnvironmentFile={{ fastmcp_app_dir }}/.env
+
+ExecStart={{ fastmcp_venv_dir }}/bin/python3 {{ fastmcp_app_dir }}/shield_mcp_server.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=5min
+StartLimitBurst=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ fastmcp_app_dir }}/logs
+ReadWritePaths={{ fastmcp_user_home }}/.cache
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shield-mcp
+
+[Install]
+WantedBy=multi-user.target
