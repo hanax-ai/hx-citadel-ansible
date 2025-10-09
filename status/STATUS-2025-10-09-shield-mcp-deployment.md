@@ -123,14 +123,11 @@ LOG_FORMAT=json
 ## 📊 Service Status
 
 ### Current State
-```
+
+```text
 ● shield-mcp-server.service - Shield MCP Server (FastMCP)
      Loaded: loaded (/etc/systemd/system/shield-mcp-server.service; enabled)
      Active: active (running) since Thu 2025-10-09 14:51:27 UTC
-   Main PID: 25933 (python3)
-      Tasks: 8 (limit: 18628)
-     Memory: 86.9M (peak: 87.2M)
-        CPU: 6.388s
 ```
 
 ### Systemd Configuration
