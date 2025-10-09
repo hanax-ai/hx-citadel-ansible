@@ -1,0 +1,365 @@
+---
+# Shield MCP Server Recovery Playbook
+# Purpose: Restore Shield MCP Server from backup with configurable recovery modes
+# Usage:
+#   ansible-playbook playbooks/recover-mcp-server.yml -i inventory/prod.ini -l hx-mcp1-server -e "recovery_mode=configuration"
+#   ansible-playbook playbooks/recover-mcp-server.yml -i inventory/prod.ini -l hx-mcp1-server -e "recovery_mode=full"
+
+- name: Recover Shield MCP Server from backup
+  hosts: mcp_servers
+  become: yes
+  vars:
+    backup_server: "hx-backup-server"
+    backup_remote_path: "/backups/mcp-servers"
+    backup_local_temp: "/tmp/shield-mcp-recovery"
+    recovery_mode: "{{ recovery_mode | default('configuration') }}"
+    # Recovery modes:
+    # - configuration: Restore only .env and service files (fastest)
+    # - full: Restore application code, config, and service definition
+    # - rebuild: Complete redeployment via Ansible (use deploy playbooks instead)
+
+  pre_tasks:
+    - name: Validate recovery mode
+      ansible.builtin.assert:
+        that:
+          - recovery_mode in ['configuration', 'full']
+        fail_msg: "Invalid recovery_mode '{{ recovery_mode }}'. Must be 'configuration' or 'full'"
+        success_msg: "Recovery mode: {{ recovery_mode }}"
+
+    - name: Display pre-recovery information
+      ansible.builtin.debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════╗
+          ║     Shield MCP Server Recovery - Pre-Check            ║
+          ╠════════════════════════════════════════════════════════╣
+          ║  Target Server: {{ ansible_hostname }}
+          ║  IP Address: {{ ansible_host }}
+          ║  Recovery Mode: {{ recovery_mode }}
+          ║  Backup Source: {{ backup_server }}:{{ backup_remote_path }}
+          ║  Current Service Status: {{ ansible_facts.services['shield-mcp-server.service'].state | default('unknown') }}
+          ╚════════════════════════════════════════════════════════╝
+
+    - name: Create recovery temp directory
+      ansible.builtin.file:
+        path: "{{ backup_local_temp }}"
+        state: directory
+        mode: '0755'
+
+  tasks:
+    # ============================================
+    # Phase 1: Locate and Download Latest Backup
+    # ============================================
+    - name: Find latest backup on backup server
+      ansible.builtin.shell: "ssh {{ backup_server }} 'ls -t {{ backup_remote_path }}/*.tar.gz 2>/dev/null | head -1'"
+      register: latest_backup_path
+      changed_when: false
+      failed_when: latest_backup_path.rc != 0
+      delegate_to: localhost
+
+    - name: Verify backup was found
+      ansible.builtin.assert:
+        that:
+          - latest_backup_path.stdout != ""
+        fail_msg: "No backup found on {{ backup_server }}:{{ backup_remote_path }}"
+        success_msg: "Latest backup: {{ latest_backup_path.stdout }}"
+
+    - name: Set backup filename variable
+      ansible.builtin.set_fact:
+        backup_filename: "{{ latest_backup_path.stdout | basename }}"
+        backup_extract_dir: "{{ backup_local_temp }}/{{ latest_backup_path.stdout | basename | regex_replace('\\.tar\\.gz$', '') }}"
+
+    - name: Display backup information
+      ansible.builtin.debug:
+        msg: |
+          📦 Backup Details:
+          - Filename: {{ backup_filename }}
+          - Full Path: {{ latest_backup_path.stdout }}
+          - Extract To: {{ backup_extract_dir }}
+
+    - name: Download backup from backup server
+      ansible.builtin.command: "scp {{ backup_server }}:{{ latest_backup_path.stdout }} {{ backup_local_temp }}/"
+      args:
+        creates: "{{ backup_local_temp }}/{{ backup_filename }}"
+      register: backup_download
+
+    - name: Extract backup archive
+      ansible.builtin.unarchive:
+        src: "{{ backup_local_temp }}/{{ backup_filename }}"
+        dest: "{{ backup_local_temp }}/"
+        remote_src: yes
+      register: backup_extract
+
+    - name: Verify backup contents
+      ansible.builtin.stat:
+        path: "{{ backup_extract_dir }}/MANIFEST.md"
+      register: manifest_check
+      failed_when: not manifest_check.stat.exists
+
+    - name: Display backup manifest
+      ansible.builtin.command: "cat {{ backup_extract_dir }}/MANIFEST.md"
+      register: manifest_contents
+      changed_when: false
+
+    - name: Show manifest
+      ansible.builtin.debug:
+        msg: "{{ manifest_contents.stdout_lines }}"
+
+    # ============================================
+    # Phase 2: Stop Service (if running)
+    # ============================================
+    - name: Check if service exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/shield-mcp-server.service
+      register: service_file_check
+
+    - name: Stop Shield MCP service (if exists and running)
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+        state: stopped
+      when: service_file_check.stat.exists
+      register: service_stop
+      failed_when: false
+
+    - name: Display service stop status
+      ansible.builtin.debug:
+        msg: "Service stopped: {{ service_stop.changed | default(false) }}"
+
+    # ============================================
+    # Phase 3: Backup Current Configuration
+    # ============================================
+    - name: Create backup of current configuration (safety)
+      ansible.builtin.copy:
+        src: /opt/fastmcp/shield/.env
+        dest: "/opt/fastmcp/shield/.env.pre-recovery.{{ ansible_date_time.epoch }}"
+        remote_src: yes
+      when: recovery_mode in ['configuration', 'full']
+      failed_when: false
+      register: current_config_backup
+
+    # ============================================
+    # Phase 4: Configuration Recovery Mode
+    # ============================================
+    - name: Restore environment configuration file
+      ansible.builtin.copy:
+        src: "{{ backup_extract_dir }}/env.txt"
+        dest: /opt/fastmcp/shield/.env
+        owner: fastmcp
+        group: fastmcp
+        mode: '0600'
+        remote_src: yes
+      when: recovery_mode in ['configuration', 'full']
+      register: env_restore
+
+    - name: Restore systemd service file
+      ansible.builtin.copy:
+        src: "{{ backup_extract_dir }}/shield-mcp-server.service"
+        dest: /etc/systemd/system/shield-mcp-server.service
+        owner: root
+        group: root
+        mode: '0644'
+        remote_src: yes
+      when: recovery_mode in ['configuration', 'full']
+      register: service_restore
+      notify: reload systemd
+
+    # ============================================
+    # Phase 5: Full Recovery Mode (Application)
+    # ============================================
+    - name: Backup current application directory (if full recovery)
+      ansible.builtin.command: "mv /opt/fastmcp/shield /opt/fastmcp/shield.pre-recovery.{{ ansible_date_time.epoch }}"
+      args:
+        removes: /opt/fastmcp/shield
+      when: recovery_mode == 'full'
+      failed_when: false
+      register: app_dir_backup
+
+    - name: Extract application archive
+      ansible.builtin.unarchive:
+        src: "{{ backup_extract_dir }}/fastmcp-app.tar.gz"
+        dest: /
+        owner: fastmcp
+        group: fastmcp
+        remote_src: yes
+      when: recovery_mode == 'full'
+      register: app_restore
+
+    - name: Set correct permissions on application directory
+      ansible.builtin.file:
+        path: /opt/fastmcp/shield
+        owner: fastmcp
+        group: fastmcp
+        mode: '0755'
+        state: directory
+        recurse: yes
+      when: recovery_mode == 'full'
+
+    - name: Ensure environment file has restricted permissions
+      ansible.builtin.file:
+        path: /opt/fastmcp/shield/.env
+        owner: fastmcp
+        group: fastmcp
+        mode: '0600'
+      when: recovery_mode == 'full'
+
+    # ============================================
+    # Phase 6: Recreate Virtual Environment
+    # ============================================
+    - name: Check if virtual environment needs recreation
+      ansible.builtin.stat:
+        path: /opt/fastmcp/shield/venv/bin/python
+      register: venv_check
+      when: recovery_mode == 'full'
+
+    - name: Recreate Python virtual environment (if needed)
+      ansible.builtin.command: "python3.12 -m venv /opt/fastmcp/shield/venv"
+      become_user: fastmcp
+      when: 
+        - recovery_mode == 'full'
+        - not venv_check.stat.exists
+      register: venv_create
+
+    - name: Upgrade pip in virtual environment
+      ansible.builtin.pip:
+        name: pip
+        state: latest
+        virtualenv: /opt/fastmcp/shield/venv
+      become_user: fastmcp
+      when: recovery_mode == 'full'
+
+    - name: Install FastMCP dependencies
+      ansible.builtin.pip:
+        requirements: /opt/fastmcp/shield/requirements-fastmcp.txt
+        virtualenv: /opt/fastmcp/shield/venv
+      become_user: fastmcp
+      when: recovery_mode == 'full'
+      register: fastmcp_install
+
+    - name: Install Shield tools dependencies
+      ansible.builtin.pip:
+        requirements: /opt/fastmcp/shield/requirements-shield-tools.txt
+        virtualenv: /opt/fastmcp/shield/venv
+      become_user: fastmcp
+      when: recovery_mode == 'full'
+      register: tools_install
+
+    # ============================================
+    # Phase 7: Playwright Browser Check
+    # ============================================
+    - name: Check if Playwright browsers exist
+      ansible.builtin.stat:
+        path: /home/fastmcp/.cache/ms-playwright
+      become_user: fastmcp
+      register: playwright_cache
+      when: recovery_mode == 'full'
+
+    - name: Reinstall Playwright browsers if missing
+      ansible.builtin.command: "/opt/fastmcp/shield/venv/bin/playwright install chromium firefox"
+      become_user: fastmcp
+      environment:
+        PLAYWRIGHT_BROWSERS_PATH: "/home/fastmcp/.cache/ms-playwright"
+      when:
+        - recovery_mode == 'full'
+        - not playwright_cache.stat.exists
+      register: playwright_install
+
+    # ============================================
+    # Phase 8: Start Service and Verify
+    # ============================================
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+      when: service_restore.changed | default(false)
+
+    - name: Enable and start Shield MCP service
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+        state: started
+        enabled: yes
+      register: service_start
+
+    - name: Wait for service to initialize
+      ansible.builtin.pause:
+        seconds: 10
+        prompt: "Waiting for service to initialize..."
+
+    - name: Check service status
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+      register: service_status
+
+    - name: Verify service is running
+      ansible.builtin.assert:
+        that:
+          - service_status.status.ActiveState == "active"
+        fail_msg: "Service failed to start: {{ service_status.status.ActiveState }}"
+        success_msg: "Service is running"
+
+    - name: Wait for health endpoint to respond
+      ansible.builtin.uri:
+        url: "http://localhost:8081/health"
+        method: GET
+        status_code: [200, 503]
+        timeout: 10
+      register: health_check
+      retries: 6
+      delay: 5
+      until: health_check.status == 200
+      failed_when: false
+
+    - name: Display health check response
+      ansible.builtin.debug:
+        msg: |
+          Health Check Response:
+          {{ health_check.json | to_nice_json }}
+      when: health_check.status == 200
+
+    # ============================================
+    # Phase 9: Recovery Summary
+    # ============================================
+    - name: Display recovery summary
+      ansible.builtin.debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║            Shield MCP Recovery - Summary                       ║
+          ╠════════════════════════════════════════════════════════════════╣
+          ║  Recovery Mode: {{ recovery_mode }}
+          ║  Backup Used: {{ backup_filename }}
+          ║  
+          ║  Restored Components:
+          ║    - Environment Config: {{ 'YES' if env_restore.changed | default(false) else 'NO' }}
+          ║    - Service Definition: {{ 'YES' if service_restore.changed | default(false) else 'NO' }}
+          ║    - Application Code: {{ 'YES' if app_restore.changed | default(false) else 'NO' }}
+          ║    - Virtual Environment: {{ 'YES' if venv_create.changed | default(false) else 'NO' }}
+          ║    - Playwright Browsers: {{ 'YES' if playwright_install.changed | default(false) else 'NO' }}
+          ║  
+          ║  Service Status:
+          ║    - Active State: {{ service_status.status.ActiveState }}
+          ║    - Running: {{ service_status.status.SubState }}
+          ║    - Enabled: {{ service_status.status.UnitFileState }}
+          ║  
+          ║  Health Check:
+          ║    - HTTP Status: {{ health_check.status | default('N/A') }}
+          ║    - Overall Status: {{ health_check.json.overall_status | default('N/A') }}
+          ║    - Response Time: {{ health_check.elapsed | default('N/A') }}s
+          ║  
+          ║  Recovery Result: {{ '✅ SUCCESS' if health_check.status == 200 else '⚠️ PARTIAL - Service running but health check failed' if service_status.status.ActiveState == 'active' else '❌ FAILED - Service not running' }}
+          ╚════════════════════════════════════════════════════════════════╝
+
+  post_tasks:
+    - name: Cleanup recovery temp directory
+      ansible.builtin.file:
+        path: "{{ backup_local_temp }}"
+        state: absent
+      when: cleanup_recovery_files | default(true)
+
+    - name: Create recovery log entry
+      ansible.builtin.lineinfile:
+        path: /var/log/shield-mcp-recovery.log
+        line: "[{{ ansible_date_time.iso8601 }}] Recovery completed - Mode: {{ recovery_mode }}, Backup: {{ backup_filename }}, Result: {{ 'SUCCESS' if health_check.status == 200 else 'PARTIAL' if service_status.status.ActiveState == 'active' else 'FAILED' }}"
+        create: yes
+        mode: '0644'
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes

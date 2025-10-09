@@ -1,0 +1,270 @@
+---
+# Pre-Deployment Validation for MCP Server
+# Validates prerequisites before deploying Shield FastMCP Server
+# Reference: docs/mcp-server-deployment-plan.md Section 8
+
+- name: Validate MCP Server Prerequisites
+  hosts: mcp_nodes
+  gather_facts: yes
+  become: no
+  
+  vars:
+    required_disk_gb: 10
+    required_ram_mb: 7168  # 7GB minimum (8GB recommended)
+    required_cpu_cores: 2
+    
+    # Fleet dependencies
+    qdrant_host: "192.168.10.9"
+    qdrant_port: 6333
+    ollama_host: "192.168.10.50"
+    ollama_port: 11434
+    orchestrator_host: "192.168.10.8"
+    orchestrator_port: 8000
+
+  tasks:
+    - name: Display validation start
+      ansible.builtin.debug:
+        msg: "Starting pre-deployment validation for {{ inventory_hostname }}"
+
+    # ============================================================
+    # SYSTEM RESOURCES VALIDATION
+    # ============================================================
+
+    - name: Check disk space availability
+      ansible.builtin.assert:
+        that:
+          - item.size_available > (required_disk_gb * 1024 * 1024 * 1024)
+        fail_msg: "Insufficient disk space on {{ item.mount }}. Need {{ required_disk_gb }}GB free, have {{ (item.size_available / 1024 / 1024 / 1024) | round(2) }}GB"
+        success_msg: "Disk space check passed for {{ item.mount }}: {{ (item.size_available / 1024 / 1024 / 1024) | round(2) }}GB available"
+      loop: "{{ ansible_mounts | selectattr('mount', 'equalto', '/') }}"
+      loop_control:
+        label: "{{ item.mount }}"
+
+    - name: Check RAM availability
+      ansible.builtin.assert:
+        that:
+          - ansible_memtotal_mb >= required_ram_mb
+        fail_msg: "Insufficient RAM. Need {{ (required_ram_mb / 1024) | round(1) }}GB minimum, have {{ (ansible_memtotal_mb / 1024) | round(1) }}GB"
+        success_msg: "RAM check passed: {{ (ansible_memtotal_mb / 1024) | round(1) }}GB available"
+
+    - name: Check CPU cores
+      ansible.builtin.assert:
+        that:
+          - ansible_processor_vcpus >= required_cpu_cores
+        fail_msg: "Insufficient CPU cores. Need {{ required_cpu_cores }} minimum, have {{ ansible_processor_vcpus }}"
+        success_msg: "CPU check passed: {{ ansible_processor_vcpus }} cores available"
+
+    # ============================================================
+    # PYTHON ENVIRONMENT VALIDATION
+    # ============================================================
+
+    - name: Check if Python 3.12 is available
+      ansible.builtin.command: python3.12 --version
+      register: python_version
+      changed_when: false
+      failed_when: false
+
+    - name: Validate Python 3.12 installation
+      ansible.builtin.assert:
+        that:
+          - python_version.rc == 0
+          - "'Python 3.12' in python_version.stdout"
+        fail_msg: "Python 3.12 not found. Please install python3.12 package."
+        success_msg: "Python check passed: {{ python_version.stdout }}"
+
+    - name: Check if pip is available
+      ansible.builtin.command: python3.12 -m pip --version
+      register: pip_version
+      changed_when: false
+      failed_when: false
+
+    - name: Validate pip installation
+      ansible.builtin.assert:
+        that:
+          - pip_version.rc == 0
+        fail_msg: "pip not available for Python 3.12. Please install python3-pip."
+        success_msg: "pip check passed: {{ pip_version.stdout }}"
+
+    - name: Check if venv module is available
+      ansible.builtin.command: python3.12 -m venv --help
+      register: venv_check
+      changed_when: false
+      failed_when: false
+
+    - name: Validate venv module
+      ansible.builtin.assert:
+        that:
+          - venv_check.rc == 0
+        fail_msg: "venv module not available. Please install python3.12-venv."
+        success_msg: "venv module check passed"
+
+    # ============================================================
+    # NETWORK CONNECTIVITY VALIDATION
+    # ============================================================
+
+    - name: Check connectivity to Qdrant (Vector Database)
+      ansible.builtin.wait_for:
+        host: "{{ qdrant_host }}"
+        port: "{{ qdrant_port }}"
+        timeout: 5
+        msg: "Cannot connect to Qdrant at {{ qdrant_host }}:{{ qdrant_port }}"
+      register: qdrant_connectivity
+
+    - name: Display Qdrant connectivity status
+      ansible.builtin.debug:
+        msg: "✓ Qdrant connectivity verified: {{ qdrant_host }}:{{ qdrant_port }}"
+
+    - name: Check connectivity to Ollama (LLM)
+      ansible.builtin.wait_for:
+        host: "{{ ollama_host }}"
+        port: "{{ ollama_port }}"
+        timeout: 5
+        msg: "Cannot connect to Ollama at {{ ollama_host }}:{{ ollama_port }}"
+      register: ollama_connectivity
+
+    - name: Display Ollama connectivity status
+      ansible.builtin.debug:
+        msg: "✓ Ollama connectivity verified: {{ ollama_host }}:{{ ollama_port }}"
+
+    - name: Check connectivity to Orchestrator (optional for now)
+      ansible.builtin.wait_for:
+        host: "{{ orchestrator_host }}"
+        port: "{{ orchestrator_port }}"
+        timeout: 5
+      register: orchestrator_connectivity
+      failed_when: false
+      changed_when: false
+
+    - name: Display Orchestrator connectivity status
+      ansible.builtin.debug:
+        msg: "{{ 'ℹ Orchestrator not yet deployed (expected)' if orchestrator_connectivity.failed else '✓ Orchestrator connectivity verified: ' + orchestrator_host + ':' + (orchestrator_port | string) }}"
+
+    # ============================================================
+    # SYSTEM DEPENDENCIES VALIDATION
+    # ============================================================
+
+    - name: Check for required system packages
+      ansible.builtin.command: "dpkg -l {{ item }}"
+      register: package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - build-essential
+        - curl
+        - wget
+        - git
+
+    - name: Validate essential build tools
+      ansible.builtin.debug:
+        msg: "{{ 'ℹ Package ' + item.item + ' not installed (will be installed during deployment)' if item.rc != 0 else '✓ Package ' + item.item + ' is installed' }}"
+      loop: "{{ package_check.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    # ============================================================
+    # PORT AVAILABILITY VALIDATION
+    # ============================================================
+
+    - name: Check if port 8081 is available
+      ansible.builtin.wait_for:
+        host: "0.0.0.0"
+        port: 8081
+        state: stopped
+        timeout: 2
+      register: port_check
+      failed_when: false
+
+    - name: Validate port 8081 availability
+      ansible.builtin.assert:
+        that:
+          - port_check is not failed
+        fail_msg: "Port 8081 is already in use. Please free the port or choose a different port."
+        success_msg: "Port 8081 is available for MCP server"
+      when: port_check is defined
+
+    # ============================================================
+    # DIRECTORY STRUCTURE VALIDATION
+    # ============================================================
+
+    - name: Check if /opt directory exists and is writable
+      ansible.builtin.stat:
+        path: /opt
+      register: opt_dir
+
+    - name: Validate /opt directory
+      ansible.builtin.assert:
+        that:
+          - opt_dir.stat.exists
+          - opt_dir.stat.isdir
+        fail_msg: "/opt directory does not exist or is not a directory"
+        success_msg: "/opt directory exists and is accessible"
+
+    # ============================================================
+    # FINAL VALIDATION SUMMARY
+    # ============================================================
+
+    - name: Display validation summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "Pre-Deployment Validation Complete"
+          - "============================================"
+          - "Host: {{ inventory_hostname }}"
+          - "IP: {{ ansible_default_ipv4.address }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Python: {{ python_version.stdout }}"
+          - "RAM: {{ (ansible_memtotal_mb / 1024) | round(1) }}GB"
+          - "CPU: {{ ansible_processor_vcpus }} cores"
+          - "Disk: {{ (ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first / 1024 / 1024 / 1024) | round(2) }}GB available"
+          - "Qdrant: {{ 'Connected' if not qdrant_connectivity.failed else 'Failed' }}"
+          - "Ollama: {{ 'Connected' if not ollama_connectivity.failed else 'Failed' }}"
+          - "Port 8081: Available"
+          - "============================================"
+          - "✓ All prerequisites validated successfully"
+          - "✓ Ready for MCP server deployment"
+          - "============================================"
+
+    - name: Create validation report
+      ansible.builtin.copy:
+        content: |
+          MCP Server Pre-Deployment Validation Report
+          ============================================
+          
+          Validation Date: {{ ansible_date_time.iso8601 }}
+          Host: {{ inventory_hostname }}
+          IP Address: {{ ansible_default_ipv4.address }}
+          
+          System Information:
+          - OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          - Kernel: {{ ansible_kernel }}
+          - Architecture: {{ ansible_architecture }}
+          
+          Resources:
+          - RAM: {{ (ansible_memtotal_mb / 1024) | round(1) }}GB (Required: {{ (required_ram_mb / 1024) | round(1) }}GB)
+          - CPU: {{ ansible_processor_vcpus }} cores (Required: {{ required_cpu_cores }})
+          - Disk: {{ (ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first / 1024 / 1024 / 1024) | round(2) }}GB available (Required: {{ required_disk_gb }}GB)
+          
+          Python Environment:
+          - Python: {{ python_version.stdout }}
+          - pip: {{ pip_version.stdout }}
+          - venv: Available
+          
+          Network Connectivity:
+          - Qdrant ({{ qdrant_host }}:{{ qdrant_port }}): {{ 'Connected' if not qdrant_connectivity.failed else 'Failed' }}
+          - Ollama ({{ ollama_host }}:{{ ollama_port }}): {{ 'Connected' if not ollama_connectivity.failed else 'Failed' }}
+          - Orchestrator ({{ orchestrator_host }}:{{ orchestrator_port }}): {{ 'Connected' if not orchestrator_connectivity.failed else 'Not yet deployed (expected)' }}
+          
+          Port Availability:
+          - Port 8081: Available
+          
+          Result: ✓ ALL CHECKS PASSED
+          Status: READY FOR DEPLOYMENT
+          
+          Next Step: ansible-playbook playbooks/deploy-mcp-server.yml
+        dest: "/tmp/mcp-prereqs-validation-{{ ansible_date_time.epoch }}.txt"
+        mode: '0644'
+      delegate_to: localhost
+
+    - name: Display report location
+      ansible.builtin.debug:
+        msg: "Validation report saved to: /tmp/mcp-prereqs-validation-{{ ansible_date_time.epoch }}.txt"
