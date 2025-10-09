@@ -1,0 +1,41 @@
+---
+# Task: Configure logrotate for application logs
+# Purpose: Ensure log files are rotated regularly to prevent disk space issues
+# Variables used:
+#   - log_dir: Base log directory path (default: /var/log/hx-citadel)
+#   - logrotate_enabled: Enable/disable logrotate configuration (default: true)
+#   - logrotate_retention_days: Number of days to keep rotated logs (default: 30)
+#   - logrotate_rotation_size: Maximum log size before rotation (default: 100M)
+#   - app_name: Application name for logrotate config (default: hx-citadel)
+
+- name: Install logrotate package
+  apt:
+    name: logrotate
+    state: present
+  become: yes
+  when: logrotate_enabled | default(true)
+  tags:
+    - logrotate
+    - packages
+
+- name: Create logrotate configuration for application
+  template:
+    src: logrotate.conf.j2
+    dest: "/etc/logrotate.d/{{ app_name | default('hx-citadel') }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  when: logrotate_enabled | default(true)
+  tags:
+    - logrotate
+    - config
+
+- name: Verify logrotate configuration syntax
+  command: logrotate -d "/etc/logrotate.d/{{ app_name | default('hx-citadel') }}"
+  become: yes
+  changed_when: false
+  when: logrotate_enabled | default(true)
+  tags:
+    - logrotate
+    - validation

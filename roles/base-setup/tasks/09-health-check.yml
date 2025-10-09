@@ -1,0 +1,74 @@
+---
+# Task: Configure base system health check script
+# Purpose: Provide automated health monitoring for system resources and services
+# Variables used:
+#   - app_dir: Application installation directory (default: /opt/hx-citadel-shield)
+#   - service_user: User running the services (default: agent0)
+#   - health_check_enabled: Enable/disable health check (default: true)
+#   - health_check_disk_threshold: Disk usage warning threshold percentage (default: 80)
+#   - health_check_memory_threshold: Memory usage warning threshold percentage (default: 85)
+#   - health_check_cpu_threshold: CPU usage warning threshold percentage (default: 90)
+
+- name: Create health check script
+  template:
+    src: health-check.sh.j2
+    dest: "{{ app_dir }}/scripts/health-check.sh"
+    owner: "{{ service_user | default('agent0') }}"
+    group: "{{ service_group | default('agent0') }}"
+    mode: '0755'
+  become: yes
+  when: health_check_enabled | default(true)
+  tags:
+    - health
+    - scripts
+
+- name: Create health check log directory
+  file:
+    path: "{{ log_dir }}/health"
+    state: directory
+    owner: "{{ service_user | default('agent0') }}"
+    group: "{{ service_group | default('agent0') }}"
+    mode: '0755'
+  become: yes
+  when: health_check_enabled | default(true)
+  tags:
+    - health
+    - directories
+
+- name: Set up cron job for automated health checks
+  cron:
+    name: "HX-Citadel base health check"
+    minute: "*/15"
+    job: "{{ app_dir }}/scripts/health-check.sh --cron >> {{ log_dir }}/health/health-check.log 2>&1"
+    user: "{{ service_user | default('agent0') }}"
+    state: present
+  become: yes
+  when: 
+    - health_check_enabled | default(true)
+    - health_check_cron_enabled | default(false)
+  tags:
+    - health
+    - cron
+
+- name: Run initial health check
+  command: "{{ app_dir }}/scripts/health-check.sh"
+  register: health_check_result
+  changed_when: false
+  failed_when: false
+  become: yes
+  become_user: "{{ service_user | default('agent0') }}"
+  when: health_check_enabled | default(true)
+  tags:
+    - health
+    - validation
+
+- name: Display health check results
+  debug:
+    var: health_check_result.stdout_lines
+  when: 
+    - health_check_enabled | default(true)
+    - health_check_result is defined
+    - health_check_result.stdout_lines is defined
+  tags:
+    - health
+    - validation

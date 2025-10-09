@@ -1,0 +1,59 @@
+# Logrotate configuration for {{ app_name | default('hx-citadel') }}
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Generated: {{ ansible_date_time.iso8601 }}
+
+{{ log_dir }}/*.log {
+    # Rotate logs daily
+    daily
+    
+    # Keep logs for {{ logrotate_retention_days | default(30) }} days
+    rotate {{ logrotate_retention_days | default(30) }}
+    
+    # Rotate if log file size exceeds threshold
+    size {{ logrotate_rotation_size | default('100M') }}
+    
+    # Compress rotated logs (except most recent)
+    compress
+    delaycompress
+    
+    # Don't error if log file is missing
+    missingok
+    
+    # Don't rotate empty logs
+    notifempty
+    
+    # Create new log file after rotation with specified permissions
+    create 0644 {{ service_user | default('agent0') }} {{ service_group | default('agent0') }}
+    
+    # Use date as suffix for rotated logs
+    dateext
+    dateformat -%Y%m%d-%s
+    
+    # Shared scripts for all logs in this directory
+    sharedscripts
+    
+    # Post-rotation script to reload services if needed
+    postrotate
+        # Reload systemd services to reopen log files
+        if systemctl is-active --quiet orchestrator 2>/dev/null; then
+            systemctl reload orchestrator >/dev/null 2>&1 || true
+        fi
+        if systemctl is-active --quiet litellm 2>/dev/null; then
+            systemctl reload litellm >/dev/null 2>&1 || true
+        fi
+    endscript
+}
+
+# Separate configuration for critical logs (keep longer)
+{{ log_dir }}/error*.log {
+    daily
+    rotate {{ (logrotate_retention_days | default(30) * 2) }}
+    size {{ logrotate_rotation_size | default('100M') }}
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 {{ service_user | default('agent0') }} {{ service_group | default('agent0') }}
+    dateext
+    dateformat -%Y%m%d-%s
+}

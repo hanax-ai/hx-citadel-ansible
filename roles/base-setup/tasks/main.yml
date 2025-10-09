@@ -1,4 +1,12 @@
 ---
+# ==============================================================================
+# HX-Citadel Shield - Base System Setup
+# Task Orchestrator - Coordinates all base system setup tasks
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Core System Setup
+# ------------------------------------------------------------------------------
 - name: Ensure apt cache is up to date
   apt:
     update_cache: yes
@@ -22,7 +30,8 @@
   file:
     path: "{{ app_dir }}"
     state: directory
-    owner: agent0
+    owner: "{{ service_user | default('agent0') }}"
+    group: "{{ service_group | default('agent0') }}"
     mode: "0755"
   become: yes
   tags:
@@ -32,7 +41,8 @@
   file:
     path: "{{ log_dir }}"
     state: directory
-    owner: agent0
+    owner: "{{ service_user | default('agent0') }}"
+    group: "{{ service_group | default('agent0') }}"
     mode: "0755"
   become: yes
   tags:
@@ -43,7 +53,7 @@
   args:
     creates: "{{ app_dir }}/venv/bin/activate"
   become: yes
-  become_user: agent0
+  become_user: "{{ service_user | default('agent0') }}"
   tags:
     - python
 
@@ -52,7 +62,7 @@
     name: poetry
     virtualenv: "{{ app_dir }}/venv"
   become: yes
-  become_user: agent0
+  become_user: "{{ service_user | default('agent0') }}"
   tags:
     - python
 
@@ -63,3 +73,35 @@
   failed_when: realm_check.rc != 0
   tags:
     - security
+
+# ------------------------------------------------------------------------------
+# Enhanced System Configuration (Optional)
+# ------------------------------------------------------------------------------
+
+- name: Configure logrotate for log management
+  include_tasks: 06-logrotate.yml
+  when: logrotate_enabled | default(true)
+  tags:
+    - logrotate
+    - optional
+
+- name: Configure sudo permissions for service management
+  include_tasks: 07-sudo.yml
+  when: sudo_enabled | default(true)
+  tags:
+    - sudo
+    - optional
+
+- name: Set up convenience scripts and shell enhancements
+  include_tasks: 08-convenience-scripts.yml
+  when: convenience_scripts_enabled | default(true)
+  tags:
+    - convenience
+    - optional
+
+- name: Deploy health check monitoring
+  include_tasks: 09-health-check.yml
+  when: health_check_enabled | default(true)
+  tags:
+    - health
+    - optional

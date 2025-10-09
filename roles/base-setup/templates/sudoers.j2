@@ -1,0 +1,25 @@
+# Sudoers configuration for {{ app_name | default('hx-citadel') }} service management
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Generated: {{ ansible_date_time.iso8601 }}
+
+# Allow {{ service_user | default('agent0') }} to manage application services without password
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl start orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl stop orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl restart orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl reload orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl status orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl start litellm
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl stop litellm
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl restart litellm
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl reload litellm
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl status litellm
+
+# Allow viewing journal logs for application services
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/journalctl -u orchestrator*
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/journalctl -u litellm*
+
+# Allow checking service status
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl is-active orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl is-enabled orchestrator
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl is-active litellm
+{{ service_user | default('agent0') }} ALL=(root) NOPASSWD: /bin/systemctl is-enabled litellm
