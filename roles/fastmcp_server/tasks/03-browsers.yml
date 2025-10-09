@@ -109,15 +109,22 @@
       Playwright test: {{ 'SUCCESS' if playwright_test.rc == 0 else 'FAILED' }}
       Output: {{ playwright_test.stdout if playwright_test.rc == 0 else playwright_test.stderr }}
 
+- name: Re-check browser cache directory after installation
+  ansible.builtin.stat:
+    path: "{{ fastmcp_user_home }}/.cache/ms-playwright"
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"
+  register: playwright_cache_dir_final
+
 - name: Assert browsers are properly installed
   ansible.builtin.assert:
     that:
-      - playwright_cache_dir.stat.exists
+      - playwright_cache_dir_final.stat.exists
       - browser_cache_contents.rc == 0
       - playwright_test.rc == 0
     fail_msg: |
       Browser installation verification failed:
-      - Cache directory exists: {{ playwright_cache_dir.stat.exists }}
+      - Cache directory exists: {{ playwright_cache_dir_final.stat.exists }}
       - Browser cache accessible: {{ browser_cache_contents.rc == 0 }}
       - Playwright test passed: {{ playwright_test.rc == 0 }}
     success_msg: "All Playwright browsers verified successfully"
