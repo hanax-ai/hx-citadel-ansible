@@ -76,14 +76,34 @@ The Shield MCP Server provides four tools:
 ## 🔗 Service Configuration
 
 ### Network Configuration
+
 - **Bind Address:** 127.0.0.1:8081 (localhost only)
-- **SSE Endpoint:** http://127.0.0.1:8081/sse
+- **SSE Endpoint:** <http://127.0.0.1:8081/sse>
 - **Access Method:** SSH tunnel or local connections
 
 ### Upstream Dependencies
-- **Qdrant Vector DB:** https://192.168.10.9:6333
-- **Ollama LLM:** https://192.168.10.50:11434
-- **Orchestrator API:** http://192.168.10.8:8000
+
+- **Qdrant Vector DB:** <https://192.168.10.9:6333>
+- **Ollama LLM:** <https://192.168.10.50:11434>
+- **Orchestrator API:** <http://192.168.10.8:8000>
+
+**⚠️ SSL Certificate Note:** The Qdrant and Ollama services use HTTPS with self-signed certificates. The Shield MCP Server is configured to handle these connections. Certificate validation settings are managed in:
+
+- **Python `requests` library:** Set `REQUESTS_CA_BUNDLE` env var or use `verify=False` in code
+- **Qdrant client:** Uses `verify_ssl=False` for self-signed certs (configured in `shield_mcp_server.py`)
+- **Ollama client:** Trusts self-signed certificates by default
+- **Production recommendation:** Use proper CA-signed certificates or configure a trusted certificate store
+
+To add custom CA certificates:
+
+```bash
+# Option 1: System-wide trust store (recommended)
+sudo cp custom-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+# Option 2: Python environment variable
+export REQUESTS_CA_BUNDLE=/path/to/ca-bundle.crt
+```
 
 ### Environment Variables
 ```bash
