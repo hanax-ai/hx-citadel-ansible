@@ -1,0 +1,81 @@
+---
+# ============================================================================== 
+# HX-Citadel Shield - Base System Setup Playbook
+# ==============================================================================
+# Purpose: Deploy enhanced base system configuration with production features
+# Target: orchestrator_nodes (hx-orchestrator-server)
+# Features:
+#   - Core system packages and Python 3.12
+#   - Directory structure and permissions
+#   - Log rotation configuration
+#   - Sudo permissions for service management
+#   - Convenience scripts and shell enhancements
+#   - Health check monitoring
+# ==============================================================================
+
+- name: Deploy Base System Setup with Production Enhancements
+  hosts: orchestrator_nodes
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Core configuration
+    python_version: "3.12"
+    app_dir: "/opt/hx-citadel-shield"
+    log_dir: "/var/log/hx-citadel"
+    service_user: "agent0"
+    service_group: "agent0"
+    app_name: "hx-citadel"
+    
+    # Enable all production features
+    logrotate_enabled: true
+    sudo_enabled: true
+    convenience_scripts_enabled: true
+    health_check_enabled: true
+    
+    # Health check configuration
+    health_check_cron_enabled: false  # Manual testing first
+    health_check_disk_threshold: 80
+    health_check_memory_threshold: 85
+    health_check_cpu_threshold: 90
+    
+    # Logrotate configuration
+    logrotate_retention_days: 30
+    logrotate_rotation_size: "100M"
+  
+  roles:
+    - base-setup
+  
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║   Base System Setup - Deployment Complete!                    ║
+          ╚════════════════════════════════════════════════════════════════╝
+          
+          Core Features:
+            ✓ Python {{ python_version }} virtual environment
+            ✓ Application directory: {{ app_dir }}
+            ✓ Log directory: {{ log_dir }}
+          
+          Production Enhancements:
+            ✓ Logrotate configured ({{ logrotate_retention_days }} days retention)
+            ✓ Sudo permissions for {{ service_user }}
+            ✓ Convenience scripts installed
+            ✓ Health check monitoring deployed
+          
+          Quick Commands:
+            • shield-activate    - Activate Python environment
+            • shield-logs        - View orchestrator logs
+            • shield-status      - Check service status
+            • shield-health      - Run health check
+            • manage-services.sh - Service management menu
+          
+          Next Steps:
+            1. SSH to server: ssh {{ service_user }}@{{ ansible_host }}
+            2. Run health check: {{ app_dir }}/scripts/health-check.sh
+            3. Test convenience aliases (source ~/.bashrc)
+            4. Proceed with Component 2: FastAPI Framework
+      tags:
+        - summary
