@@ -316,7 +316,8 @@ sudo journalctl -u shield-mcp-server -f
 ```
 
 ### File Locations
-```
+
+```text
 /opt/fastmcp/shield/                    # Application root
 ├── venv/                               # Python virtual environment
 ├── shield_mcp_server.py                # Main application
