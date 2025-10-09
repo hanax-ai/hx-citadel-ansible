@@ -6,6 +6,7 @@
   become: yes
   tags:
     - api
+  when: not ansible_check_mode
 
 - name: Install LiteLLM dependencies
   npm:
@@ -14,6 +15,7 @@
   become: yes
   tags:
     - api
+  when: not ansible_check_mode
 
 - name: Deploy LiteLLM configuration
   template:
@@ -43,3 +45,4 @@
   become: yes
   tags:
     - api
+  when: not ansible_check_mode

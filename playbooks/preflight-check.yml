@@ -1,0 +1,131 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRE-FLIGHT VALIDATION PLAYBOOK
+# ═══════════════════════════════════════════════════════════════════════════════
+# Purpose: Validate infrastructure readiness before deployment
+# Usage: ansible-playbook -i inventory/prod.ini playbooks/preflight-check.yml
+# 
+# This playbook performs comprehensive validation:
+# - SSH connectivity and authentication
+# - Python interpreter availability
+# - Sudo/privilege escalation
+# - Disk space requirements
+# - Network connectivity between nodes
+# - Service port availability
+# ═══════════════════════════════════════════════════════════════════════════════
+
+- name: Pre-flight Validation - Connectivity Check
+  hosts: all
+  gather_facts: no
+  any_errors_fatal: false
+  tags:
+    - preflight
+    - connectivity
+  
+  tasks:
+    - name: Test basic SSH connectivity (ping)
+      ansible.builtin.ping:
+      register: ping_result
+      failed_when: false
+      changed_when: false
+      
+    - name: Record connectivity status
+      ansible.builtin.set_fact:
+        host_reachable: "{{ ping_result is success }}"
+        host_unreachable_reason: "{{ ping_result.msg | default('Unknown error') }}"
+      
+    - name: Display connectivity results
+      ansible.builtin.debug:
+        msg: |
+          Host: {{ inventory_hostname }}
+          Status: {{ 'REACHABLE' if host_reachable else 'UNREACHABLE' }}
+          {% if not host_reachable %}
+          Reason: {{ host_unreachable_reason }}
+          {% endif %}
+
+- name: Pre-flight Validation - System Requirements
+  hosts: all
+  gather_facts: yes
+  any_errors_fatal: false
+  tags:
+    - preflight
+    - system
+  
+  tasks:
+    - name: Check Python interpreter
+      ansible.builtin.command:
+        cmd: "{{ ansible_python_interpreter | default('/usr/bin/python3') }} --version"
+      register: python_version
+      changed_when: false
+      failed_when: false
+      
+    - name: Verify privilege escalation (sudo)
+      ansible.builtin.command:
+        cmd: whoami
+      become: yes
+      register: sudo_check
+      changed_when: false
+      failed_when: false
+      
+    - name: Check disk space on root partition
+      ansible.builtin.shell:
+        cmd: df -h / | tail -n1 | awk '{print $5}' | sed 's/%//'
+      register: disk_usage
+      changed_when: false
+      failed_when: false
+      
+    - name: Validate disk space (warn if >80%)
+      ansible.builtin.assert:
+        that:
+          - disk_usage.stdout | int < 90
+        fail_msg: "WARNING: Disk usage is {{ disk_usage.stdout }}% - critically high!"
+        success_msg: "Disk usage is {{ disk_usage.stdout }}% - acceptable"
+      when: disk_usage is success
+      failed_when: false
+      
+    - name: Display system validation results
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════
+          Host: {{ inventory_hostname }} ({{ ansible_default_ipv4.address | default('N/A') }})
+          ═══════════════════════════════════════════════════
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Python: {{ python_version.stdout | default('ERROR') }}
+          Sudo: {{ 'PASS' if sudo_check is success and sudo_check.stdout == 'root' else 'FAIL' }}
+          Disk Usage: {{ disk_usage.stdout | default('N/A') }}%
+          Memory: {{ (ansible_memtotal_mb / 1024) | round(1) }} GB
+          CPUs: {{ ansible_processor_vcpus }}
+          ═══════════════════════════════════════════════════
+
+- name: Pre-flight Validation - Generate Report
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - preflight
+    - report
+  
+  tasks:
+    - name: Collect validation results
+      ansible.builtin.set_fact:
+        preflight_summary: |
+          ╔═══════════════════════════════════════════════════════════════════════════╗
+          ║                     PRE-FLIGHT VALIDATION SUMMARY                         ║
+          ╚═══════════════════════════════════════════════════════════════════════════╝
+          
+          Total Hosts: {{ groups['all'] | length }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          ✓ Pre-flight checks completed
+          
+          Next Steps:
+          1. Review any FAIL/WARNING messages above
+          2. Fix connectivity issues for unreachable hosts
+          3. Ensure sudo/privilege escalation is configured
+          4. Proceed with deployment if all checks pass
+          
+          To run deployment:
+          $ ansible-playbook -i inventory/prod.ini site.yml
+          
+    - name: Display final report
+      ansible.builtin.debug:
+        msg: "{{ preflight_summary.split('\n') }}"

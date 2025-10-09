@@ -1,0 +1,245 @@
+---
+# HX-CITADEL FLEET INVENTORY
+# Updated: 2025-10-08
+# This file documents the complete infrastructure layout for reference
+# For active Ansible inventory, see: inventory/prod.ini
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CORE INFRASTRUCTURE
+# ══════════════════════════════════════════════════════════════════════════════
+
+core_services:
+  - name: hx-dc-server
+    ip: 192.168.10.2
+    description: Domain Controller (AD/DNS)
+    role: identity_management
+    
+  - name: hx-ca-server
+    ip: 192.168.10.4
+    description: Certificate Authority (HX Root CA)
+    role: pki_management
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ORCHESTRATION / DATA PLANE
+# ══════════════════════════════════════════════════════════════════════════════
+
+orchestration_layer:
+  - name: hx-orchestrator-server
+    ip: 192.168.10.8
+    description: Orchestration (LangGraph / FastAPI)
+    role: orchestration
+    services:
+      - FastAPI
+      - LangGraph
+      - Observability
+    
+  - name: hx-vectordb-server
+    ip: 192.168.10.9
+    description: Vector DB (Qdrant)
+    role: vector_database
+    services:
+      - Qdrant
+    
+  - name: hx-sqldb-server
+    ip: 192.168.10.48
+    description: Database (PostgreSQL / Redis)
+    role: relational_database
+    services:
+      - PostgreSQL
+      - Redis
+    
+  - name: hx-prisma-server
+    ip: 192.168.10.47
+    description: Middleware (Prisma ORM)
+    role: data_middleware
+    services:
+      - Prisma ORM
+    
+  - name: hx-litellm-server
+    ip: 192.168.10.46
+    description: API Gateway (LiteLLM / OpenAI Proxy)
+    role: api_gateway
+    services:
+      - LiteLLM
+      - OpenAI Proxy
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LLM INFRASTRUCTURE
+# ══════════════════════════════════════════════════════════════════════════════
+
+llm_nodes:
+  - name: hx-ollama1
+    ip: 192.168.10.50
+    description: LLM Node 1 (GPU Inference / Prod)
+    role: llm_inference
+    environment: production
+    services:
+      - Ollama
+    
+  - name: hx-ollama2
+    ip: 192.168.10.52
+    description: LLM Node 2 (GPU Inference / Expansion)
+    role: llm_inference
+    environment: expansion
+    services:
+      - Ollama
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FRONTEND / APPLICATION SERVERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+frontend_layer:
+  - name: hx-webui-server
+    ip: 192.168.10.11
+    description: Frontend UI (CopilotKit)
+    role: web_frontend
+    services:
+      - CopilotKit UI
+    
+  - name: hx-qwebui-server
+    ip: 192.168.10.53
+    description: Qdrant WebUI (Cluster Mgmt GUI)
+    role: database_ui
+    services:
+      - Qdrant Web UI
+    
+  - name: hx-dev-server
+    ip: 192.168.10.12
+    description: App Server (Dev)
+    role: development
+    environment: dev
+    
+  - name: hx-test-server
+    ip: 192.168.10.13
+    description: Test Node (Pre-prod)
+    role: testing
+    environment: pre-prod
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MANAGEMENT / MONITORING / STORAGE
+# ══════════════════════════════════════════════════════════════════════════════
+
+management_layer:
+  - name: hx-devops-server
+    ip: 192.168.10.14
+    description: DevOps / CI-CD (Control)
+    role: automation_control
+    services:
+      - Ansible Control Node
+      - CI/CD
+    
+  - name: hx-metrics-server
+    ip: 192.168.10.16
+    description: Monitoring (Prometheus / Grafana)
+    role: observability
+    services:
+      - Prometheus
+      - Grafana
+    
+  - name: hx-fs-server
+    ip: 192.168.10.17
+    description: File Server (Datasets / Backups)
+    role: storage
+    services:
+      - File Storage
+      - Backup Storage
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODEL CONTEXT PROTOCOL (MCP)
+# ══════════════════════════════════════════════════════════════════════════════
+
+mcp_layer:
+  - name: hx-mcp1-server
+    ip: 192.168.10.59
+    description: Model Context Protocol (MCP) Server
+    role: mcp_server
+    services:
+      - MCP Server
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NETWORK SUMMARY
+# ══════════════════════════════════════════════════════════════════════════════
+
+network_info:
+  subnet: 192.168.10.0/24
+  gateway: 192.168.10.1
+  dns_server: 192.168.10.2  # hx-dc-server
+  domain: hx-citadel.local
+  
+  # IP Allocation Ranges
+  ip_ranges:
+    core_services: 192.168.10.2-10.9
+    data_plane: 192.168.10.10-10.20
+    api_layer: 192.168.10.46-10.48
+    llm_nodes: 192.168.10.50-10.59
+    mcp_servers: 192.168.10.59-10.69
+    reserved: 192.168.10.100-10.254
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ANSIBLE INVENTORY MAPPING
+# ══════════════════════════════════════════════════════════════════════════════
+
+ansible_groups:
+  all:
+    - hx-dc-server
+    - hx-ca-server
+    - hx-orchestrator-server
+    - hx-vectordb-server
+    - hx-webui-server
+    - hx-dev-server
+    - hx-test-server
+    - hx-devops-server
+    - hx-metrics-server
+    - hx-fs-server
+    - hx-litellm-server
+    - hx-prisma-server
+    - hx-sqldb-server
+    - hx-ollama1
+    - hx-ollama2
+    - hx-qwebui-server
+    - hx-mcp1-server
+    
+  db_nodes:
+    - hx-sqldb-server
+    
+  vector_nodes:
+    - hx-vectordb-server
+    
+  llm_nodes:
+    - hx-ollama1
+    - hx-ollama2
+    
+  orchestrator_nodes:
+    - hx-orchestrator-server
+    
+  api_nodes:
+    - hx-litellm-server
+    - hx-prisma-server
+    
+  monitoring_nodes:
+    - hx-metrics-server
+    
+  mcp_nodes:
+    - hx-mcp1-server
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NOTES
+# ══════════════════════════════════════════════════════════════════════════════
+
+notes: |
+  - All hosts use ansible_user=agent0
+  - Python interpreter: /usr/bin/python3
+  - SSH key authentication: ~/.ssh/id_rsa
+  - Ubuntu 24.04 baseline (where applicable)
+  - Python 3.12 standard
+  
+  Missing from active inventory (inventory/prod.ini):
+  - hx-dc-server (not managed by Ansible)
+  - hx-ca-server (not managed by Ansible)
+  - hx-qwebui-server (separate inventory file: inventory/hx-qwui.ini)
+  - hx-mcp1-server (NEW - needs to be added to inventory)
+  
+  To add hx-mcp1-server to prod.ini:
+  1. Add to [all] section: hx-mcp1-server ansible_host=192.168.10.59
+  2. Create [mcp_nodes] group
+  3. Add host_vars/hx-mcp1-server.yml if needed

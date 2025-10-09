@@ -7,9 +7,14 @@
     - redis
   post_tasks:
     - name: Verify PostgreSQL connectivity
-      command: psql -h localhost -U {{ db_owner }} -c "SELECT 1;"
-      register: db_test
+      community.postgresql.postgresql_ping:
+        db: "{{ db_name | default('hx_citadel') }}"
+        login_user: "{{ db_owner | default('hx_pg') }}"
+        login_password: "{{ db_password | default(omit) }}"
+        login_unix_socket: "{{ pg_login_unix_socket | default('/var/run/postgresql') }}"
+      become: yes
+      become_user: postgres
       changed_when: false
-      failed_when: db_test.rc != 0
+      no_log: true
   tags:
     - db

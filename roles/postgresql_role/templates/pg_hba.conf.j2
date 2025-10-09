@@ -1,0 +1,23 @@
+{{ ansible_managed | comment }}
+# PostgreSQL Client Authentication Configuration File
+# ===================================================
+#
+# See: https://www.postgresql.org/docs/current/static/auth-pg-hba-conf.html
+
+{% for client in postgresql_hba_entries %}
+{%- set fields = [client.type, client.database, client.user] -%}
+{%- if client.address is defined and client.address -%}
+  {%- set _ = fields.append(client.address) -%}
+{%- endif -%}
+{%- if client.ip_address is defined and client.ip_address -%}
+  {%- set _ = fields.append(client.ip_address) -%}
+{%- endif -%}
+{%- if client.ip_mask is defined and client.ip_mask -%}
+  {%- set _ = fields.append(client.ip_mask) -%}
+{%- endif -%}
+{%- set _ = fields.append(client.auth_method) -%}
+{%- if client.auth_options is defined and client.auth_options -%}
+  {%- set _ = fields.append(client.auth_options) -%}
+{%- endif %}
+{{ fields | join(' ') }}
+{% endfor %}

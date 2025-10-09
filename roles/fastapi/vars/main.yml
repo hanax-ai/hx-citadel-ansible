@@ -1,2 +1,2 @@
 ---
-fastapi_repo: https://github.com/hanax-ai/hx-orchestrator.git
+fastapi_repo: git@github.com:hanax-ai/hx-orchestrator.git

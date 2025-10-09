@@ -1,0 +1,110 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANSIBLE-LINT CONFIGURATION FOR HX-CITADEL
+# ═══════════════════════════════════════════════════════════════════════════════
+# Purpose: Enforce Ansible best practices based on tech_kb/ansible-devel
+# Reference: docs/ANSIBLE-BEST-PRACTICES.md
+# See: https://ansible-lint.readthedocs.io/en/latest/configuring.html
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Exclude paths from linting
+exclude_paths:
+  - .cache/
+  - .github/
+  - .venv/
+  - molecule/
+  - tech_kb/  # Reference materials, not our code
+  - .ansible_cache/
+
+# MANDATORY: Rules that must pass (based on ANSIBLE-BEST-PRACTICES.md)
+enable_list:
+  - fqcn-builtins  # ⭐ CRITICAL: Require ansible.builtin.* for all core modules
+  - name[template]  # Task names should be descriptive
+  - name[casing]    # Consistent task name casing
+  - no-changed-when  # Command/shell tasks need changed_when
+  - no-handler      # Use handlers properly
+  - risky-file-permissions  # Warn about file permissions
+  - risky-shell-pipe  # Warn about unsafe shell pipes
+
+# Rules to skip (only when absolutely necessary)
+skip_list:
+  - yaml[line-length]  # Line length handled by yamllint
+  - galaxy[version-incorrect]  # Allow version ranges in requirements.yml
+  
+# Warn on deprecated features but don't fail
+warn_list:
+  - experimental  # Warn about experimental features
+  - no-same-owner  # Warn about ownership issues
+  - deprecated-command-syntax  # Warn on old command syntax
+  - deprecated-module  # Warn on deprecated modules
+
+# Offline mode (don't require internet for galaxy downloads)
+offline: false
+
+# Use unannotated-vars for variable validation
+# vars:
+#   - name: ansible_os_family
+
+# Strict mode - fail on warnings (uncomment for CI/CD)
+# strict: true
+
+# Ansible version compatibility
+# supported_ansible_also:
+#   - "2.14"
+#   - "2.15"
+#   - "2.16"
+
+# Configure specific rules
+rules:
+  # ⭐ CRITICAL: FQCN enforcement
+  fqcn-builtins:
+    # Require FQCN for all builtin modules
+    # NO SHORT NAMES: apt, service, file, etc.
+    # USE: ansible.builtin.apt, ansible.builtin.service, etc.
+    # Reference: docs/ANSIBLE-BEST-PRACTICES.md
+    enable: true
+
+  # Require descriptive task names
+  name[template]:
+    enable: true
+    
+  # Command/shell tasks must have changed_when
+  no-changed-when:
+    enable: true
+    
+  # YAML formatting consistency
+  yaml:
+    max-spaces-inside-empty-braces: 1
+    max-spaces-inside-empty-brackets: 1
+    
+  # File permissions should be explicit
+  risky-file-permissions:
+    enable: true
+
+# Profile (basic, moderate, safety, shared, production)
+# production: Most strict, for production-ready code
+# profile: production
+
+# Mock modules and roles for testing
+# mock_modules:
+#   - custom_module
+# mock_roles:
+#   - custom_role
+
+# Task matchers (advanced filtering)
+# kinds:
+#   - playbook: "*.yml"
+#     tasks: "*/tasks/*.yml"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENFORCEMENT POLICY
+# ═══════════════════════════════════════════════════════════════════════════════
+# ALL code must:
+# 1. Use FQCN (ansible.builtin.*) - NO EXCEPTIONS
+# 2. Pass ansible-lint with no errors
+# 3. Have descriptive task names
+# 4. Use changed_when/failed_when appropriately
+# 5. Follow docs/ANSIBLE-BEST-PRACTICES.md
+#
+# When in doubt: Check tech_kb/ansible-devel for reference!
+# ═══════════════════════════════════════════════════════════════════════════════

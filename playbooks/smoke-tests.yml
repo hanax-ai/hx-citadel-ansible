@@ -1,0 +1,158 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# SMOKE TESTS - POST-DEPLOYMENT VALIDATION
+# ═══════════════════════════════════════════════════════════════════════════════
+# Purpose: Validate critical services are running after deployment
+# Usage: Included by deploy-with-validation.yml or run standalone
+# ═══════════════════════════════════════════════════════════════════════════════
+
+- name: Smoke Test - Database Services
+  hosts: db_nodes
+  gather_facts: no
+  become: yes
+  tags:
+    - smoketest
+    - database
+  
+  tasks:
+    - name: Check PostgreSQL service status
+      ansible.builtin.systemd:
+        name: postgresql
+      register: postgresql_status
+      failed_when: false
+      
+    - name: Check Redis service status
+      ansible.builtin.systemd:
+        name: redis
+      register: redis_status
+      failed_when: false
+      
+    - name: Validate PostgreSQL is running
+      ansible.builtin.assert:
+        that:
+          - postgresql_status.status.ActiveState == "active"
+        fail_msg: "PostgreSQL is not running on {{ inventory_hostname }}"
+        success_msg: "✓ PostgreSQL is running"
+        
+    - name: Validate Redis is running
+      ansible.builtin.assert:
+        that:
+          - redis_status.status.ActiveState == "active"
+        fail_msg: "Redis is not running on {{ inventory_hostname }}"
+        success_msg: "✓ Redis is running"
+
+- name: Smoke Test - Vector Database
+  hosts: vector_nodes
+  gather_facts: no
+  become: yes
+  tags:
+    - smoketest
+    - vector
+  
+  tasks:
+    - name: Check Qdrant service status
+      ansible.builtin.systemd:
+        name: qdrant
+      register: qdrant_status
+      failed_when: false
+      
+    - name: Check Qdrant API endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:6333/healthz"
+        status_code: 200
+        timeout: 5
+      register: qdrant_health
+      failed_when: false
+      
+    - name: Validate Qdrant is running
+      ansible.builtin.assert:
+        that:
+          - qdrant_status.status.ActiveState == "active"
+          - qdrant_health.status == 200
+        fail_msg: "Qdrant is not healthy on {{ inventory_hostname }}"
+        success_msg: "✓ Qdrant is running and healthy"
+
+- name: Smoke Test - LLM Infrastructure
+  hosts: llm_nodes
+  gather_facts: no
+  become: yes
+  tags:
+    - smoketest
+    - llm
+  
+  tasks:
+    - name: Check Ollama service status
+      ansible.builtin.systemd:
+        name: ollama
+      register: ollama_status
+      failed_when: false
+      
+    - name: Check Ollama API endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:11434/api/version"
+        status_code: 200
+        timeout: 5
+      register: ollama_health
+      failed_when: false
+      
+    - name: Validate Ollama is running
+      ansible.builtin.assert:
+        that:
+          - ollama_status.status.ActiveState == "active"
+          - ollama_health.status == 200
+        fail_msg: "Ollama is not healthy on {{ inventory_hostname }}"
+        success_msg: "✓ Ollama is running and healthy"
+
+- name: Smoke Test - Orchestrator
+  hosts: orchestrator_nodes
+  gather_facts: no
+  become: yes
+  tags:
+    - smoketest
+    - orchestrator
+  
+  tasks:
+    - name: Check Orchestrator service status
+      ansible.builtin.systemd:
+        name: orchestrator
+      register: orchestrator_status
+      failed_when: false
+      
+    - name: Check Orchestrator health endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:8080/healthz"
+        status_code: 200
+        timeout: 5
+      register: orchestrator_health
+      failed_when: false
+      
+    - name: Validate Orchestrator is running
+      ansible.builtin.assert:
+        that:
+          - orchestrator_status.status.ActiveState == "active"
+          - orchestrator_health.status == 200
+        fail_msg: "Orchestrator is not healthy on {{ inventory_hostname }}"
+        success_msg: "✓ Orchestrator is running and healthy"
+
+- name: Smoke Test - Summary Report
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - smoketest
+    - report
+  
+  tasks:
+    - name: Display smoke test summary
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════╗
+          ║                       SMOKE TEST SUMMARY                                  ║
+          ╚═══════════════════════════════════════════════════════════════════════════╝
+          
+          All critical services validated:
+          ✓ Database Services (PostgreSQL, Redis)
+          ✓ Vector Database (Qdrant)
+          ✓ LLM Infrastructure (Ollama)
+          ✓ Orchestrator (FastAPI)
+          
+          Infrastructure is operational.

@@ -1,0 +1,137 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# UPDATE /ETC/HOSTS FILE ACROSS FLEET
+# ═══════════════════════════════════════════════════════════════════════════════
+# Purpose: Update /etc/hosts with HX-Citadel fleet inventory
+# Usage: ansible-playbook -i inventory/prod.ini maintenance/update-hosts-file.yml
+#
+# Prerequisites:
+# - SSH connectivity to target hosts
+# - Sudo/privilege escalation configured
+# - Python interpreter available
+#
+# Safety:
+# - Creates backup before modification
+# - Uses blockinfile for idempotency
+# - Only modifies managed block
+# ═══════════════════════════════════════════════════════════════════════════════
+
+- name: Pre-check - Validate Connectivity
+  hosts: all
+  gather_facts: no
+  become: no
+  any_errors_fatal: false
+  tags:
+    - validation
+  
+  tasks:
+    - name: Test SSH connectivity
+      ansible.builtin.ping:
+      register: connectivity_check
+      failed_when: false
+      changed_when: false
+      
+    - name: Record reachable hosts
+      ansible.builtin.set_fact:
+        host_is_reachable: "{{ connectivity_check is success }}"
+      
+    - name: Display connectivity status
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ 'REACHABLE' if host_is_reachable else 'UNREACHABLE' }}"
+
+- name: Update /etc/hosts file across HX-Citadel fleet
+  hosts: all
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: false
+  tags:
+    - update
+  
+  tasks:
+    - name: Block with error handling for hosts update
+      block:
+        - name: Check if /etc/hosts exists
+          ansible.builtin.stat:
+            path: /etc/hosts
+          register: hosts_file
+          
+        - name: Backup current /etc/hosts
+          ansible.builtin.copy:
+            src: /etc/hosts
+            dest: "/etc/hosts.backup.{{ ansible_date_time.iso8601_basic_short }}"
+            remote_src: yes
+            mode: "0644"
+          changed_when: false
+          when: hosts_file.stat.exists
+          
+        - name: Update /etc/hosts with fleet inventory
+          ansible.builtin.blockinfile:
+            path: /etc/hosts
+            marker: "# {mark} HX-CITADEL FLEET MANAGED BY ANSIBLE"
+            block: |
+              # HX-CITADEL FLEET INVENTORY
+              # Updated: {{ ansible_date_time.date }}
+              
+              # ── Core Infrastructure
+              192.168.10.2    hx-dc-server          # Domain Controller (AD/DNS)
+              192.168.10.4    hx-ca-server          # Certificate Authority (HX Root CA)
+              
+              # ── Orchestration / Data Plane
+              192.168.10.8    hx-orchestrator-server    # Orchestration (LangGraph / FastAPI)
+              192.168.10.9    hx-vectordb-server        # Vector DB (Qdrant)
+              192.168.10.48   hx-sqldb-server           # Database (PostgreSQL / Redis)
+              192.168.10.47   hx-prisma-server          # Middleware (Prisma ORM)
+              192.168.10.46   hx-litellm-server         # API Gateway (LiteLLM / OpenAI Proxy)
+              
+              # ── LLM Infrastructure
+              192.168.10.50   hx-ollama1            # LLM Node 1 (GPU Inference / Prod)
+              192.168.10.52   hx-ollama2            # LLM Node 2 (GPU Inference / Expansion)
+              
+              # ── Frontend / Apps
+              192.168.10.11   hx-webui-server       # Frontend UI (CopilotKit)
+              192.168.10.53   hx-qwebui-server      # Qdrant WebUI (Cluster Mgmt GUI)
+              192.168.10.12   hx-dev-server         # App Server (Dev)
+              192.168.10.13   hx-test-server        # Test Node (Pre-prod)
+              
+              # ── Management / Monitoring / Storage
+              192.168.10.14   hx-devops-server      # DevOps / CI-CD (Control)
+              192.168.10.16   hx-metrics-server     # Monitoring (Prometheus / Grafana)
+              192.168.10.17   hx-fs-server          # File Server (Datasets / Backups)
+              
+              # ── Model Context Protocol (MCP)
+              192.168.10.59   hx-mcp1-server        # Model Context Protocol (MCP) Server
+            backup: yes
+            create: yes
+            mode: "0644"
+        
+        - name: Verify /etc/hosts is readable
+          ansible.builtin.command:
+            cmd: cat /etc/hosts
+          register: hosts_content
+          changed_when: false
+          failed_when: false
+          check_mode: no
+        
+        - name: Display success message
+          ansible.builtin.debug:
+            msg: "✓ /etc/hosts updated successfully on {{ inventory_hostname }}"
+            
+      rescue:
+        - name: Display error message
+          ansible.builtin.debug:
+            msg: "✗ Failed to update /etc/hosts on {{ inventory_hostname }}"
+            
+        - name: Record failure
+          ansible.builtin.set_fact:
+            hosts_update_failed: true
+            
+      always:
+        - name: Log completion status
+          ansible.builtin.debug:
+            msg: "Hosts file update {{ 'completed' if hosts_update_failed is not defined else 'failed' }} on {{ inventory_hostname }}"
+
+- name: Generate Update Report
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  tasks:

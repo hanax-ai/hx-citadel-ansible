@@ -4,4 +4,4 @@
 - import_playbook: playbooks/deploy-vector.yml
 - import_playbook: playbooks/deploy-llm.yml
 - import_playbook: playbooks/deploy-api.yml
-- import_playbook: playbooks/deploy-orchestrator.yml
+- import_playbook: playbooks/deploy-orchestrator-local.yml

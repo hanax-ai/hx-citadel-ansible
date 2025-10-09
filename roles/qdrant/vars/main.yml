@@ -1,2 +1,2 @@
 ---
-qdrant_version: latest
+# Intentionally left blank; use defaults/main.yml for variable definitions.

@@ -1,6 +1,8 @@
 ---
-- name: restart prisma
+- name: restart prisma service
+  listen: restart prisma
   systemd:
     name: prisma
     state: restarted
   become: yes
+  when: not ansible_check_mode

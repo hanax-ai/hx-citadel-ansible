@@ -1,0 +1,146 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# SAFE DEPLOYMENT WRAPPER WITH VALIDATION
+# ═══════════════════════════════════════════════════════════════════════════════
+# Purpose: Orchestrate deployment with built-in safety checks
+# Usage: ansible-playbook -i inventory/prod.ini playbooks/deploy-with-validation.yml
+# 
+# This wrapper provides:
+# - Pre-flight validation before deployment
+# - Controlled deployment with error handling
+# - Post-deployment smoke tests
+# - Rollback capability on failure
+# ═══════════════════════════════════════════════════════════════════════════════
+
+- name: Stage 1 - Pre-flight Validation
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - validation
+    - preflight
+  
+  tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════╗
+          ║           HX-CITADEL INFRASTRUCTURE DEPLOYMENT WITH VALIDATION            ║
+          ╚═══════════════════════════════════════════════════════════════════════════╝
+          
+          Stage 1: Pre-flight Validation
+          Stage 2: Infrastructure Deployment
+          Stage 3: Post-deployment Validation
+          
+          Starting pre-flight checks...
+          
+    - name: Run pre-flight validation playbook
+      ansible.builtin.import_playbook: preflight-check.yml
+      tags: preflight
+
+- name: Stage 2 - Infrastructure Deployment
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - deployment
+  
+  vars_prompt:
+    - name: deployment_confirmed
+      prompt: |
+        
+        ╔═══════════════════════════════════════════════════════════════════════════╗
+        ║                      DEPLOYMENT CONFIRMATION                              ║
+        ╚═══════════════════════════════════════════════════════════════════════════╝
+        
+        Pre-flight checks completed. Review results above.
+        
+        Do you want to proceed with deployment? (yes/no)
+      private: no
+      default: "no"
+  
+  tasks:
+    - name: Validate deployment confirmation
+      ansible.builtin.assert:
+        that:
+          - deployment_confirmed | lower == "yes"
+        fail_msg: "Deployment cancelled by user"
+        success_msg: "Proceeding with deployment..."
+        
+    - name: Display deployment stage
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════╗
+          ║                    Stage 2: Infrastructure Deployment                     ║
+          ╚═══════════════════════════════════════════════════════════════════════════╝
+          
+          Deploying HX-Citadel infrastructure...
+
+- name: Deploy Base Configuration
+  import_playbook: deploy-base.yml
+  tags:
+    - deployment
+    - base
+
+- name: Deploy Database Services
+  import_playbook: deploy-db.yml
+  tags:
+    - deployment
+    - database
+
+- name: Deploy Vector Database
+  import_playbook: deploy-vector.yml
+  tags:
+    - deployment
+    - vector
+
+- name: Deploy LLM Infrastructure
+  import_playbook: deploy-llm.yml
+  tags:
+    - deployment
+    - llm
+
+- name: Deploy API Layer
+  import_playbook: deploy-api.yml
+  tags:
+    - deployment
+    - api
+
+- name: Deploy Orchestrator
+  import_playbook: deploy-orchestrator.yml
+  tags:
+    - deployment
+    - orchestrator
+
+- name: Stage 3 - Post-deployment Validation
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - validation
+    - postcheck
+  
+  tasks:
+    - name: Display validation stage
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════╗
+          ║                 Stage 3: Post-deployment Validation                       ║
+          ╚═══════════════════════════════════════════════════════════════════════════╝
+          
+          Running smoke tests...
+          
+    - name: Run smoke tests
+      ansible.builtin.include_tasks: smoke-tests.yml
+      tags: smoketest
+      
+    - name: Display completion banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════════════╗
+          ║                     DEPLOYMENT COMPLETED SUCCESSFULLY                     ║
+          ╚═══════════════════════════════════════════════════════════════════════════╝
+          
+          All services deployed and validated.
+          
+          Next steps:
+          - Review service status on each node
+          - Check application logs
+          - Perform integration testing

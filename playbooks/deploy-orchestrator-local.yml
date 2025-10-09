@@ -1,0 +1,167 @@
+---
+- name: Seed and run local FastAPI Orchestrator (no git required)
+  hosts: hx-orchestrator-server
+  become: yes
+  gather_facts: yes
+
+  vars:
+    app_dir: /opt/hx-citadel-shield
+    orch_dir: "{{ app_dir }}/orchestrator"
+    orch_user: agent0
+    orch_group: agent0
+    orch_service: orchestrator
+    orch_port: 8080
+    python_bin: /usr/bin/python3
+    base_venv: "{{ app_dir }}/venv"
+    poetry_bin: "{{ base_venv }}/bin/poetry"
+    project_venv: "{{ orch_dir }}/.venv"
+
+  handlers:
+    - name: restart orchestrator
+      ansible.builtin.systemd:
+        name: "{{ orch_service }}"
+        state: restarted
+        daemon_reload: yes
+        enabled: yes
+
+  tasks:
+    - name: Ensure OS packages present (venv, pip, curl, virtualenv)
+      ansible.builtin.apt:
+        name:
+          - python3-venv
+          - python3-pip
+          - virtualenv
+          - curl
+        state: present
+        update_cache: yes
+      tags: [base]
+
+    - name: Create application directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ orch_user }}"
+        group: "{{ orch_group }}"
+        mode: "{{ item.mode | default('0755') }}"
+      loop:
+        - { path: "{{ app_dir }}" }
+        - { path: "{{ orch_dir }}" }
+        - { path: "{{ orch_dir }}/app" }
+      tags: [app]
+
+    - name: Seed minimal FastAPI app (app/main.py)
+      ansible.builtin.copy:
+        dest: "{{ orch_dir }}/app/main.py"
+        owner: "{{ orch_user }}"
+        group: "{{ orch_group }}"
+        mode: "0644"
+        content: |
+          from fastapi import FastAPI
+          app = FastAPI()
+
+          @app.get("/healthz")
+          def healthz():
+              return {"status": "ok"}
+      tags: [app]
+
+    - name: Seed pyproject.toml
+      ansible.builtin.copy:
+        dest: "{{ orch_dir }}/pyproject.toml"
+        owner: "{{ orch_user }}"
+        group: "{{ orch_group }}"
+        mode: "0644"
+        content: |
+          [tool.poetry]
+          name = "hx-orchestrator"
+          version = "0.1.0"
+          description = "HX Orchestrator placeholder (local seed)"
+          authors = ["HX"]
+          packages = [{include = "app"}]
+
+          [tool.poetry.dependencies]
+          python = ">=3.10,<3.13"
+          fastapi = ">=0.110,<0.119"
+          uvicorn = {version=">=0.30,<0.36", extras=["standard"]}
+
+          [build-system]
+          requires = ["poetry-core"]
+          build-backend = "poetry.core.masonry.api"
+      tags: [app]
+
+    - name: Create base virtualenv for Poetry
+      ansible.builtin.pip:
+        name: poetry==1.6.1
+        state: present
+        virtualenv: "{{ base_venv }}"
+        virtualenv_python: "{{ python_bin }}"
+      tags: [venv]
+
+    - name: Ensure Poetry config dir for {{ orch_user }}
+      ansible.builtin.file:
+        path: "/home/{{ orch_user }}/.config/pypoetry"
+        state: directory
+        owner: "{{ orch_user }}"
+        group: "{{ orch_group }}"
+        mode: "0700"
+      tags: [venv]
+
+    - name: Configure Poetry to use in-project virtualenvs
+      ansible.builtin.copy:
+        dest: "/home/{{ orch_user }}/.config/pypoetry/config.toml"
+        owner: "{{ orch_user }}"
+        group: "{{ orch_group }}"
+        mode: "0600"
+        content: |
+          [virtualenvs]
+          in-project = true
+      tags: [venv]
+
+    - name: Install project dependencies with Poetry (creates .venv)
+      ansible.builtin.command:
+        cmd: "{{ poetry_bin }} install -n"
+        chdir: "{{ orch_dir }}"
+      become_user: "{{ orch_user }}"
+      args:
+        creates: "{{ project_venv }}/bin/uvicorn"
+      tags: [deps]
+
+    - name: Install systemd unit for orchestrator
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ orch_service }}.service"
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=HX Orchestrator (FastAPI)
+          After=network.target
+
+          [Service]
+          User={{ orch_user }}
+          WorkingDirectory={{ orch_dir }}
+          Environment=PATH={{ project_venv }}/bin:{{ base_venv }}/bin:/usr/bin
+          ExecStart={{ project_venv }}/bin/uvicorn app.main:app --host 0.0.0.0 --port {{ orch_port }}
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart orchestrator
+      tags: [service]
+
+    - name: Ensure orchestrator service is enabled and started
+      ansible.builtin.systemd:
+        name: "{{ orch_service }}"
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: [service]
+
+    - name: Health check /healthz
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ orch_port }}/healthz"
+        status_code: 200
+        return_content: yes
+      register: healthz
+      retries: 10
+      delay: 2
+      until: (healthz.status | default(0)) == 200
+      when: not ansible_check_mode
+      tags: [smoke]

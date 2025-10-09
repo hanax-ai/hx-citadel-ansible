@@ -1,0 +1,10 @@
+---
+__postgresql_version: "13"
+__postgresql_data_dir: "/var/opt/rh/rh-postgresql13/lib/pgsql/data"
+__postgresql_bin_path: "/opt/rh/rh-postgresql13/root/usr/bin"
+__postgresql_config_path: "/var/opt/rh/rh-postgresql13/lib/pgsql/data"
+__postgresql_daemon: rh-postgresql13-postgresql
+__postgresql_packages:
+  - rh-postgresql13-postgresql
+  - rh-postgresql13-postgresql-server
+  - rh-postgresql13-postgresql-contrib

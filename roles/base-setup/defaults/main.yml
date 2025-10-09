@@ -1,0 +1,4 @@
+---
+python_version: "3.12"
+app_dir: "/opt/hx-citadel-shield"
+log_dir: "/var/log/hx-citadel"

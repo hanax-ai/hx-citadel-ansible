@@ -1,0 +1,13 @@
+# Managed by Ansible
+service:
+  http_port: {{ qdrant_http_port }}
+  grpc_port: {{ qdrant_grpc_port }}
+{% if qdrant_api_key is defined and qdrant_api_key %}
+  api_key: "{{ qdrant_api_key }}"
+{% endif %}
+storage:
+  storage_path: "{{ qdrant_storage_path }}"
+  snapshots_path: "{{ qdrant_snapshots_path }}"
+
+telemetry:
+  enabled: false

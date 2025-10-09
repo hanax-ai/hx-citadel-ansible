@@ -1,33 +1,90 @@
 ---
-- name: Install Python docker dependency
-  apt:
-    name: python3-docker
+- name: Ensure repository prerequisites are installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - vector
+
+- name: Install Qdrant apt signing key
+  ansible.builtin.apt_key:
+    url: "{{ qdrant_apt_key_url }}"
+    keyring: "{{ qdrant_apt_keyring }}"
     state: present
   become: yes
   tags:
     - vector
+  when: not ansible_check_mode
 
-- name: Ensure Docker SDK is installed
-  pip:
-    name: docker
-    virtualenv: "{{ app_dir }}/venv"
+- name: Add Qdrant apt repository
+  ansible.builtin.apt_repository:
+    repo: "{{ qdrant_apt_repository }}"
+    filename: qdrant
+    state: present
   become: yes
-  become_user: agent0
+  tags:
+    - vector
+  when: not ansible_check_mode
+
+- name: Install Qdrant package
+  ansible.builtin.apt:
+    name: "{{ 'qdrant=' + qdrant_version if qdrant_version != 'latest' else 'qdrant' }}"
+    state: present
+    update_cache: yes
+  become: yes
+  tags:
+    - vector
+  when: not ansible_check_mode
+
+- name: Ensure Qdrant data directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ qdrant_user }}"
+    group: "{{ qdrant_group }}"
+    mode: "0755"
+  loop:
+    - "{{ qdrant_storage_path }}"
+    - "{{ qdrant_snapshots_path }}"
+  become: yes
   tags:
     - vector
 
-- name: Run Qdrant container
-  community.docker.docker_container:
-    name: qdrant
-    image: qdrant/qdrant:latest
-    restart_policy: always
+- name: Ensure Qdrant configuration directory exists
+  ansible.builtin.file:
+    path: "{{ qdrant_config_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: yes
+  tags:
+    - vector
+
+- name: Deploy Qdrant configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ qdrant_config_path }}"
+    owner: "{{ qdrant_user }}"
+    group: "{{ qdrant_group }}"
+    mode: "0644"
+  notify: restart qdrant
+  become: yes
+  tags:
+    - vector
+
+- name: Ensure Qdrant service is enabled and running
+  ansible.builtin.service:
+    name: "{{ qdrant_service_name }}"
+    enabled: yes
     state: started
-    published_ports:
-      - "6333:6333"
-    env:
-      QDRANT__SERVICE__API_KEY: "{{ qdrant_api_key | default('', true) }}"
-    volumes:
-      - /var/lib/qdrant:/qdrant/storage
   become: yes
   tags:
     - vector
+  when: not ansible_check_mode

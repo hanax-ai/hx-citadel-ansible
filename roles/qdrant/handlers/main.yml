@@ -1,7 +1,6 @@
 ---
 - name: restart qdrant
-  community.docker.docker_container:
-    name: qdrant
-    state: started
-    restart: yes
+  ansible.builtin.service:
+    name: "{{ qdrant_service_name }}"
+    state: restarted
   become: yes

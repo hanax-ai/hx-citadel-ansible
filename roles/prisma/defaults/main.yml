@@ -1,0 +1,3 @@
+---
+app_dir: /opt/hx-citadel-shield
+prisma_service_user: agent0

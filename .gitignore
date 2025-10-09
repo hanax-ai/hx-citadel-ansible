@@ -208,8 +208,12 @@ __marimo__/
 
 # Ansible specific
 *.retry
+*.bak
 vaults/
 .ansible_cache/
 
 # Archive directories
 archive_*/
+
+# Technology Knowledge Base
+tech_kb/

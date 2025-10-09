@@ -8,6 +8,7 @@
   become: yes
   tags:
     - api
+  when: not ansible_check_mode
 
 - name: Install Prisma CLI globally
   npm:
@@ -16,12 +17,14 @@
   become: yes
   tags:
     - api
+  when: not ansible_check_mode
 
 - name: Deploy Prisma service directory
   file:
     path: "{{ app_dir }}/prisma"
     state: directory
-    owner: agent0
+    owner: "{{ prisma_service_user }}"
+    group: "{{ prisma_service_user }}"
     mode: "0755"
   become: yes
   tags:
@@ -31,6 +34,8 @@
   template:
     src: schema.prisma.j2
     dest: "{{ app_dir }}/prisma/schema.prisma"
+    owner: "{{ prisma_service_user }}"
+    group: "{{ prisma_service_user }}"
   become: yes
   notify: restart prisma
   tags:
@@ -41,5 +46,9 @@
   args:
     chdir: "{{ app_dir }}/prisma"
   become: yes
+  register: migrate_result
+  changed_when: "'No pending migrations' not in migrate_result.stdout and 'No migrations to apply' not in migrate_result.stdout"
+  failed_when: migrate_result.rc != 0
   tags:
     - api
+  when: not ansible_check_mode

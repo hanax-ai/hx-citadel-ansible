@@ -1,0 +1,13 @@
+app_dir: /opt/qdrant
+qdrant_version: latest
+qdrant_service_name: qdrant
+qdrant_config_path: /etc/qdrant/config.yaml
+qdrant_storage_path: /var/lib/qdrant/storage
+qdrant_snapshots_path: /var/lib/qdrant/snapshots
+qdrant_user: root
+qdrant_group: root
+qdrant_http_port: 6333
+qdrant_grpc_port: 6334
+qdrant_apt_key_url: https://apt.qdrant.tech/gpg.key
+qdrant_apt_keyring: /usr/share/keyrings/qdrant-archive-keyring.gpg
+qdrant_apt_repository: "deb [signed-by={{ qdrant_apt_keyring }} arch=amd64] https://apt.qdrant.tech stable main"

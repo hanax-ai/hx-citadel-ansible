@@ -1,9 +1,17 @@
----
-- name: Deploy API layer
-  hosts: api_nodes
+- name: Deploy LiteLLM API
+  hosts: hx-litellm-server
   become: yes
   roles:
     - litellm
+  tags:
+    - api
+    - litellm
+
+- name: Deploy Prisma API
+  hosts: hx-prisma-server
+  become: yes
+  roles:
     - prisma
   tags:
     - api
+    - prisma

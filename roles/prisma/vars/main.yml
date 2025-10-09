@@ -1,2 +1,2 @@
 ---
-prisma_service_user: agent0
+# Intentionally left blank; use defaults/main.yml for variable definitions.

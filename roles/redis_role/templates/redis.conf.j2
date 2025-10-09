@@ -1,0 +1,69 @@
+# {{ ansible_managed }}
+
+daemonize yes
+pidfile /var/run/redis/{{ redis_daemon | default('redis-server') }}.pid
+port {{ redis_port | default(6379) }}
+bind {{ redis_bind_interface | default('127.0.0.1') }}
+
+{% if redis_protected_mode is defined %}
+protected-mode {{ redis_protected_mode | default('yes') }}
+{% else %}
+protected-mode yes
+{% endif %}
+
+{% if redis_unixsocket is defined and redis_unixsocket %}
+unixsocket {{ redis_unixsocket }}
+{% endif %}
+
+timeout {{ redis_timeout | default(0) }}
+
+loglevel {{ redis_loglevel | default('notice') }}
+logfile {{ redis_logfile | default('') }}
+
+# To enable logging to the system logger, just set 'syslog-enabled' to yes,
+# and optionally update the other syslog parameters to suit your needs.
+# syslog-enabled no
+# syslog-ident redis
+# syslog-facility local0
+
+databases {{ redis_databases | default(16) }}
+
+{% if redis_save is defined %}
+{% for save in redis_save %}
+save {{ save }}
+{% endfor %}
+{% endif %}
+
+rdbcompression {{ redis_rdbcompression | default('yes') }}
+dbfilename {{ redis_dbfilename | default('dump.rdb') }}
+dir {{ redis_dbdir | default('/var/lib/redis') }}
+
+# maxclients 128
+
+{% if redis_maxmemory is defined and redis_maxmemory %}
+maxmemory {{ redis_maxmemory }}
+maxmemory-policy {{ redis_maxmemory_policy | default('noeviction') }}
+maxmemory-samples {{ redis_maxmemory_samples | default(5) }}
+{% endif %}
+
+appendonly {{ redis_appendonly | default('no') }}
+appendfsync {{ redis_appendfsync | default('everysec') }}
+no-appendfsync-on-rewrite no
+
+{% if redis_includes is defined %}
+{% for include in redis_includes %}
+include {{ include }}
+{% endfor %}
+{% endif %}
+
+{% if redis_requirepass is defined %}
+requirepass {{ redis_requirepass }}
+{% endif %}
+
+{% if redis_disabled_commands is defined %}
+{% for redis_disabled_command in redis_disabled_commands %}
+rename-command {{ redis_disabled_command }} ""
+{% endfor %}
+{% endif %}
+
+{{ redis_extra_config | default('') }}

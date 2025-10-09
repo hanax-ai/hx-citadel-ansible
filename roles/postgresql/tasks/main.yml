@@ -4,31 +4,85 @@
     name: postgresql_role
   tags:
     - db
+    - postgresql
 
-- name: Ensure application database exists
-  postgresql_db:
-    name: "{{ db_name }}"
-    owner: "{{ db_owner }}"
-    encoding: UTF8
+- name: Ensure PostgreSQL client libraries are present
+  ansible.builtin.apt:
+    name:
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
   become: yes
   tags:
     - db
+    - postgresql
 
 - name: Ensure application owner exists
-  postgresql_user:
-    name: "{{ db_owner }}"
+  community.postgresql.postgresql_user:
+    name: "{{ db_owner | default('hx_pg') }}"
     password: "{{ db_password | default('change-me', true) }}"
     state: present
+    login_unix_socket: "{{ pg_login_unix_socket | default('/var/run/postgresql') }}"
+    login_user: "{{ pg_login_user | default('postgres') }}"
+  become: true
+  become_user: postgres
+  no_log: true
+  tags:
+    - db
+    - postgresql
+
+- name: Ensure application database exists
+  community.postgresql.postgresql_db:
+    name: "{{ db_name | default('hx_citadel') }}"
+    owner: "{{ db_owner | default('hx_pg') }}"
+    encoding: "{{ db_encoding | default('UTF8') }}"
+    lc_collate: "{{ db_lc_collate | default('en_US.UTF-8') }}"
+    lc_ctype: "{{ db_lc_ctype | default('en_US.UTF-8') }}"
+    state: "{{ db_state | default('present') }}"
+    login_unix_socket: "{{ pg_login_unix_socket | default('/var/run/postgresql') }}"
+    login_user: "{{ pg_login_user | default('postgres') }}"
+  become: true
+  become_user: postgres
+  tags:
+    - db
+    - postgresql
+
+- name: Ensure application owner has privileges on database
+  community.postgresql.postgresql_privs:
+    db: "{{ db_name | default('hx_citadel') }}"
+    type: database
+    privs: ALL
+    roles: "{{ db_owner | default('hx_pg') }}"
+    grant_option: no
+    login_unix_socket: "{{ pg_login_unix_socket | default('/var/run/postgresql') }}"
+    login_user: "{{ pg_login_user | default('postgres') }}"
+  become: true
+  become_user: postgres
+  when:
+    - not ansible_check_mode
+    - (db_state | default('present')) == 'present'
+  tags:
+    - db
+    - postgresql
+
+- name: Check for existing PostgreSQL configuration file
+  stat:
+    path: "{{ postgresql_config_path }}"
+  register: postgresql_conf_file
   become: yes
   tags:
     - db
+    - postgresql
 
 - name: Configure PostgreSQL to listen on specified address
   lineinfile:
-    path: /etc/postgresql/16/main/postgresql.conf
+    path: "{{ postgresql_config_path }}"
     regexp: '^listen_addresses'
-    line: "listen_addresses = '{{ postgresql_listen_address }}'"
+    line: "listen_addresses = '{{ postgresql_listen_address | default('127.0.0.1') }}'"
   notify: restart postgresql
   become: yes
   tags:
     - db
+    - postgresql
+  when: postgresql_conf_file.stat.exists

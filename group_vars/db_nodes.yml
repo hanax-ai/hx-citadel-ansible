@@ -1,6 +1,22 @@
 ---
-db_name: appdb
-db_owner: citadel
+# PostgreSQL app database settings (consumed by roles/postgresql/tasks/main.yml)
+db_name: "hx_citadel"
+db_owner: "hx_pg"
+db_state: "present"
+db_encoding: "UTF8"
+db_lc_collate: "en_US.UTF-8"
+db_lc_ctype: "en_US.UTF-8"
+
+# Connection strategy: use the local unix socket as postgres superuser
+pg_login_unix_socket: "/var/run/postgresql"
+pg_login_user: "postgres"
+
+# Legacy vars still referenced elsewhere
 postgresql_listen_address: "0.0.0.0"
 postgresql_port: 5432
-redis_bind_interface: "127.0.0.1"
+
+# Redis network binding for the DB node(s)
+# Binds to localhost and the database server IP for cross-node access
+redis_bind_interface: "127.0.0.1 {{ redis_additional_bind_ip | default(ansible_default_ipv4.address) }}"
+redis_additional_bind_ip: "192.168.10.48"  # hx-sqldb-server IP - override per environment
+# redis_requirepass: "CHANGEME_STRONG"

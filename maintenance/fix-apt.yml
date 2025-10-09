@@ -1,0 +1,30 @@
+---
+- name: Fix corrupted apt cache on prisma and litellm servers
+  hosts: hx-prisma-server,hx-litellm-server
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Remove apt lists directory
+      ansible.builtin.file:
+        path: /var/lib/apt/lists
+        state: absent
+
+    - name: Recreate apt lists directory
+      ansible.builtin.file:
+        path: /var/lib/apt/lists
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Recreate apt lists partial directory
+      ansible.builtin.file:
+        path: /var/lib/apt/lists/partial
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Rebuild apt cache
+      ansible.builtin.apt:
+        update_cache: yes
