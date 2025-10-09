@@ -217,7 +217,8 @@ LOG_FORMAT=json
 ## 📝 Service Logs
 
 ### Successful Startup Log
-```
+
+```text
 Oct 09 14:51:27: Started shield-mcp-server.service
 Oct 09 14:51:32: {"event": "logging_configured", "level": "info"}
 Oct 09 14:51:32: {"event": "server_starting", "port": 8081}
