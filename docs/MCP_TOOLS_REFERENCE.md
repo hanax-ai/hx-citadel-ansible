@@ -886,3 +886,5 @@ Solution: Check mode spelling (common: hybird → hybrid)
 - Qdrant Dashboard: http://qdrant-server:6333/dashboard
 - Ollama Models: http://ollama-server:11434/api/tags
 
+
+
