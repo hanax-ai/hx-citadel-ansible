@@ -29,6 +29,8 @@ from enhanced_health_check import comprehensive_health_check
 import httpx
 from crawl4ai import AsyncWebCrawler
 from crawl4ai.async_crawler_strategy import AsyncCrawlerStrategy
+from docling.document_converter import DocumentConverter
+from docling.datamodel.base_models import InputFormat
 
 # Configure structured logging
 logger = configure_structured_logging()
@@ -274,32 +276,207 @@ async def crawl_web(
 
 
 @mcp.tool()
-async def process_document(file_path: str) -> dict:
+async def ingest_doc(
+    file_path: str,
+    source_name: Optional[str] = None
+) -> dict:
     """
-    Process a document using Docling
+    Process and ingest a document using Docling for async ingestion into LightRAG
     
     Args:
-        file_path: Path to the document to process
+        file_path: Path to the document file (PDF, DOCX, TXT, Markdown)
+        source_name: Optional name for the document source (defaults to filename)
     
     Returns:
-        dict: Processed document content and metadata
+        dict: HTTP 202-style response with job_id for status tracking
+    
+    Supports:
+        - PDF (.pdf)
+        - Microsoft Word (.docx, .doc)
+        - Plain Text (.txt)
+        - Markdown (.md)
     """
-    logger.info("process_document_start", file_path=file_path)
+    logger.info("ingest_doc_start", file_path=file_path, source_name=source_name)
     
     try:
-        # TODO: Implement Docling integration
-        result = {
-            "file_path": file_path,
-            "status": "success",
-            "content": "Docling integration pending"
+        # Validate file exists (Single Responsibility)
+        file_obj = Path(file_path)
+        if not file_obj.exists():
+            error_msg = f"File not found: {file_path}"
+            logger.error("ingest_doc_file_not_found", file_path=file_path, error=error_msg)
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "file_not_found"
+            }
+        
+        # Validate file is readable
+        if not file_obj.is_file():
+            error_msg = f"Path is not a file: {file_path}"
+            logger.error("ingest_doc_not_a_file", file_path=file_path, error=error_msg)
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "invalid_path"
+            }
+        
+        # Detect and validate file format (Dependency Inversion)
+        file_extension = file_obj.suffix.lower()
+        supported_formats = {
+            '.pdf': InputFormat.PDF,
+            '.docx': InputFormat.DOCX,
+            '.doc': InputFormat.DOCX,  # Docling handles both
+            '.txt': InputFormat.MARKDOWN,  # Treat as plain text
+            '.md': InputFormat.MARKDOWN
         }
         
-        logger.info("process_document_success", file_path=file_path)
-        return result
+        if file_extension not in supported_formats:
+            error_msg = f"Unsupported file format: {file_extension}. Supported: {', '.join(supported_formats.keys())}"
+            logger.error("ingest_doc_unsupported_format", file_path=file_path, extension=file_extension)
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "unsupported_format",
+                "supported_formats": list(supported_formats.keys())
+            }
+        
+        input_format = supported_formats[file_extension]
+        
+        # Set default source name
+        if source_name is None:
+            source_name = file_obj.name
+        
+        logger.info(
+            "docling_processing",
+            file_path=file_path,
+            format=file_extension,
+            size_bytes=file_obj.stat().st_size
+        )
+        
+        # Process document with Docling (Open/Closed Principle)
+        try:
+            # Initialize Docling converter
+            converter = DocumentConverter()
+            
+            # Convert the document
+            result = converter.convert(
+                source=str(file_obj),
+                raises_on_error=False  # Graceful error handling
+            )
+            
+            if not result.document:
+                error_msg = "Document conversion failed: No document object returned"
+                logger.error("docling_conversion_failed", file_path=file_path)
+                return {
+                    "status": "error",
+                    "error": error_msg,
+                    "error_type": "conversion_failed"
+                }
+            
+            # Extract content and metadata
+            document = result.document
+            content_text = document.export_to_markdown()  # Unified format
+            
+            # Extract metadata
+            metadata = {
+                "file_name": file_obj.name,
+                "file_path": str(file_obj.absolute()),
+                "file_size_bytes": file_obj.stat().st_size,
+                "file_format": file_extension,
+                "page_count": getattr(document, 'page_count', 0),
+                "title": getattr(document, 'title', file_obj.stem),
+                "source_name": source_name
+            }
+            
+            logger.info(
+                "docling_success",
+                file_path=file_path,
+                content_length=len(content_text),
+                page_count=metadata.get("page_count", 0)
+            )
+        
+        except ValueError as e:
+            # Corrupted file or invalid content
+            error_msg = f"File appears to be corrupted or invalid: {str(e)}"
+            logger.error("docling_corrupted_file", file_path=file_path, error=str(e))
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "corrupted_file"
+            }
+        
+        except Exception as e:
+            # Other processing errors
+            logger.error("docling_processing_error", file_path=file_path, error=str(e), exc_info=True)
+            return {
+                "status": "error",
+                "error": f"Document processing failed: {str(e)}",
+                "error_type": "processing_error"
+            }
+        
+        # Send to orchestrator for async ingestion (HTTP 202 pattern)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                ingest_response = await client.post(
+                    f"{ORCHESTRATOR_BASE_URL}/lightrag/ingest-async",
+                    json={
+                        "source_type": "document",
+                        "source_name": source_name,
+                        "content": content_text,
+                        "metadata": metadata
+                    }
+                )
+                
+                ingest_response.raise_for_status()
+                ingest_data = ingest_response.json()
+                
+                # Return HTTP 202-style response with job_id
+                logger.info(
+                    "ingest_doc_success",
+                    file_path=file_path,
+                    content_length=len(content_text),
+                    job_id=ingest_data.get("job_id")
+                )
+                
+                return {
+                    "status": "accepted",  # HTTP 202 Accepted
+                    "message": f"Document ingestion initiated for {source_name}",
+                    "job_id": ingest_data.get("job_id"),
+                    "source_name": source_name,
+                    "file_format": file_extension,
+                    "content_length": len(content_text),
+                    "page_count": metadata.get("page_count", 0),
+                    "check_status_endpoint": f"/jobs/{ingest_data.get('job_id')}"
+                }
+            
+            except httpx.HTTPStatusError as e:
+                logger.error(
+                    "orchestrator_ingest_error",
+                    file_path=file_path,
+                    status_code=e.response.status_code,
+                    error=str(e)
+                )
+                return {
+                    "status": "error",
+                    "error": f"Orchestrator ingestion failed: {e.response.status_code}",
+                    "error_type": "orchestrator_error"
+                }
+            
+            except httpx.TimeoutError:
+                logger.error("orchestrator_timeout", file_path=file_path)
+                return {
+                    "status": "error",
+                    "error": "Orchestrator ingestion timeout",
+                    "error_type": "timeout_error"
+                }
     
     except Exception as e:
-        logger.error("process_document_error", file_path=file_path, error=str(e), exc_info=True)
-        return {"status": "error", "error": str(e)}
+        logger.error("ingest_doc_error", file_path=file_path, error=str(e), exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": "unknown_error"
+        }
 
 
 @mcp.tool()
