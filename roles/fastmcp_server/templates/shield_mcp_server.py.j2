@@ -15,6 +15,8 @@ import os
 import sys
 import asyncio
 from pathlib import Path
+from typing import Optional, List
+from urllib.parse import urlparse
 
 # Add current directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -22,6 +24,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 from fastmcp import FastMCP
 from logging_config import configure_structured_logging, get_logger
 from enhanced_health_check import comprehensive_health_check
+
+# Third-party imports
+import httpx
+from crawl4ai import AsyncWebCrawler
+from crawl4ai.async_crawler_strategy import AsyncCrawlerStrategy
 
 # Configure structured logging
 logger = configure_structured_logging()
@@ -38,34 +45,232 @@ ORCHESTRATOR_BASE_URL = os.getenv("ORCHESTRATOR_BASE_URL", "{{ orchestrator_base
 
 
 @mcp.tool()
-async def crawl_web(url: str, max_depth: int = 1) -> dict:
+async def crawl_web(
+    url: str,
+    max_pages: int = 10,
+    allowed_domains: Optional[List[str]] = None,
+    max_depth: int = 2
+) -> dict:
     """
-    Crawl a website using Crawl4AI
+    Crawl a website using Crawl4AI and send to orchestrator for async ingestion
     
     Args:
-        url: The URL to crawl
-        max_depth: Maximum crawl depth (default: 1)
+        url: The starting URL to crawl
+        max_pages: Maximum number of pages to crawl (default: 10)
+        allowed_domains: List of allowed domains to crawl (default: same domain as URL)
+        max_depth: Maximum crawl depth (default: 2)
     
     Returns:
-        dict: Crawl results with content and metadata
+        dict: HTTP 202-style response with job_id for status tracking
+    
+    Raises:
+        HTTPException: For HTTP errors (403, 404, timeouts)
     """
-    logger.info("crawl_web_start", url=url, max_depth=max_depth)
+    logger.info(
+        "crawl_web_start",
+        url=url,
+        max_pages=max_pages,
+        allowed_domains=allowed_domains,
+        max_depth=max_depth
+    )
     
     try:
-        # TODO: Implement Crawl4AI integration
-        result = {
-            "url": url,
-            "status": "success",
-            "content": "Crawl4AI integration pending",
-            "max_depth": max_depth
-        }
+        # Validate and parse URL (Single Responsibility)
+        parsed_url = urlparse(url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            error_msg = f"Invalid URL format: {url}"
+            logger.error("crawl_web_invalid_url", url=url, error=error_msg)
+            return {
+                "status": "error",
+                "error": error_msg,
+                "error_type": "validation_error"
+            }
         
-        logger.info("crawl_web_success", url=url, content_length=len(result.get("content", "")))
-        return result
+        # Set default allowed_domains to same domain if not provided (Dependency Inversion)
+        if allowed_domains is None:
+            allowed_domains = [parsed_url.netloc]
+        
+        # Initialize Crawl4AI async crawler
+        async with AsyncWebCrawler(
+            verbose=True,
+            max_concurrent=3  # Prevent overwhelming target servers
+        ) as crawler:
+            
+            logger.info(
+                "crawl4ai_crawling",
+                url=url,
+                max_pages=max_pages,
+                allowed_domains=allowed_domains
+            )
+            
+            # Perform the crawl with error handling
+            crawled_pages = []
+            pages_crawled = 0
+            
+            # Start with the initial URL
+            urls_to_crawl = [url]
+            crawled_urls = set()
+            
+            while urls_to_crawl and pages_crawled < max_pages:
+                current_url = urls_to_crawl.pop(0)
+                
+                if current_url in crawled_urls:
+                    continue
+                
+                try:
+                    # Crawl the page with timeout
+                    result = await asyncio.wait_for(
+                        crawler.arun(
+                            url=current_url,
+                            bypass_cache=True
+                        ),
+                        timeout=30.0  # 30 second timeout per page
+                    )
+                    
+                    if result.success:
+                        crawled_pages.append({
+                            "url": current_url,
+                            "content": result.markdown,
+                            "html": result.html,
+                            "links": result.links.get("internal", []) if result.links else [],
+                            "metadata": {
+                                "title": getattr(result, 'title', ''),
+                                "status_code": getattr(result, 'status_code', 200)
+                            }
+                        })
+                        crawled_urls.add(current_url)
+                        pages_crawled += 1
+                        
+                        # Add internal links to queue if within allowed domains
+                        if result.links and "internal" in result.links:
+                            for link in result.links["internal"]:
+                                link_domain = urlparse(link).netloc
+                                if link_domain in allowed_domains and link not in crawled_urls:
+                                    urls_to_crawl.append(link)
+                    
+                    else:
+                        logger.warning(
+                            "crawl4ai_page_failed",
+                            url=current_url,
+                            error=result.error_message if hasattr(result, 'error_message') else "Unknown error"
+                        )
+                
+                except asyncio.TimeoutError:
+                    logger.warning("crawl4ai_timeout", url=current_url, timeout=30)
+                    # Continue with next URL on timeout
+                    continue
+                
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code in [403, 404]:
+                        logger.warning(
+                            "crawl4ai_http_error",
+                            url=current_url,
+                            status_code=e.response.status_code,
+                            error=str(e)
+                        )
+                        # Continue with next URL on 403/404
+                        continue
+                    else:
+                        # Re-raise for other HTTP errors
+                        raise
+                
+                except Exception as page_error:
+                    logger.error(
+                        "crawl4ai_page_error",
+                        url=current_url,
+                        error=str(page_error),
+                        exc_info=True
+                    )
+                    # Continue with next URL on error
+                    continue
+            
+            logger.info(
+                "crawl4ai_complete",
+                url=url,
+                pages_crawled=pages_crawled,
+                total_content_size=sum(len(p["content"]) for p in crawled_pages)
+            )
+            
+            # Send to orchestrator for async ingestion (HTTP 202 pattern)
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    ingest_response = await client.post(
+                        f"{ORCHESTRATOR_BASE_URL}/lightrag/ingest-async",
+                        json={
+                            "source_type": "web_crawl",
+                            "source_url": url,
+                            "content": crawled_pages,
+                            "metadata": {
+                                "max_pages": max_pages,
+                                "allowed_domains": allowed_domains,
+                                "max_depth": max_depth,
+                                "pages_crawled": pages_crawled
+                            }
+                        }
+                    )
+                    
+                    ingest_response.raise_for_status()
+                    ingest_data = ingest_response.json()
+                    
+                    # Return HTTP 202-style response with job_id
+                    logger.info(
+                        "crawl_web_success",
+                        url=url,
+                        pages_crawled=pages_crawled,
+                        job_id=ingest_data.get("job_id")
+                    )
+                    
+                    return {
+                        "status": "accepted",  # HTTP 202 Accepted
+                        "message": f"Web crawl initiated for {url}",
+                        "job_id": ingest_data.get("job_id"),
+                        "pages_crawled": pages_crawled,
+                        "source_url": url,
+                        "check_status_endpoint": f"/jobs/{ingest_data.get('job_id')}"
+                    }
+                
+                except httpx.HTTPStatusError as e:
+                    logger.error(
+                        "orchestrator_ingest_error",
+                        url=url,
+                        status_code=e.response.status_code,
+                        error=str(e)
+                    )
+                    return {
+                        "status": "error",
+                        "error": f"Orchestrator ingestion failed: {e.response.status_code}",
+                        "error_type": "orchestrator_error"
+                    }
+                
+                except httpx.TimeoutError:
+                    logger.error("orchestrator_timeout", url=url)
+                    return {
+                        "status": "error",
+                        "error": "Orchestrator ingestion timeout",
+                        "error_type": "timeout_error"
+                    }
+    
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "crawl_web_http_error",
+            url=url,
+            status_code=e.response.status_code,
+            error=str(e)
+        )
+        return {
+            "status": "error",
+            "error": f"HTTP {e.response.status_code}: {str(e)}",
+            "error_type": "http_error",
+            "status_code": e.response.status_code
+        }
     
     except Exception as e:
         logger.error("crawl_web_error", url=url, error=str(e), exc_info=True)
-        return {"status": "error", "error": str(e)}
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": "unknown_error"
+        }
 
 
 @mcp.tool()
