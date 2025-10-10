@@ -6,10 +6,16 @@ MAIN_PY="/opt/hx-citadel-shield/orchestrator/main.py"
 # Remove all Ansible managed blocks first
 sed -i '/# BEGIN ANSIBLE MANAGED BLOCK/,/# END ANSIBLE MANAGED BLOCK/d' "$MAIN_PY"
 
-# Check if already has agent_manager import
+# Check and add agent_manager import if missing
 if ! grep -q "from services.agent_manager import agent_manager" "$MAIN_PY"; then
-    # Add imports after event_bus import
-    sed -i '/from services.event_bus import/a\from services.agent_manager import agent_manager\nfrom services.workflow_manager import workflow_manager' "$MAIN_PY"
+    sed -i '/from services.event_bus import/a\from services.agent_manager import agent_manager' "$MAIN_PY"
+    echo "Added agent_manager import"
+fi
+
+# Check and add workflow_manager import if missing
+if ! grep -q "from services.workflow_manager import workflow_manager" "$MAIN_PY"; then
+    sed -i '/from services.event_bus import/a\from services.workflow_manager import workflow_manager' "$MAIN_PY"
+    echo "Added workflow_manager import"
 fi
 
 # Add initialization after init_event_bus (with proper indentation)
