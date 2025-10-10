@@ -1,8 +1,10 @@
 # Critical Fixes Remaining
 
-**Status**: Partially Complete - Documentation and security issues fixed, many runtime fixes still needed
+**Status**: Major Progress - 31 of 45 issues fixed (69% complete)
 
-## ✅ COMPLETED (10 fixes)
+## ✅ COMPLETED (31 fixes)
+
+### Batch 1: Documentation & Initial Security (12 fixes)
 
 1. ✅ **docs/02-fastapi-framework-plan.md**: Fixed hardcoded TrustedHostMiddleware hosts - now uses `{{ fastapi_trusted_hosts }}` variable
 2. ✅ **docs/05-qdrant-integration-plan.md**: Added language identifiers to fenced code blocks (text, ini)
@@ -16,6 +18,31 @@
 10. ✅ **status/STATUS-2025-10-09-component-5-qdrant.md**: Removed exposed Qdrant API key
 11. ✅ **roles/orchestrator_fastapi/templates/config/settings.py.j2**: Added password URL encoding with quote_plus()
 12. ✅ **roles/orchestrator_fastapi/tasks/05-health-checks.yml**: Added return_content: yes to all uri tasks
+
+### Batch 2: Critical Security & Runtime Errors (10 fixes)
+
+1. ✅ **roles/orchestrator_redis/tasks/02-consumer-groups.yml**: Removed password from command line, use REDISCLI_AUTH env var
+2. ✅ **roles/orchestrator_redis/tasks/05-validation.yml**: Removed password from command line, use REDISCLI_AUTH env var
+3. ✅ **roles/orchestrator_postgresql/templates/database/schema/001_initial_setup.sql.j2**: Escape single quotes in password
+4. ✅ **roles/orchestrator_redis/templates/services/redis_streams.py.j2**: Fix TypeError - remove await from redis.from_url()
+5. ✅ **roles/orchestrator_redis/templates/api/events.py.j2**: Fix UnboundLocalError - add 'nonlocal last_id'
+6. ✅ **roles/orchestrator_postgresql/templates/database/connection.py.j2**: Fix SQLAlchemy 2.x - wrap SELECT in text()
+7. ✅ **roles/orchestrator_langgraph/templates/workflow_manager.py.j2**: Fix AttributeError - guard redis_client with getattr
+8. ✅ **roles/orchestrator_langgraph/templates/workflow_manager.py.j2**: Fix NameError - add **future** annotations + TYPE_CHECKING
+9. ✅ **roles/orchestrator_langgraph/templates/workflows/query_workflow.py.j2**: Fix NameError - remove undefined decision variable
+10. ✅ **roles/orchestrator_pydantic_ai/templates/agents/doc_process_coordinator.py.j2**: Fix state mutation - copy strategy dict
+
+### Batch 3: Important Role Configuration (9 fixes)
+
+1. ✅ **roles/fastapi/tasks/integrate-agents-workflows.yml**: Fix service name 'orchestrator' → 'shield-orchestrator.service'
+2. ✅ **roles/orchestrator_fastapi/templates/shield-orchestrator.service.j2**: Fix PATH order - EnvironmentFile before Environment
+3. ✅ **roles/orchestrator_copilotkit/tasks/02-validation.yml**: Fix undefined variables - use orchestrator_venv_dir/app_dir
+4. ✅ **roles/orchestrator_lightrag/templates/api/ingestion.py.j2**: Add empty chunks validation (HTTP 400)
+5. ✅ **roles/orchestrator_postgresql/tasks/01-database-setup.yml**: Replace inline sudo with become/become_user
+6. ✅ **roles/orchestrator_postgresql/tasks/03-alembic-setup.yml**: Fix alembic check - check rc != 0 or no '(head)'
+7. ✅ **roles/orchestrator_postgresql/templates/database/migrations/env.py.j2**: Fix sys.path - use parents[2]
+8. ✅ **roles/orchestrator_langgraph/tasks/01-dependencies.yml**: Add missing become: yes to file copy
+9. ✅ **roles/orchestrator_langgraph/tasks/03-validation.yml**: Fix validation booleans - add | bool filter
 
 ## 🚨 CRITICAL REMAINING (High Priority - Security/Runtime Errors)
 
