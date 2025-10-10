@@ -89,12 +89,14 @@ cors_origins:
   - "http://192.168.10.12:3002"  # shield-dashboard
 
 # Trusted hosts (for TrustedHostMiddleware)
+# SECURITY: Only list explicit hosts in production to prevent host header attacks
+# For development environments, you can set fastapi_trusted_hosts: ["*"] in dev-specific
+# inventory or group_vars, but production must explicitly list allowed hosts
 fastapi_trusted_hosts:
   - "192.168.10.8"
   - "hx-orchestrator-server.dev-test.hana-x.ai"
   - "localhost"
   - "127.0.0.1"
-  - "*"  # Allow all for development; restrict in production
 
 # Health check
 health_check_path: "/health"

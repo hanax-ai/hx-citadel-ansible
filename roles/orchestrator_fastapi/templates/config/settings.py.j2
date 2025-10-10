@@ -5,7 +5,7 @@ Configuration management using Pydantic Settings
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, SecretStr
 from typing import List
-from urllib.parse import quote_plus
+from urllib.parse import quote
 
 
 class Settings(BaseSettings):
@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     
     @property
     def database_url(self) -> str:
-        encoded_password = quote_plus(self.postgres_password.get_secret_value())
+        # Use quote() with safe="" for proper URL userinfo encoding (asyncpg compatible)
+        # quote_plus() encodes spaces as '+' which breaks asyncpg DSN parsing
+        encoded_password = quote(self.postgres_password.get_secret_value(), safe="")
         return f"postgresql+asyncpg://{self.postgres_user}:{encoded_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
     
     # Redis
