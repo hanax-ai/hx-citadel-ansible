@@ -208,12 +208,14 @@ async def suggest_chunking_strategy(
         }
     }
     
-    strategy = strategies.get(document_type.lower(), strategies["text"])
+    # Copy strategy to avoid mutating the shared dict
+    strategy = strategies.get(document_type.lower(), strategies["text"]).copy()
     
     # Adjust for size
     estimated_chunks = total_size / strategy["chunk_size"]
     if estimated_chunks > 1000:
         strategy["chunk_size"] = int(total_size / 800)  # Cap at 800 chunks
+        estimated_chunks = total_size / strategy["chunk_size"]  # Recompute with new chunk size
     
     return f"""Recommended Chunking Strategy:
 - Chunk size: {strategy['chunk_size']} characters

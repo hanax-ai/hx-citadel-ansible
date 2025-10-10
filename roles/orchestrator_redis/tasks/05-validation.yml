@@ -2,8 +2,10 @@
 # Redis Streams validation
 - name: Test Redis connection from orchestrator
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning ping
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: redis_ping_test
   changed_when: false
   failed_when: "'PONG' not in redis_ping_test.stdout"
@@ -11,24 +13,30 @@
 
 - name: Verify ingestion queue stream exists
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XINFO STREAM {{ redis_stream_ingestion }}
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: ingestion_stream_check
   changed_when: false
   tags: [validation]
 
 - name: Verify events stream exists
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XINFO STREAM {{ redis_stream_events }}
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: events_stream_check
   changed_when: false
   tags: [validation]
 
 - name: Verify consumer groups on ingestion stream
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XINFO GROUPS {{ redis_stream_ingestion }}
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: ingestion_groups
   changed_when: false
   failed_when: "'{{ redis_consumer_group_workers }}' not in ingestion_groups.stdout"
@@ -36,8 +44,10 @@
 
 - name: Verify consumer groups on events stream
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XINFO GROUPS {{ redis_stream_events }}
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: events_groups
   changed_when: false
   tags: [validation]

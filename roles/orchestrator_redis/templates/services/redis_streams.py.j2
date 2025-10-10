@@ -31,7 +31,7 @@ class RedisStreamsClient:
     
     async def connect(self):
         """Initialize Redis connection"""
-        self.client = await redis.from_url(
+        self.client = redis.from_url(
             "{{ redis_url }}",
             encoding="utf-8",
             decode_responses=True,

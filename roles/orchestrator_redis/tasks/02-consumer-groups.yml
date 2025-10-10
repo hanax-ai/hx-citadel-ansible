@@ -2,8 +2,10 @@
 # Redis consumer group setup (on hx-sqldb-server)
 - name: Create ingestion queue stream with workers consumer group
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XGROUP CREATE {{ redis_stream_ingestion }} {{ redis_consumer_group_workers }} $ MKSTREAM
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: create_ingestion_group
   failed_when: false
   changed_when: "'OK' in create_ingestion_group.stdout"
@@ -11,8 +13,10 @@
 
 - name: Create metrics collector consumer group (ingestion)
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XGROUP CREATE {{ redis_stream_ingestion }} {{ redis_consumer_group_metrics }} $ MKSTREAM
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: create_metrics_ingestion
   failed_when: false
   changed_when: "'OK' in create_metrics_ingestion.stdout"
@@ -20,8 +24,10 @@
 
 - name: Create events stream with ag-ui consumer group
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_ag_ui }} $ MKSTREAM
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: create_events_ag_ui
   failed_when: false
   changed_when: "'OK' in create_events_ag_ui.stdout"
@@ -29,8 +35,10 @@
 
 - name: Create power-ui consumer group (events)
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_power_ui }} $ MKSTREAM
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: create_events_power_ui
   failed_when: false
   changed_when: "'OK' in create_events_power_ui.stdout"
@@ -38,8 +46,10 @@
 
 - name: Create dashboard consumer group (events)
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_dashboard }} $ MKSTREAM
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: create_events_dashboard
   failed_when: false
   changed_when: "'OK' in create_events_dashboard.stdout"
@@ -47,8 +57,10 @@
 
 - name: Create metrics collector consumer group (events)
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_metrics }} $ MKSTREAM
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: create_events_metrics
   failed_when: false
   changed_when: "'OK' in create_events_metrics.stdout"
@@ -56,16 +68,20 @@
 
 - name: Verify consumer groups created on ingestion stream
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XINFO GROUPS {{ redis_stream_ingestion }}
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: ingestion_groups_check
   changed_when: false
   tags: [consumer-groups, validation]
 
 - name: Verify consumer groups created on events stream
   ansible.builtin.command: >
-    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    redis-cli -h {{ redis_host }} -p {{ redis_port }}
     --no-auth-warning XINFO GROUPS {{ redis_stream_events }}
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
   register: events_groups_check
   changed_when: false
   tags: [consumer-groups, validation]

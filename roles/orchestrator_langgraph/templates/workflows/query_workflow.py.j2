@@ -93,8 +93,7 @@ async def route_query_node(state: QueryState) -> Dict[str, Any]:
             "mode": mode,
             "metadata": {
                 "routing_reason": reason,
-                "routing_confidence": confidence,
-                "estimated_latency_ms": decision.estimated_latency_ms
+                "routing_confidence": confidence
             }
         }
         

@@ -33,6 +33,7 @@ async def event_stream(request: Request, last_id: str = "0"):
     
     async def event_generator():
         """Generate SSE events from Redis Streams"""
+        nonlocal last_id
         consumer_name = f"sse-{request.client.host}"
         
         try:

@@ -6,9 +6,15 @@ Manages workflow compilation, execution, and PostgreSQL-based checkpointing.
 Refactored to reuse existing database connections.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+if TYPE_CHECKING:
+    from workflows.query_workflow import QueryState
+    from workflows.ingestion_workflow import IngestionState
 
 logger = logging.getLogger("shield-orchestrator.workflow_manager")
 
@@ -403,10 +409,13 @@ class WorkflowManager:
         if not self._initialized:
             return health
         
-        # Check Redis
+        # Check Redis (if configured)
         try:
-            await self.redis_client.ping()
-            health["redis"] = "ok"
+            if getattr(self, "redis_client", None):
+                await self.redis_client.ping()
+                health["redis"] = "ok"
+            else:
+                health["redis"] = "not_configured"
         except Exception as e:
             health["redis"] = f"error: {str(e)}"
         
