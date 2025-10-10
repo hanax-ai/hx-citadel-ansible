@@ -8,6 +8,7 @@
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
     mode: '0644'
+  become: yes
   tags:
     - langgraph
     - dependencies

@@ -11,8 +11,10 @@
 
 - name: Check if database exists
   ansible.builtin.command: >
-    sudo -i -u {{ postgres_superuser }} psql -tAc 
+    psql -tAc 
     "SELECT 1 FROM pg_database WHERE datname='{{ postgres_database }}'"
+  become: yes
+  become_user: "{{ postgres_superuser }}"
   delegate_to: "{{ postgres_host }}"
   register: db_exists
   changed_when: false

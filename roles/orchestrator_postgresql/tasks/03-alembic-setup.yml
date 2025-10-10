@@ -56,7 +56,7 @@
   become: yes
   become_user: "{{ orchestrator_service_user }}"
   register: migration_created
-  when: "'(head)' not in alembic_current.stdout"
+  when: "alembic_current.rc != 0 or '(head)' not in alembic_current.stdout"
   changed_when: "'Generating' in migration_created.stdout"
   failed_when: false
   tags: [migrations]

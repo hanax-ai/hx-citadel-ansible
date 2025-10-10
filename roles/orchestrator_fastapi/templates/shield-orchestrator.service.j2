@@ -11,9 +11,9 @@ User={{ orchestrator_service_user }}
 Group={{ orchestrator_service_group }}
 WorkingDirectory={{ orchestrator_app_dir }}
 
-# Environment
-Environment=PATH={{ orchestrator_venv_dir }}/bin:/usr/local/bin:/usr/bin
+# Environment (EnvironmentFile first so PATH in .env gets overridden)
 EnvironmentFile={{ orchestrator_app_dir }}/config/.env
+Environment=PATH={{ orchestrator_venv_dir }}/bin:/usr/local/bin:/usr/bin
 
 # Execution
 ExecStart={{ orchestrator_venv_dir }}/bin/uvicorn main:app \

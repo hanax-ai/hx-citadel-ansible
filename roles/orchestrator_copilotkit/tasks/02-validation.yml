@@ -3,7 +3,7 @@
 
 - name: Test CopilotKit adapter syntax
   ansible.builtin.command:
-    cmd: "{{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/services/copilotkit_adapter.py"
+    cmd: "{{ orchestrator_venv_dir }}/bin/python -m py_compile {{ orchestrator_app_dir }}/services/copilotkit_adapter.py"
   register: adapter_syntax_check
   changed_when: false
   failed_when: adapter_syntax_check.rc != 0
@@ -12,7 +12,7 @@
 
 - name: Test CopilotKit API syntax
   ansible.builtin.command:
-    cmd: "{{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/api/copilotkit.py"
+    cmd: "{{ orchestrator_venv_dir }}/bin/python -m py_compile {{ orchestrator_app_dir }}/api/copilotkit.py"
   register: api_syntax_check
   changed_when: false
   failed_when: api_syntax_check.rc != 0

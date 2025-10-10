@@ -57,7 +57,7 @@
 
 - name: Restart orchestrator service after integration
   ansible.builtin.systemd:
-    name: orchestrator
+    name: shield-orchestrator.service
     state: restarted
   when: agent_import_check.rc != 0 or workflow_import_check.rc != 0
 

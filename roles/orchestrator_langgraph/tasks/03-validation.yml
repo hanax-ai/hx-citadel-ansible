@@ -84,11 +84,11 @@
 - name: Create validation summary
   ansible.builtin.set_fact:
     langgraph_validation_summary:
-      langgraph_deps: "{{ langgraph_deps.rc == 0 }}"
-      query_workflow_syntax: "{{ query_workflow_syntax.rc == 0 }}"
-      ingestion_workflow_syntax: "{{ ingestion_workflow_syntax.rc == 0 }}"
-      workflow_manager_syntax: "{{ workflow_manager_syntax.rc == 0 }}"
-      workflow_init_syntax: "{{ workflow_init_syntax.rc == 0 }}"
+      langgraph_deps: "{{ (langgraph_deps.rc == 0) | bool }}"
+      query_workflow_syntax: "{{ (query_workflow_syntax.rc == 0) | bool }}"
+      ingestion_workflow_syntax: "{{ (ingestion_workflow_syntax.rc == 0) | bool }}"
+      workflow_manager_syntax: "{{ (workflow_manager_syntax.rc == 0) | bool }}"
+      workflow_init_syntax: "{{ (workflow_init_syntax.rc == 0) | bool }}"
       timestamp: "{{ ansible_date_time.iso8601 }}"
   tags:
     - langgraph
