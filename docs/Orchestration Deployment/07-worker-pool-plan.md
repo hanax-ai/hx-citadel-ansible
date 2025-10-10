@@ -114,6 +114,9 @@ class WorkerPool:
         """Start all workers"""
         self.running = True
         
+        # Capture the running event loop for signal handler
+        self.loop = asyncio.get_running_loop()
+        
         logger.info(f"Starting worker pool ({self.pool_size} workers)...")
         
         # Start workers
@@ -221,7 +224,8 @@ class WorkerPool:
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
         logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-        asyncio.create_task(self.stop())
+        # Use call_soon_threadsafe to schedule stop() on the captured event loop
+        self.loop.call_soon_threadsafe(lambda: asyncio.create_task(self.stop()))
 
 
 # Global worker pool instance

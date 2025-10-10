@@ -58,7 +58,7 @@ Component 4 (Redis Streams Integration) has been successfully deployed with all 
 ### Server
 - **Host**: hx-sqldb-server (192.168.10.48)
 - **Port**: 6379
-- **Authentication**: requirepass (Major8859!)
+- **Authentication**: requirepass [REDACTED - see vault]
 - **Network**: Bound to 127.0.0.1 and 192.168.10.48
 
 ### Streams

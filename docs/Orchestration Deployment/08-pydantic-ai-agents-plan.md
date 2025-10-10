@@ -98,7 +98,7 @@ class CrawlResult(BaseModel):
 
 # Define web crawl coordinator agent
 web_crawl_agent = Agent(
-    model="openai:llama3.2:latest",
+    model="ollama:llama3.2",
     result_type=CrawlResult,
     system_prompt="""
     You are the Web Crawl Coordinator for the Shield platform.

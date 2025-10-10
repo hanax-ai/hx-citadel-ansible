@@ -26,7 +26,7 @@ This plan covers Qdrant vector database integration for semantic search and vect
 
 ## Ansible Role Structure
 
-```
+```text
 roles/orchestrator_qdrant/
 ├── defaults/
 │   └── main.yml
@@ -51,7 +51,7 @@ roles/orchestrator_qdrant/
 
 ## files/requirements-qdrant.txt
 
-```
+```ini
 # Qdrant Dependencies
 # Component 5: Qdrant Integration
 

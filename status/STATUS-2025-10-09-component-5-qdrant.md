@@ -55,7 +55,7 @@ Component 5 (Qdrant Vector Database Integration) has been successfully deployed 
 ### Server
 - **Host**: hx-vectordb-server (192.168.10.9)
 - **Port**: 6333 (HTTPS)
-- **API Key**: 9381d692ff19c9eace23c8a3a73ffc551fab5281a1e75e10db599cc148558d09
+- **API Key**: {{ vault_qdrant_api_key }} [REDACTED - see group_vars/all/vault.yml]
 - **SSL Verification**: Disabled (self-signed certificate)
 - **Protocol**: HTTPS
 

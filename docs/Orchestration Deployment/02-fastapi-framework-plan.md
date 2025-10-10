@@ -88,6 +88,14 @@ cors_origins:
   - "http://192.168.10.12:3001"  # shield-ag-ui
   - "http://192.168.10.12:3002"  # shield-dashboard
 
+# Trusted hosts (for TrustedHostMiddleware)
+fastapi_trusted_hosts:
+  - "192.168.10.8"
+  - "hx-orchestrator-server.dev-test.hana-x.ai"
+  - "localhost"
+  - "127.0.0.1"
+  - "*"  # Allow all for development; restrict in production
+
 # Health check
 health_check_path: "/health"
 health_detailed_path: "/health/detailed"
@@ -219,12 +227,7 @@ app.add_middleware(
 # Add trusted host middleware (security)
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=[
-        "192.168.10.8",
-        "hx-orchestrator-server.dev-test.hana-x.ai",
-        "localhost",
-        "127.0.0.1"
-    ]
+    allowed_hosts={{ fastapi_trusted_hosts | default(['*']) | to_json }}
 )
 
 # Include routers

@@ -28,9 +28,13 @@
         - langgraph
   
   post_tasks:
-    - name: Wait for orchestrator service to stabilize
-      ansible.builtin.pause:
-        seconds: 10
+    - name: Wait for orchestrator service to be ready
+      ansible.builtin.wait_for:
+        port: 8080
+        host: localhost
+        state: started
+        delay: 2
+        timeout: 60
       tags:
         - langgraph
         - validation
@@ -46,22 +50,34 @@
     
     - name: Test workflow manager health endpoint
       ansible.builtin.uri:
-        url: "http://localhost:8000/health"
+        url: "http://localhost:8080/health"
         method: GET
         return_content: yes
         status_code: 200
       register: health_check
-      retries: 3
-      delay: 5
-      ignore_errors: yes
+      retries: 5
+      delay: 3
+      until: health_check.status == 200
+      failed_when: health_check.status != 200
       tags:
         - langgraph
         - validation
     
     - name: Display health check results
       ansible.builtin.debug:
-        msg: "{{ health_check.json | default('Health check skipped or failed') }}"
-      when: health_check is defined and health_check.json is defined
+        msg: "{{ health_check.json }}"
+      when: health_check is defined and health_check.status == 200
+      tags:
+        - langgraph
+        - validation
+    
+    - name: Display health check failure details
+      ansible.builtin.debug:
+        msg:
+          - "Health check failed!"
+          - "Status: {{ health_check.status | default('undefined') }}"
+          - "Content: {{ health_check.content | default('no content') }}"
+      when: health_check is defined and health_check.status is defined and health_check.status != 200
       tags:
         - langgraph
         - validation

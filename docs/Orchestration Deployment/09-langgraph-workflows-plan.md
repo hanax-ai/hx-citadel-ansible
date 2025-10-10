@@ -73,7 +73,7 @@ pydantic>=2.0.0
 ```yaml
 ---
 # LangGraph Configuration
-langgraph_checkpoint_backend: "redis"
+langgraph_checkpoint_backend: "postgres"
 langgraph_checkpoint_db: 1
 langgraph_state_retention_hours: 72
 

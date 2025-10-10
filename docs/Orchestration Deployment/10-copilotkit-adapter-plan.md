@@ -68,6 +68,7 @@ CopilotKit adapter for shield-power-ui
 """
 
 from typing import Dict, Any, AsyncIterator
+import asyncio
 import logging
 import json
 

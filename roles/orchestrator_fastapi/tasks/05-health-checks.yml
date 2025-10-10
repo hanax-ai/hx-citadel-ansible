@@ -14,6 +14,7 @@
     url: "http://localhost:{{ orchestrator_port }}{{ health_check_path }}"
     method: GET
     status_code: 200
+    return_content: yes
   register: health_check
   retries: 5
   delay: 3
@@ -25,6 +26,7 @@
     url: "http://localhost:{{ orchestrator_port }}{{ health_detailed_path }}"
     method: GET
     status_code: 200
+    return_content: yes
   register: health_detailed_check
   tags: [health, validation]
 
@@ -33,6 +35,7 @@
     url: "http://localhost:{{ orchestrator_port }}{{ health_readiness_path }}"
     method: GET
     status_code: 200
+    return_content: yes
   register: readiness_check
   tags: [health, validation]
 
@@ -41,6 +44,7 @@
     url: "http://localhost:{{ orchestrator_port }}{{ health_liveness_path }}"
     method: GET
     status_code: 200
+    return_content: yes
   register: liveness_check
   tags: [health, validation]
 

@@ -9,7 +9,7 @@
   
   vars:
     orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
-    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator/.venv"
+    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator-venv"
     orchestrator_service_user: "orchestrator"
     orchestrator_service_group: "orchestrator"
     orchestrator_port: 8000
