@@ -1,0 +1,54 @@
+---
+# Qdrant integration validation
+- name: Test Qdrant connection from orchestrator
+  ansible.builtin.uri:
+    url: "{{ qdrant_url }}/collections"
+    method: GET
+    headers:
+      api-key: "{{ qdrant_api_key }}"
+    validate_certs: "{{ qdrant_verify_ssl }}"
+    status_code: 200
+  register: qdrant_connection_test
+  tags: [validation]
+
+- name: Verify collection exists
+  ansible.builtin.uri:
+    url: "{{ qdrant_url }}/collections/{{ qdrant_collection }}"
+    method: GET
+    headers:
+      api-key: "{{ qdrant_api_key }}"
+    validate_certs: "{{ qdrant_verify_ssl }}"
+    status_code: 200
+  register: collection_verification
+  tags: [validation]
+
+- name: Test Ollama embedding endpoint
+  ansible.builtin.uri:
+    url: "{{ ollama_url }}/api/tags"
+    method: GET
+    status_code: 200
+  register: ollama_test
+  tags: [validation]
+
+- name: Verify embedding model available
+  ansible.builtin.shell: >
+    curl -s {{ ollama_url }}/api/tags | jq -r '.models[].name' | grep -q {{ ollama_embedding_model }}
+  register: embedding_model_check
+  changed_when: false
+  failed_when: false
+  tags: [validation]
+
+- name: Display Qdrant validation summary
+  ansible.builtin.debug:
+    msg:
+      - "============================================================"
+      - "Qdrant Integration Validation"
+      - "============================================================"
+      - "✅ Qdrant connection: {{ qdrant_connection_test.status }}"
+      - "✅ Collection {{ qdrant_collection }}: exists"
+      - "✅ Vectors: {{ collection_verification.json.result.points_count }}"
+      - "✅ Ollama available: {{ ollama_test.status }}"
+      - "⚠️  Embedding model {{ ollama_embedding_model }}: {{ 'available' if embedding_model_check.rc == 0 else 'not installed (will use available models)' }}"
+      - "✅ Qdrant integration complete!"
+      - "============================================================"
+  tags: [validation]

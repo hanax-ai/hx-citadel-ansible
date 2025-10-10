@@ -1,0 +1,90 @@
+---
+# Integrate Component 8 (Agents) and Component 9 (Workflows) into main.py
+
+- name: Remove any existing broken Ansible blocks from main.py
+  ansible.builtin.shell: |
+    sed -i '/# BEGIN ANSIBLE MANAGED BLOCK - Agents & Workflows/,/# END ANSIBLE MANAGED BLOCK - Agents & Workflows/d' {{ orchestrator_dir }}/main.py
+    sed -i '/# BEGIN ANSIBLE MANAGED BLOCK - Component 8 & 9/,/# END ANSIBLE MANAGED BLOCK - Component 8 & 9/d' {{ orchestrator_dir }}/main.py
+  args:
+    warn: false
+  ignore_errors: yes
+
+- name: Check if agent_manager is already imported in main.py
+  ansible.builtin.shell: |
+    grep -q "from services.agent_manager import agent_manager" {{ orchestrator_dir }}/main.py
+  register: agent_import_check
+  failed_when: false
+  changed_when: false
+
+- name: Check if workflow_manager is already imported in main.py
+  ansible.builtin.shell: |
+    grep -q "from services.workflow_manager import workflow_manager" {{ orchestrator_dir }}/main.py
+  register: workflow_import_check
+  failed_when: false
+  changed_when: false
+
+- name: Add agent_manager and workflow_manager imports to main.py
+  ansible.builtin.blockinfile:
+    path: "{{ orchestrator_dir }}/main.py"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Component 8 & 9 Imports"
+    insertafter: "from services.event_bus import"
+    block: |
+      from services.agent_manager import agent_manager
+      from services.workflow_manager import workflow_manager
+  when: agent_import_check.rc != 0 or workflow_import_check.rc != 0
+
+- name: Add agent_manager initialization to lifespan startup
+  ansible.builtin.blockinfile:
+    path: "{{ orchestrator_dir }}/main.py"
+    marker: "    # {mark} ANSIBLE MANAGED BLOCK - Agents & Workflows Startup"
+    insertafter: "await init_event_bus()"
+    block: |2
+          await agent_manager.initialize()
+          await workflow_manager.initialize()
+          logger.info("✅ Agents and workflows initialized")
+  when: agent_import_check.rc != 0 or workflow_import_check.rc != 0
+
+- name: Add agent_manager shutdown to lifespan shutdown
+  ansible.builtin.blockinfile:
+    path: "{{ orchestrator_dir }}/main.py"
+    marker: "    # {mark} ANSIBLE MANAGED BLOCK - Agents & Workflows Shutdown"
+    insertbefore: "await close_event_bus()"
+    block: |2
+          await workflow_manager.shutdown()
+          await agent_manager.shutdown()
+          logger.info("✅ Agents and workflows shut down")
+  when: agent_import_check.rc != 0 or workflow_import_check.rc != 0
+
+- name: Restart orchestrator service after integration
+  ansible.builtin.systemd:
+    name: orchestrator
+    state: restarted
+  when: agent_import_check.rc != 0 or workflow_import_check.rc != 0
+
+- name: Wait for orchestrator to be ready
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 8000
+    delay: 5
+    timeout: 30
+  when: agent_import_check.rc != 0 or workflow_import_check.rc != 0
+
+- name: Verify agent and workflow manager health
+  ansible.builtin.uri:
+    url: "http://localhost:8000/health"
+    method: GET
+    return_content: yes
+    status_code: 200
+  register: health_status
+  retries: 3
+  delay: 3
+
+- name: Display integration status
+  ansible.builtin.debug:
+    msg:
+      - "=== Component 8 & 9 Integration Status ==="
+      - "Agent Manager: {{ 'Already integrated' if agent_import_check.rc == 0 else 'Integrated' }}"
+      - "Workflow Manager: {{ 'Already integrated' if workflow_import_check.rc == 0 else 'Integrated' }}"
+      - "Orchestrator health: {{ health_status.json.status }}"
+      - "Service uptime: {{ health_status.json.uptime_seconds }}s"
+      - "=========================================="

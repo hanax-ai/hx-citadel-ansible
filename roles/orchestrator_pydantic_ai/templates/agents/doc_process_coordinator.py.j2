@@ -1,0 +1,261 @@
+"""
+Document Process Coordinator Agent
+Component 8: Pydantic AI Agents
+
+Coordinates document processing and chunking operations.
+Integrates with LightRAG for intelligent document ingestion.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+
+from pydantic_ai.models.openai import OpenAIModel
+
+from config.settings import settings
+
+logger = logging.getLogger("shield-orchestrator.agents.doc_process")
+
+
+# Agent response models
+class ChunkingStrategy(BaseModel):
+    """Document chunking strategy"""
+    chunk_size: int = Field(description="Size of each chunk in characters", ge=100, le=5000)
+    chunk_overlap: int = Field(description="Overlap between chunks", ge=0, le=500)
+    split_by: str = Field(description="Split method: paragraph, sentence, token")
+    preserve_structure: bool = Field(description="Whether to preserve document structure")
+    reasoning: str = Field(description="Reasoning for this chunking strategy")
+
+
+class DocumentAnalysis(BaseModel):
+    """Document analysis result"""
+    document_type: str = Field(description="Type of document: pdf, markdown, html, text, code")
+    estimated_chunks: int = Field(description="Estimated number of chunks")
+    complexity: str = Field(description="Document complexity: simple, moderate, complex")
+    key_topics: list[str] = Field(description="Key topics identified in document")
+    recommended_strategy: ChunkingStrategy
+    processing_priority: str = Field(description="Priority: high, medium, low")
+
+
+# Agent dependencies
+@dataclass
+class DocProcessDeps:
+    """Dependencies for document processing agent"""
+    max_chunk_size: int = {{ doc_process_chunk_size | default(1000) }}
+    max_chunk_overlap: int = {{ doc_process_chunk_overlap | default(200) }}
+
+
+# Initialize model with LiteLLM provider
+# Note: pydantic-ai supports 'litellm' provider out of the box
+# It will use OPENAI_API_BASE and OPENAI_API_KEY environment variables
+model = OpenAIModel(
+    model_name=settings.llm_model,
+    provider='litellm'
+)
+
+# Create agent
+doc_process_coordinator = Agent(
+    model=model,
+    system_prompt=f"""You are an expert document processing coordinator for the HX-Citadel Shield system.
+Your role is to analyze documents and determine optimal processing strategies.
+
+The current date is: {datetime.now().strftime("%Y-%m-%d")}
+
+When analyzing documents:
+1. Identify document type and structure
+2. Assess content complexity and density
+3. Determine optimal chunking strategy
+4. Prioritize processing based on value
+5. Consider downstream LightRAG ingestion
+
+You coordinate with LightRAG for knowledge graph construction.
+""",
+    deps_type=DocProcessDeps,
+    retries={{ agent_retry_count | default(2) }}
+)
+
+
+@doc_process_coordinator.tool
+async def analyze_document_preview(
+    ctx: RunContext[DocProcessDeps],
+    content_preview: str,
+    file_type: str
+) -> str:
+    """
+    Analyze a preview of document content to determine processing strategy.
+
+    Args:
+        ctx: The context with dependencies
+        content_preview: First ~1000 chars of document
+        file_type: File extension (pdf, md, html, txt, etc.)
+
+    Returns:
+        Analysis summary string
+    """
+    logger.info(f"Analyzing document preview (type: {file_type})")
+    
+    # Basic analysis
+    preview_length = len(content_preview)
+    line_count = content_preview.count('\n')
+    word_count = len(content_preview.split())
+    
+    analysis = f"""Document Analysis:
+- Type: {file_type}
+- Preview length: {preview_length} characters
+- Lines: {line_count}
+- Words: ~{word_count}
+- Average line length: {preview_length / max(line_count, 1):.1f} chars
+
+Content structure analysis complete.
+"""
+    
+    return analysis
+
+
+@doc_process_coordinator.tool
+async def estimate_processing_time(
+    ctx: RunContext[DocProcessDeps],
+    document_size_bytes: int,
+    document_type: str
+) -> str:
+    """
+    Estimate processing time for a document.
+
+    Args:
+        ctx: The context with dependencies
+        document_size_bytes: Size of document in bytes
+        document_type: Type of document
+
+    Returns:
+        Time estimate string
+    """
+    logger.info(f"Estimating processing time for {document_size_bytes} byte {document_type}")
+    
+    # Rough estimates based on document type
+    processing_rates = {
+        "text": 100000,  # bytes per second
+        "markdown": 80000,
+        "pdf": 50000,
+        "html": 60000,
+        "code": 70000,
+    }
+    
+    rate = processing_rates.get(document_type.lower(), 50000)
+    estimated_seconds = document_size_bytes / rate
+    
+    # Add LightRAG processing overhead
+    estimated_seconds *= 1.5
+    
+    if estimated_seconds < 60:
+        return f"Estimated processing time: {estimated_seconds:.1f} seconds"
+    else:
+        minutes = estimated_seconds / 60
+        return f"Estimated processing time: {minutes:.1f} minutes"
+
+
+@doc_process_coordinator.tool
+async def suggest_chunking_strategy(
+    ctx: RunContext[DocProcessDeps],
+    content_sample: str,
+    document_type: str,
+    total_size: int
+) -> str:
+    """
+    Suggest optimal chunking strategy for a document.
+
+    Args:
+        ctx: The context with dependencies
+        content_sample: Sample of document content
+        document_type: Type of document
+        total_size: Total document size
+
+    Returns:
+        Chunking strategy recommendation
+    """
+    logger.info(f"Suggesting chunking strategy for {document_type}")
+    
+    # Default strategies by type
+    strategies = {
+        "code": {
+            "chunk_size": 800,
+            "overlap": 100,
+            "split_by": "paragraph",
+            "reason": "Code requires context preservation with function boundaries"
+        },
+        "markdown": {
+            "chunk_size": 1200,
+            "overlap": 200,
+            "split_by": "paragraph",
+            "reason": "Markdown structure benefits from paragraph-level chunking"
+        },
+        "pdf": {
+            "chunk_size": 1000,
+            "overlap": 150,
+            "split_by": "sentence",
+            "reason": "PDFs need sentence-level splitting for better coherence"
+        },
+        "text": {
+            "chunk_size": 1000,
+            "overlap": 200,
+            "split_by": "paragraph",
+            "reason": "Plain text works well with paragraph-based chunking"
+        }
+    }
+    
+    strategy = strategies.get(document_type.lower(), strategies["text"])
+    
+    # Adjust for size
+    estimated_chunks = total_size / strategy["chunk_size"]
+    if estimated_chunks > 1000:
+        strategy["chunk_size"] = int(total_size / 800)  # Cap at 800 chunks
+    
+    return f"""Recommended Chunking Strategy:
+- Chunk size: {strategy['chunk_size']} characters
+- Overlap: {strategy['overlap']} characters
+- Split by: {strategy['split_by']}
+- Estimated chunks: {int(estimated_chunks)}
+- Reason: {strategy['reason']}
+"""
+
+
+# Convenience functions
+async def coordinate_doc_processing(
+    content_preview: str,
+    file_type: str,
+    document_size: int
+) -> DocumentAnalysis:
+    """
+    Coordinate document processing and get analysis.
+
+    Args:
+        content_preview: Preview of document content
+        file_type: File extension
+        document_size: Document size in bytes
+
+    Returns:
+        DocumentAnalysis with recommended strategy
+    """
+    deps = DocProcessDeps()
+    
+    prompt = f"""Analyze this document and provide processing recommendations:
+
+Document type: {file_type}
+Document size: {document_size} bytes
+Content preview:
+{content_preview[:500]}...
+
+Provide a complete analysis with chunking strategy."""
+
+    result = await doc_process_coordinator.run(
+        prompt,
+        deps=deps,
+        result_type=DocumentAnalysis
+    )
+    
+    return result.data

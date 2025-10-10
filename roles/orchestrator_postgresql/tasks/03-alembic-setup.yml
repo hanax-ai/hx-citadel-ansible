@@ -1,0 +1,78 @@
+---
+# Alembic migrations setup
+- name: Create Alembic configuration directory
+  ansible.builtin.file:
+    path: "{{ orchestrator_app_dir }}/database/migrations"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+  tags: [migrations]
+
+- name: Check if Alembic is already initialized
+  ansible.builtin.stat:
+    path: "{{ orchestrator_app_dir }}/alembic.ini"
+  register: alembic_ini_check
+  tags: [migrations]
+
+- name: Initialize Alembic (if not exists)
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/alembic init database/migrations
+  args:
+    chdir: "{{ orchestrator_app_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  when: not alembic_ini_check.stat.exists
+  tags: [migrations]
+
+- name: Deploy Alembic environment configuration
+  ansible.builtin.template:
+    src: database/migrations/env.py.j2
+    dest: "{{ orchestrator_app_dir }}/database/migrations/env.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  tags: [migrations]
+
+- name: Check current Alembic revision
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/alembic current
+  args:
+    chdir: "{{ orchestrator_app_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  register: alembic_current
+  changed_when: false
+  failed_when: false
+  tags: [migrations]
+
+- name: Generate initial migration
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/alembic revision --autogenerate -m "Initial schema"
+  args:
+    chdir: "{{ orchestrator_app_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  register: migration_created
+  when: "'(head)' not in alembic_current.stdout"
+  changed_when: "'Generating' in migration_created.stdout"
+  failed_when: false
+  tags: [migrations]
+
+- name: Apply database migrations
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/alembic upgrade head
+  args:
+    chdir: "{{ orchestrator_app_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  register: migration_applied
+  changed_when: "'Running upgrade' in migration_applied.stdout"
+  tags: [migrations]
+
+- name: Display migration results
+  ansible.builtin.debug:
+    msg: "✅ Alembic migrations: {{ migration_applied.stdout_lines[-1] if migration_applied.stdout_lines else 'Already up to date' }}"
+  tags: [migrations]

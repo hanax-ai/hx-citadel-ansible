@@ -1,0 +1,235 @@
+"""
+SQLAlchemy models for Shield Orchestrator.
+Defines the database schema for orchestration operations.
+"""
+
+from datetime import datetime
+from typing import Optional
+from uuid import uuid4
+
+from sqlalchemy import (
+    String, Text, Integer, Float, Boolean, DateTime, JSON,
+    ForeignKey, Enum as SQLEnum, Index, CheckConstraint,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+import enum
+
+from database.connection import Base
+
+
+class TaskStatus(str, enum.Enum):
+    """Task execution status enumeration."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMEOUT = "timeout"
+
+
+class TaskPriority(str, enum.Enum):
+    """Task priority levels."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class Task(Base):
+    """
+    Orchestration task model.
+    Represents individual tasks in the orchestration workflow.
+    """
+    __tablename__ = "tasks"
+    
+    # Primary key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4())
+    )
+    
+    # Task identification
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    task_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    
+    # Task status and priority
+    status: Mapped[TaskStatus] = mapped_column(
+        SQLEnum(TaskStatus),
+        nullable=False,
+        default=TaskStatus.PENDING,
+        index=True
+    )
+    priority: Mapped[TaskPriority] = mapped_column(
+        SQLEnum(TaskPriority),
+        nullable=False,
+        default=TaskPriority.MEDIUM
+    )
+    
+    # Task parameters and results
+    parameters: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Execution tracking
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    
+    # Retry logic
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_retries: Mapped[int] = mapped_column(Integer, default=3)
+    
+    # Worker assignment
+    worker_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    
+    # Indexes for common queries
+    __table_args__ = (
+        Index('idx_tasks_status_priority', 'status', 'priority'),
+        Index('idx_tasks_created_at', 'created_at'),
+        Index('idx_tasks_worker_id', 'worker_id'),
+        CheckConstraint('retry_count <= max_retries', name='check_retry_limit'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<Task(id={self.id}, name={self.name}, status={self.status})>"
+
+
+class WorkflowExecution(Base):
+    """
+    Workflow execution tracking model.
+    Tracks the execution of complete workflows.
+    """
+    __tablename__ = "workflow_executions"
+    
+    # Primary key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4())
+    )
+    
+    # Workflow identification
+    workflow_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    workflow_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    
+    # Execution status
+    status: Mapped[TaskStatus] = mapped_column(
+        SQLEnum(TaskStatus),
+        nullable=False,
+        default=TaskStatus.PENDING,
+        index=True
+    )
+    
+    # Workflow context
+    context: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Execution timing
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    
+    # Metadata
+    triggered_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tags: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_workflows_status', 'status'),
+        Index('idx_workflows_created_at', 'created_at'),
+        Index('idx_workflows_workflow_name', 'workflow_name'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<WorkflowExecution(id={self.id}, name={self.workflow_name}, status={self.status})>"
+
+
+class AgentSession(Base):
+    """
+    Agent session tracking model.
+    Tracks active agent sessions and their state.
+    """
+    __tablename__ = "agent_sessions"
+    
+    # Primary key
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4())
+    )
+    
+    # Agent identification
+    agent_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    agent_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    
+    # Session state
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    state: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # Session timing
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    last_heartbeat: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Session metadata
+    session_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_agent_sessions_agent_id', 'agent_id'),
+        Index('idx_agent_sessions_is_active', 'is_active'),
+        Index('idx_agent_sessions_last_heartbeat', 'last_heartbeat'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<AgentSession(id={self.id}, agent_id={self.agent_id}, active={self.is_active})>"

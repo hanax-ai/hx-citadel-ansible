@@ -1,0 +1,78 @@
+---
+# Redis consumer group setup (on hx-sqldb-server)
+- name: Create ingestion queue stream with workers consumer group
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XGROUP CREATE {{ redis_stream_ingestion }} {{ redis_consumer_group_workers }} $ MKSTREAM
+  register: create_ingestion_group
+  failed_when: false
+  changed_when: "'OK' in create_ingestion_group.stdout"
+  tags: [consumer-groups]
+
+- name: Create metrics collector consumer group (ingestion)
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XGROUP CREATE {{ redis_stream_ingestion }} {{ redis_consumer_group_metrics }} $ MKSTREAM
+  register: create_metrics_ingestion
+  failed_when: false
+  changed_when: "'OK' in create_metrics_ingestion.stdout"
+  tags: [consumer-groups]
+
+- name: Create events stream with ag-ui consumer group
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_ag_ui }} $ MKSTREAM
+  register: create_events_ag_ui
+  failed_when: false
+  changed_when: "'OK' in create_events_ag_ui.stdout"
+  tags: [consumer-groups]
+
+- name: Create power-ui consumer group (events)
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_power_ui }} $ MKSTREAM
+  register: create_events_power_ui
+  failed_when: false
+  changed_when: "'OK' in create_events_power_ui.stdout"
+  tags: [consumer-groups]
+
+- name: Create dashboard consumer group (events)
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_dashboard }} $ MKSTREAM
+  register: create_events_dashboard
+  failed_when: false
+  changed_when: "'OK' in create_events_dashboard.stdout"
+  tags: [consumer-groups]
+
+- name: Create metrics collector consumer group (events)
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XGROUP CREATE {{ redis_stream_events }} {{ redis_consumer_group_metrics }} $ MKSTREAM
+  register: create_events_metrics
+  failed_when: false
+  changed_when: "'OK' in create_events_metrics.stdout"
+  tags: [consumer-groups]
+
+- name: Verify consumer groups created on ingestion stream
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XINFO GROUPS {{ redis_stream_ingestion }}
+  register: ingestion_groups_check
+  changed_when: false
+  tags: [consumer-groups, validation]
+
+- name: Verify consumer groups created on events stream
+  ansible.builtin.command: >
+    redis-cli -h {{ redis_host }} -p {{ redis_port }} -a {{ redis_password }}
+    --no-auth-warning XINFO GROUPS {{ redis_stream_events }}
+  register: events_groups_check
+  changed_when: false
+  tags: [consumer-groups, validation]
+
+- name: Display consumer groups summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Ingestion stream consumer groups: {{ ingestion_groups_check.stdout_lines | length }}"
+      - "✅ Events stream consumer groups: {{ events_groups_check.stdout_lines | length }}"
+  tags: [consumer-groups]

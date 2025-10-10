@@ -1,0 +1,128 @@
+---
+# Main.py integration for worker pool
+
+- name: Check if main.py exists
+  ansible.builtin.stat:
+    path: "{{ orchestrator_app_dir }}/main.py"
+  register: main_py_stat
+  become: yes
+  tags: [integration]
+
+- name: Fail if main.py doesn't exist
+  ansible.builtin.fail:
+    msg: "main.py not found at {{ orchestrator_app_dir }}/main.py"
+  when: not main_py_stat.stat.exists
+  tags: [integration]
+
+- name: Add event_bus import to main.py
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "from services.event_bus import event_bus, init_event_bus, close_event_bus"
+    insertafter: "^from services\\.lightrag_service import"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add worker_pool import to main.py
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "from workers.worker_pool import start_worker_pool, stop_worker_pool, check_worker_pool_health"
+    insertafter: "^from services\\.event_bus import"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add jobs router import to main.py
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "from api import jobs"
+    insertafter: "^from api import query"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add init_event_bus to lifespan startup
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "    await init_event_bus()"
+    insertafter: "    await init_lightrag\\(\\)"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add start_worker_pool to lifespan startup
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "    await start_worker_pool()"
+    insertafter: "    await init_event_bus\\(\\)"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add stop_worker_pool to lifespan shutdown
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "    await stop_worker_pool()"
+    insertafter: "    await close_lightrag\\(\\)"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add close_event_bus to lifespan shutdown
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "    await close_event_bus()"
+    insertafter: "    await stop_worker_pool\\(\\)"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add jobs router to FastAPI app
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: "app.include_router(jobs.router, tags=['jobs'])"
+    insertafter: "app\\.include_router\\(query\\.router"
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add worker pool health check to /health/detailed
+  ansible.builtin.blockinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Worker Pool Health"
+    insertafter: "qdrant_health = await check_qdrant_health\\(\\)"
+    block: |2
+          worker_pool_health = await check_worker_pool_health()
+          event_bus_stats = event_bus.get_stats()
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add worker pool health to response dict
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: '            "worker_pool": worker_pool_health,'
+    insertafter: '            "qdrant": qdrant_health,'
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]
+
+- name: Add event bus stats to response dict
+  ansible.builtin.lineinfile:
+    path: "{{ orchestrator_app_dir }}/main.py"
+    line: '            "event_bus": event_bus_stats,'
+    insertafter: '            "worker_pool": worker_pool_health,'
+    state: present
+  become: yes
+  notify: restart orchestrator
+  tags: [integration]

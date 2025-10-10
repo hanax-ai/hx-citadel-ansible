@@ -1,0 +1,35 @@
+---
+# Component 10: CopilotKit Adapter - Default Variables
+# Human-in-the-Loop Frontend Integration
+
+# CopilotKit Configuration
+copilotkit_enable: true
+copilotkit_sse_endpoint: "/copilotkit/stream"
+copilotkit_actions_endpoint: "/copilotkit/actions"
+
+# Frontend URLs (for CORS)
+shield_power_ui_urls:
+  - "http://192.168.10.12:3000"
+  - "http://192.168.10.12:3001"
+  - "http://192.168.10.12:3002"
+
+# SSE Configuration
+sse_keepalive_interval: 30  # seconds
+sse_retry_interval: 5000  # milliseconds
+
+# Action Configuration
+copilotkit_actions:
+  - name: "search_knowledge"
+    description: "Search the knowledge graph"
+    parameters:
+      - query
+  - name: "ingest_document"
+    description: "Ingest a document into the knowledge base"
+    parameters:
+      - url
+      - title
+  - name: "query_workflow"
+    description: "Execute intelligent query workflow"
+    parameters:
+      - query
+      - mode

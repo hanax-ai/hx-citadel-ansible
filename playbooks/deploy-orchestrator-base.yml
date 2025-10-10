@@ -1,0 +1,14 @@
+---
+- name: Deploy Orchestrator Base System
+  hosts: hx-orchestrator-server
+  become: yes
+  gather_facts: yes
+  
+  roles:
+    - base-setup              # Existing role (if needed)
+    - orchestrator_base_setup  # NEW ROLE
+  
+  tags:
+    - orchestrator
+    - base
+    - foundation

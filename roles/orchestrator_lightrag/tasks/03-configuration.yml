@@ -1,0 +1,21 @@
+---
+# LightRAG configuration
+
+- name: Ensure LightRAG working directory exists
+  ansible.builtin.file:
+    path: "{{ lightrag_working_dir }}"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+
+- name: Verify working directory permissions
+  ansible.builtin.stat:
+    path: "{{ lightrag_working_dir }}"
+  register: lightrag_workdir_stat
+  become: yes
+
+- name: Display working directory info
+  ansible.builtin.debug:
+    msg: "LightRAG working directory: {{ lightrag_working_dir }} (owner: {{ lightrag_workdir_stat.stat.pw_name }})"

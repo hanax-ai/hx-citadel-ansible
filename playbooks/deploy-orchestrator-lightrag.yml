@@ -1,0 +1,21 @@
+---
+# Deploy Component 6: LightRAG Engine
+# Hybrid Knowledge Graph + Vector Retrieval
+
+- name: Deploy LightRAG Engine to Orchestrator
+  hosts: hx-orchestrator-server
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/fqdn_map.yml
+    - ../group_vars/all/vault.yml
+  vars:
+    orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
+    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator-venv"
+    orchestrator_service_user: "orchestrator"
+    orchestrator_service_group: "orchestrator"
+    orchestrator_port: 8000
+    orchestrator_validate_after_deploy: true
+  
+  roles:
+    - role: orchestrator_lightrag
+      tags: [lightrag]

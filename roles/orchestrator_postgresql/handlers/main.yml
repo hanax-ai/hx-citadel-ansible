@@ -1,0 +1,9 @@
+---
+# Component 3: PostgreSQL Integration - Handlers
+
+- name: restart orchestrator
+  ansible.builtin.systemd:
+    name: shield-orchestrator
+    state: restarted
+    daemon_reload: yes
+  become: yes

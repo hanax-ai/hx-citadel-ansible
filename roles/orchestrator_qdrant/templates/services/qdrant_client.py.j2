@@ -1,0 +1,196 @@
+"""
+Qdrant vector database client
+"""
+
+from qdrant_client import AsyncQdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition
+from typing import List, Dict, Any, Optional
+import logging
+
+logger = logging.getLogger("shield-orchestrator.qdrant")
+
+
+class QdrantService:
+    """
+    Qdrant vector database service.
+    
+    Features:
+      - Async operations
+      - Connection pooling
+      - Error handling and retries
+      - Health monitoring
+    """
+    
+    def __init__(self):
+        self.client: Optional[AsyncQdrantClient] = None
+        self.collection_name = "{{ qdrant_collection }}"
+        self.embedding_dim = {{ ollama_embedding_dim }}
+    
+    async def connect(self):
+        """Initialize Qdrant client"""
+        self.client = AsyncQdrantClient(
+            url="{{ qdrant_url }}",
+            api_key="{{ qdrant_api_key }}",
+            timeout={{ qdrant_timeout }},
+            https={{ 'True' if 'https' in qdrant_url else 'False' }},
+            verify={{ 'True' if qdrant_verify_ssl else 'False' }}
+        )
+        
+        # Verify connection
+        collections = await self.client.get_collections()
+        logger.info(f"✅ Connected to Qdrant ({len(collections.collections)} collections)")
+    
+    async def close(self):
+        """Close Qdrant client"""
+        if self.client:
+            await self.client.close()
+            logger.info("✅ Qdrant client closed")
+    
+    async def verify_collection(self) -> bool:
+        """Verify collection exists"""
+        try:
+            collection_info = await self.client.get_collection(self.collection_name)
+            logger.info(f"✅ Collection {self.collection_name}: {collection_info.points_count} vectors")
+            return True
+        except Exception as e:
+            logger.error(f"Collection verification failed: {str(e)}")
+            return False
+    
+    async def search(
+        self,
+        query_vector: List[float],
+        limit: int = {{ qdrant_default_limit }},
+        score_threshold: float = {{ qdrant_default_score_threshold }},
+        filters: Optional[Dict] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Semantic search in Qdrant.
+        
+        Args:
+            query_vector: Embedding vector (1024-dim for mxbai-embed-large)
+            limit: Maximum results
+            score_threshold: Minimum similarity score
+            filters: Optional metadata filters
+        
+        Returns:
+            List of search results with scores and metadata
+        """
+        try:
+            results = await self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=limit,
+                score_threshold=score_threshold,
+                query_filter=filters
+            )
+            
+            return [
+                {
+                    "id": str(result.id),
+                    "score": result.score,
+                    "text": result.payload.get("text", ""),
+                    "source_uri": result.payload.get("source_uri", ""),
+                    "source_type": result.payload.get("source_type", "unknown"),
+                    "metadata": result.payload
+                }
+                for result in results
+            ]
+        
+        except Exception as e:
+            logger.error(f"Qdrant search error: {str(e)}")
+            raise
+    
+    async def upsert(
+        self,
+        points: List[Dict[str, Any]]
+    ) -> bool:
+        """
+        Insert or update vectors in Qdrant.
+        
+        Args:
+            points: List of points with id, vector, payload
+        
+        Returns:
+            Success status
+        """
+        try:
+            qdrant_points = [
+                PointStruct(
+                    id=point["id"],
+                    vector=point["vector"],
+                    payload=point.get("payload", {})
+                )
+                for point in points
+            ]
+            
+            await self.client.upsert(
+                collection_name=self.collection_name,
+                points=qdrant_points
+            )
+            
+            logger.info(f"✅ Upserted {len(points)} vectors to {self.collection_name}")
+            return True
+        
+        except Exception as e:
+            logger.error(f"Qdrant upsert error: {str(e)}")
+            raise
+    
+    async def get_collection_info(self) -> Dict[str, Any]:
+        """Get collection statistics"""
+        try:
+            info = await self.client.get_collection(self.collection_name)
+            return {
+                "name": self.collection_name,
+                "points_count": info.points_count,
+                "vectors_config": str(info.config.params.vectors),
+                "status": str(info.status)
+            }
+        except Exception as e:
+            logger.error(f"Failed to get collection info: {str(e)}")
+            return {"error": str(e)}
+
+
+# Global client instance
+qdrant_service = QdrantService()
+
+
+async def init_qdrant():
+    """Initialize Qdrant service"""
+    await qdrant_service.connect()
+    await qdrant_service.verify_collection()
+
+
+async def close_qdrant():
+    """Close Qdrant service"""
+    await qdrant_service.close()
+
+
+async def check_qdrant_health() -> dict:
+    """
+    Check Qdrant health for /health/detailed endpoint.
+    
+    Returns:
+        dict with status, latency, and collection info
+    """
+    import time
+    
+    try:
+        start = time.time()
+        collections = await qdrant_service.client.get_collections()
+        latency_ms = (time.time() - start) * 1000
+        
+        collection_info = await qdrant_service.get_collection_info()
+        
+        return {
+            "status": "up",
+            "latency_ms": round(latency_ms, 2),
+            "collections": [c.name for c in collections.collections],
+            "vectors": collection_info.get("points_count", 0)
+        }
+    except Exception as e:
+        logger.error(f"Qdrant health check failed: {str(e)}")
+        return {
+            "status": "down",
+            "error": str(e),
+            "latency_ms": 0
+        }

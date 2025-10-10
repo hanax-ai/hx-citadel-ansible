@@ -1,0 +1,171 @@
+"""
+Ingestion API endpoints (async processing via Redis Streams)
+Component 6: LightRAG Engine
+"""
+
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any
+import uuid
+import logging
+
+from services.redis_streams import redis_streams
+from services.event_bus import event_bus
+from services.job_tracker import job_tracker
+
+router = APIRouter()
+logger = logging.getLogger("shield-orchestrator.ingestion")
+
+
+class ChunkData(BaseModel):
+    """Single chunk of content to ingest"""
+    text: str = Field(..., description="Text content to process")
+    source_uri: str = Field(default="", description="Source URI/identifier")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Chunk metadata")
+
+
+class IngestRequest(BaseModel):
+    """Request model for async ingestion"""
+    chunks: List[ChunkData] = Field(..., description="List of text chunks to ingest")
+    source_type: str = Field(..., description="Source type: web, document, manual, etc.")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Job-level metadata")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "chunks": [
+                    {
+                        "text": "LightRAG is a hybrid retrieval system.",
+                        "source_uri": "https://example.com/doc1",
+                        "metadata": {"page": 1}
+                    }
+                ],
+                "source_type": "web",
+                "metadata": {"crawler_id": "crawler-1"}
+            }
+        }
+
+
+class IngestResponse(BaseModel):
+    """Response model for async ingestion"""
+    status: str = Field(..., description="Request status: accepted")
+    job_id: str = Field(..., description="Job ID for tracking")
+    chunks_queued: int = Field(..., description="Number of chunks queued")
+    message: str = Field(..., description="Human-readable message")
+
+
+@router.post(
+    "/lightrag/ingest-async",
+    response_model=IngestResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["lightrag", "ingestion"],
+    summary="Async text ingestion (LightRAG)",
+    description="""
+    Queue text chunks for asynchronous processing through LightRAG engine.
+    
+    **Processing Flow:**
+    1. Generate unique job_id
+    2. Queue chunks to Redis Streams (shield:ingestion_queue)
+    3. Return HTTP 202 Accepted immediately
+    4. Background workers process chunks:
+       - Extract entities (LLM)
+       - Extract relationships (LLM)
+       - Build Knowledge Graph (PostgreSQL)
+       - Generate embeddings (Ollama)
+       - Store vectors (Qdrant)
+    5. Emit events via Redis Streams (shield:events)
+    
+    **Tracking:**
+    - Monitor progress: GET /jobs/{job_id}
+    - Listen to events: GET /events/stream
+    """
+)
+async def ingest_async(request: IngestRequest):
+    """
+    Asynchronous ingestion endpoint (HTTP 202 Accepted).
+    
+    Returns immediately with job_id for background processing.
+    """
+    try:
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
+        
+        logger.info(f"Job {job_id}: Queuing {len(request.chunks)} chunks for ingestion")
+        
+        # Create job in tracker
+        await job_tracker.create_job(
+            job_id=job_id,
+            job_type="lightrag_ingestion",
+            chunks_total=len(request.chunks),
+            metadata={
+                "source_type": request.source_type,
+                **request.metadata
+            }
+        )
+        
+        # Add chunks to Redis Streams ingestion queue
+        chunks_queued = 0
+        for idx, chunk in enumerate(request.chunks):
+            chunk_id = f"{job_id}::{idx}"
+            
+            await redis_streams.add_task(
+                job_id=job_id,
+                chunk_id=chunk_id,
+                content=chunk.text,
+                source_uri=chunk.source_uri or f"chunk-{idx}",
+                source_type=request.source_type,
+                metadata={
+                    **chunk.metadata,
+                    **request.metadata,
+                    "chunk_index": idx
+                }
+            )
+            chunks_queued += 1
+        
+        # Emit ingestion.queued event to all subscribers
+        await event_bus.emit_event(
+            event_type="ingestion.queued",
+            job_id=job_id,
+            data={
+                "chunks_total": len(request.chunks),
+                "source_type": request.source_type,
+                "metadata": request.metadata
+            }
+        )
+        
+        logger.info(f"✅ Job {job_id}: {chunks_queued} chunks queued for processing")
+        
+        return IngestResponse(
+            status="accepted",
+            job_id=job_id,
+            chunks_queued=chunks_queued,
+            message=f"Ingestion job queued successfully. Track status at /jobs/{job_id}"
+        )
+    
+    except Exception as e:
+        logger.error(f"Ingestion error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to queue ingestion job: {str(e)}"
+        )
+
+
+@router.get(
+    "/lightrag/stats",
+    tags=["lightrag"],
+    summary="LightRAG statistics",
+    description="Get current LightRAG engine statistics (KG entities, relationships, vectors)"
+)
+async def get_lightrag_stats():
+    """Get LightRAG engine statistics"""
+    try:
+        from services.lightrag_service import lightrag_service
+        stats = await lightrag_service.get_stats()
+        return stats
+    
+    except Exception as e:
+        logger.error(f"Stats error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

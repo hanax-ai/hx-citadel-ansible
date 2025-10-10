@@ -1,0 +1,30 @@
+---
+# Event bus deployment
+
+- name: Deploy event bus service module
+  ansible.builtin.template:
+    src: services/event_bus.py.j2
+    dest: "{{ orchestrator_app_dir }}/services/event_bus.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [event-bus]
+
+- name: Test event bus import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from services.event_bus import event_bus; 
+    print("✅ Event bus imported")'
+  register: event_bus_import_test
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  tags: [event-bus, validation]
+
+- name: Display event bus import result
+  ansible.builtin.debug:
+    msg: "{{ event_bus_import_test.stdout }}"
+  tags: [event-bus, validation]

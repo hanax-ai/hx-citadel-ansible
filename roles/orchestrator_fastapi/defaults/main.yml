@@ -1,0 +1,38 @@
+---
+# FastAPI Configuration
+fastapi_version: ">=0.115.0"
+uvicorn_version: ">=0.30.0"
+pydantic_version: ">=2.0.0"
+
+# Server configuration
+orchestrator_host: "0.0.0.0"
+orchestrator_port: 8000
+orchestrator_workers: 4
+orchestrator_reload: false  # Set to true for dev
+
+# Logging
+log_level: "INFO"
+log_format: "json"
+log_config_file: "/opt/hx-citadel-shield/orchestrator/config/logging.yaml"
+
+# API configuration
+api_title: "Shield Orchestrator API"
+api_version: "1.0.0"
+api_description: "HX-Citadel Shield Intelligence Hub"
+api_docs_url: "/docs"
+api_redoc_url: "/redoc"
+api_openapi_url: "/openapi.json"
+
+# CORS configuration
+cors_enabled: true
+cors_origins:
+  - "http://{{ hx_hosts_fqdn['hx-webui-server'] }}"       # Open WebUI
+  - "http://{{ hx_hosts_fqdn['hx-dev-server'] }}:3000"  # shield-power-ui
+  - "http://{{ hx_hosts_fqdn['hx-dev-server'] }}:3001"  # shield-ag-ui
+  - "http://{{ hx_hosts_fqdn['hx-dev-server'] }}:3002"  # shield-dashboard
+
+# Health check
+health_check_path: "/health"
+health_detailed_path: "/health/detailed"
+health_readiness_path: "/health/readiness"
+health_liveness_path: "/health/liveness"

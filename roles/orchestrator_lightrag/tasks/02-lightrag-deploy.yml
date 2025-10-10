@@ -1,0 +1,26 @@
+---
+# LightRAG service deployment
+
+- name: Deploy LightRAG service module
+  ansible.builtin.template:
+    src: services/lightrag_service.py.j2
+    dest: "{{ orchestrator_app_dir }}/services/lightrag_service.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+
+- name: Test LightRAG service import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from services.lightrag_service import LightRAGService; 
+    print("✅ LightRAGService imported")'
+  register: lightrag_import
+  changed_when: false
+  failed_when: lightrag_import.rc != 0
+
+- name: Display import result
+  ansible.builtin.debug:
+    msg: "{{ lightrag_import.stdout }}"

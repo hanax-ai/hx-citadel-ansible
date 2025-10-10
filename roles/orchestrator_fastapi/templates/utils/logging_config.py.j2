@@ -1,0 +1,61 @@
+"""
+Logging configuration utility
+"""
+
+import logging
+import logging.config
+import yaml
+from pathlib import Path
+from typing import Optional
+
+
+def setup_logging(
+    config_path: Optional[Path] = None,
+    default_level: int = logging.INFO,
+) -> None:
+    """
+    Setup logging configuration.
+    
+    Args:
+        config_path: Path to logging YAML config file
+        default_level: Default logging level if config not found
+    """
+    if config_path is None:
+        config_path = Path(__file__).parent.parent / "config" / "logging.yaml"
+    
+    if config_path.exists():
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            # Ensure log directory exists
+            log_dir = Path("{{ orchestrator_log_dir }}")
+            log_dir.mkdir(parents=True, exist_ok=True)
+            (log_dir / "api").mkdir(exist_ok=True)
+            
+            logging.config.dictConfig(config)
+            logging.info(f"Logging configured from {config_path}")
+        except Exception as e:
+            logging.basicConfig(level=default_level)
+            logging.error(f"Error loading logging config from {config_path}: {e}")
+            logging.warning("Using basic logging configuration")
+    else:
+        logging.basicConfig(
+            level=default_level,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        logging.warning(f"Logging config not found at {config_path}, using basic config")
+
+
+def get_logger(name: str) -> logging.Logger:
+    """
+    Get a logger instance.
+    
+    Args:
+        name: Logger name (typically __name__)
+    
+    Returns:
+        Logger instance
+    """
+    return logging.getLogger(name)

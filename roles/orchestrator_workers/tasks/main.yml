@@ -1,0 +1,30 @@
+---
+# Main task file for orchestrator_workers role
+
+- name: Import event bus tasks
+  ansible.builtin.import_tasks: 01-event-bus.yml
+  tags: [workers, event-bus]
+
+- name: Import database models tasks
+  ansible.builtin.import_tasks: 02-database-models.yml
+  tags: [workers, database]
+
+- name: Import job tracker tasks
+  ansible.builtin.import_tasks: 03-job-tracker.yml
+  tags: [workers, job-tracker]
+
+- name: Import worker pool tasks
+  ansible.builtin.import_tasks: 04-worker-pool.yml
+  tags: [workers, worker-pool]
+
+- name: Import API endpoints tasks
+  ansible.builtin.import_tasks: 05-api-endpoints.yml
+  tags: [workers, api]
+
+- name: Import main integration tasks
+  ansible.builtin.import_tasks: 06-main-integration.yml
+  tags: [workers, integration]
+
+- name: Import validation tasks
+  ansible.builtin.import_tasks: 07-validation.yml
+  tags: [workers, validation]

@@ -1,0 +1,18 @@
+---
+# Qdrant Configuration
+qdrant_url: "https://{{ hx_hosts_fqdn['hx-vectordb-server'] }}:6333"
+qdrant_api_key: "{{ vault_qdrant_api_key }}"
+qdrant_collection: "hx_corpus_v1"
+qdrant_verify_ssl: false  # Self-signed cert
+qdrant_timeout: 30
+qdrant_grpc_port: 6334
+
+# Ollama (for embeddings)
+ollama_url: "http://{{ hx_hosts_fqdn['hx-ollama1'] }}:11434"
+ollama_embedding_model: "mxbai-embed-large"
+ollama_embedding_dim: 1024
+
+# Search configuration
+qdrant_default_limit: 10
+qdrant_default_score_threshold: 0.7
+qdrant_batch_size: 100

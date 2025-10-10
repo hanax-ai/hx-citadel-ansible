@@ -1,0 +1,10 @@
+---
+# Handlers for orchestrator_qdrant role
+
+- name: restart orchestrator
+  ansible.builtin.systemd:
+    name: shield-orchestrator
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  tags: [services]

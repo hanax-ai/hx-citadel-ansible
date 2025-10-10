@@ -1,0 +1,56 @@
+---
+# Python virtual environment setup
+- name: Create Python virtual environment
+  ansible.builtin.command: "python3.12 -m venv {{ orchestrator_venv_dir }}"
+  args:
+    creates: "{{ orchestrator_venv_dir }}/bin/activate"
+  become: yes
+  tags: [python]
+
+- name: Set venv ownership to orchestrator user
+  ansible.builtin.file:
+    path: "{{ orchestrator_venv_dir }}"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    recurse: yes
+  become: yes
+  tags: [python]
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.pip:
+    name:
+      - pip
+      - setuptools
+      - wheel
+    state: latest
+    virtualenv: "{{ orchestrator_venv_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  tags: [python]
+
+- name: Install uv package manager
+  ansible.builtin.pip:
+    name: uv
+    state: latest
+    virtualenv: "{{ orchestrator_venv_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  tags: [python]
+
+- name: Verify virtual environment
+  ansible.builtin.stat:
+    path: "{{ orchestrator_venv_dir }}/bin/python"
+  register: venv_python
+  failed_when: not venv_python.stat.exists
+  tags: [python, validation]
+
+- name: Display virtual environment info
+  ansible.builtin.command: "{{ orchestrator_venv_dir }}/bin/python --version"
+  register: venv_python_version
+  changed_when: false
+  tags: [python, validation]
+
+- name: Show virtual environment Python version
+  ansible.builtin.debug:
+    msg: "Virtual environment Python: {{ venv_python_version.stdout }}"
+  tags: [python]

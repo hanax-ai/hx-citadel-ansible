@@ -1,0 +1,10 @@
+---
+# LightRAG handlers
+
+- name: restart orchestrator
+  ansible.builtin.systemd:
+    name: shield-orchestrator.service
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  listen: "restart orchestrator"

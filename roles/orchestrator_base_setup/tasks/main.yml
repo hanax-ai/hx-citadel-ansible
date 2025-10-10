@@ -1,0 +1,21 @@
+---
+# Main task orchestrator
+- name: Include system packages installation
+  ansible.builtin.import_tasks: 01-system-packages.yml
+  tags: [base, packages]
+
+- name: Include service user creation
+  ansible.builtin.import_tasks: 02-service-user.yml
+  tags: [base, user]
+
+- name: Include directory structure creation
+  ansible.builtin.import_tasks: 03-directories.yml
+  tags: [base, directories]
+
+- name: Include Python environment setup
+  ansible.builtin.import_tasks: 04-python-setup.yml
+  tags: [base, python]
+
+- name: Include validation tasks
+  ansible.builtin.import_tasks: 05-validation.yml
+  tags: [base, validation]

@@ -1,0 +1,131 @@
+"""
+Query API endpoints (LightRAG hybrid retrieval)
+Component 6: LightRAG Engine
+"""
+
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any
+import logging
+
+from services.lightrag_service import lightrag_service
+
+router = APIRouter()
+logger = logging.getLogger("shield-orchestrator.query")
+
+
+class QueryRequest(BaseModel):
+    """Request model for LightRAG query"""
+    query: str = Field(..., description="Natural language query")
+    mode: str = Field(default="hybrid", description="Retrieval mode: hybrid, local, global, naive")
+    top_k: int = Field(default={{ vector_top_k }}, description="Number of vector search results")
+    max_depth: int = Field(default={{ kg_max_depth }}, description="Knowledge Graph traversal depth")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "query": "What is LightRAG and how does it work?",
+                "mode": "hybrid",
+                "top_k": 10,
+                "max_depth": 2
+            }
+        }
+
+
+class QueryResponse(BaseModel):
+    """Response model for LightRAG query"""
+    query: str = Field(..., description="Original query")
+    mode: str = Field(..., description="Retrieval mode used")
+    answer: str = Field(..., description="Generated answer with context")
+    metadata: Dict[str, Any] = Field(..., description="Query metadata (model, timing, etc.)")
+
+
+@router.post(
+    "/lightrag/query",
+    response_model=QueryResponse,
+    tags=["lightrag", "query"],
+    summary="LightRAG hybrid query",
+    description="""
+    Query the LightRAG engine with hybrid retrieval (Knowledge Graph + Vector Search).
+    
+    **Retrieval Modes:**
+    - **hybrid**: KG traversal + Vector search (best quality, recommended)
+    - **local**: Local KG traversal only (entity relationships)
+    - **global**: Global KG overview (high-level concepts)
+    - **naive**: Simple vector search only (fast, less accurate)
+    
+    **How it works:**
+    1. Parse query to extract entities/concepts
+    2. **KG Component**: Traverse Knowledge Graph for related entities
+    3. **Vector Component**: Semantic search in Qdrant
+    4. **Hybrid Fusion**: Combine and rank results
+    5. **LLM Generation**: Synthesize final answer with retrieved context
+    
+    **Performance:**
+    - Hybrid mode: ~1-2s (p95)
+    - KG-only mode: ~0.5-1s
+    - Vector-only mode: ~0.3-0.5s
+    """
+)
+async def lightrag_query(request: QueryRequest):
+    """
+    LightRAG hybrid query endpoint.
+    
+    Combines Knowledge Graph traversal with vector search
+    for superior retrieval quality.
+    """
+    try:
+        logger.info(f"Query: '{request.query[:100]}...' (mode: {request.mode})")
+        
+        # Execute query through LightRAG
+        result = await lightrag_service.query(
+            query=request.query,
+            mode=request.mode,
+            top_k=request.top_k,
+            max_depth=request.max_depth
+        )
+        
+        logger.info(f"✅ Query completed (answer_length: {len(result['answer'])} chars)")
+        
+        return QueryResponse(
+            query=request.query,
+            mode=request.mode,
+            answer=result["answer"],
+            metadata=result.get("metadata", {})
+        )
+    
+    except Exception as e:
+        logger.error(f"Query error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Query failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/lightrag/health",
+    tags=["lightrag", "health"],
+    summary="LightRAG health check",
+    description="Check LightRAG engine health and initialization status"
+)
+async def lightrag_health():
+    """Check LightRAG engine health"""
+    try:
+        stats = await lightrag_service.get_stats()
+        
+        return {
+            "status": "healthy" if stats["initialized"] else "initializing",
+            "initialized": stats["initialized"],
+            "working_dir": stats["working_dir"],
+            "llm_model": stats.get("llm_model", "unknown"),
+            "embedding_model": stats.get("embedding_model", "unknown"),
+            "kg_entities": stats.get("kg_entities", 0),
+            "kg_relationships": stats.get("kg_relationships", 0)
+        }
+    
+    except Exception as e:
+        logger.error(f"Health check error: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }

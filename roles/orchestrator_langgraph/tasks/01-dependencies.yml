@@ -1,0 +1,43 @@
+---
+# Component 9: LangGraph Workflows - Dependency Installation
+
+- name: Copy LangGraph requirements file
+  ansible.builtin.copy:
+    src: requirements-langgraph.txt
+    dest: "{{ orchestrator_dir }}/requirements-langgraph.txt"
+    owner: "{{ orchestrator_user }}"
+    group: "{{ orchestrator_group }}"
+    mode: '0644'
+  tags:
+    - langgraph
+    - dependencies
+
+- name: Install LangGraph dependencies in virtualenv
+  ansible.builtin.pip:
+    requirements: "{{ orchestrator_dir }}/requirements-langgraph.txt"
+    virtualenv: "{{ orchestrator_venv }}"
+    virtualenv_command: python3 -m venv
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  tags:
+    - langgraph
+    - dependencies
+
+- name: Verify LangGraph installation
+  ansible.builtin.command:
+    cmd: "{{ orchestrator_venv }}/bin/python -c 'import langgraph; from langgraph.graph import StateGraph; print(\"LangGraph installed successfully\")'"
+  register: langgraph_version
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  tags:
+    - langgraph
+    - dependencies
+    - validation
+
+- name: Display LangGraph installation status
+  ansible.builtin.debug:
+    msg: "{{ langgraph_version.stdout }}"
+  tags:
+    - langgraph
+    - dependencies

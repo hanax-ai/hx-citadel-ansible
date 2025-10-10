@@ -1,0 +1,68 @@
+---
+# Worker pool deployment
+
+- name: Ensure workers directory exists
+  ansible.builtin.file:
+    path: "{{ orchestrator_app_dir }}/workers"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+  tags: [worker-pool]
+
+- name: Deploy worker pool manager
+  ansible.builtin.template:
+    src: workers/worker_pool.py.j2
+    dest: "{{ orchestrator_app_dir }}/workers/worker_pool.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [worker-pool]
+
+- name: Deploy LightRAG processor
+  ansible.builtin.template:
+    src: workers/lightrag_processor.py.j2
+    dest: "{{ orchestrator_app_dir }}/workers/lightrag_processor.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [worker-pool]
+
+- name: Create workers __init__.py
+  ansible.builtin.copy:
+    content: |
+      """
+      Worker pool for async task processing
+      """
+      from workers.worker_pool import worker_pool, start_worker_pool, stop_worker_pool
+      from workers.lightrag_processor import LightRAGProcessor
+      
+      __all__ = ['worker_pool', 'start_worker_pool', 'stop_worker_pool', 'LightRAGProcessor']
+    dest: "{{ orchestrator_app_dir }}/workers/__init__.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  tags: [worker-pool]
+
+- name: Test worker pool import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from workers.worker_pool import WorkerPool; 
+    print("✅ WorkerPool imported")'
+  register: worker_pool_import_test
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  tags: [worker-pool, validation]
+
+- name: Display worker pool import result
+  ansible.builtin.debug:
+    msg: "{{ worker_pool_import_test.stdout }}"
+  tags: [worker-pool, validation]

@@ -1,0 +1,112 @@
+---
+# Component 9: LangGraph Workflows - Validation
+
+- name: Test LangGraph installation
+  ansible.builtin.command:
+    cmd: |
+      {{ orchestrator_venv }}/bin/python -c "
+      import langgraph
+      from langgraph.graph import StateGraph, END
+      from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+      print('✓ LangGraph installed')
+      print('✓ StateGraph available')
+      print('✓ AsyncPostgresSaver available')
+      print('SUCCESS: LangGraph dependencies validated')
+      "
+  register: langgraph_deps
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  failed_when: langgraph_deps.rc != 0
+  tags:
+    - langgraph
+    - validation
+
+- name: Display LangGraph dependency check
+  ansible.builtin.debug:
+    msg: "{{ langgraph_deps.stdout_lines }}"
+  tags:
+    - langgraph
+    - validation
+
+- name: Test workflow file syntax
+  ansible.builtin.command:
+    cmd: |
+      {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/workflows/query_workflow.py
+  register: query_workflow_syntax
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  failed_when: query_workflow_syntax.rc != 0
+  tags:
+    - langgraph
+    - validation
+
+- name: Test ingestion workflow file syntax
+  ansible.builtin.command:
+    cmd: |
+      {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/workflows/ingestion_workflow.py
+  register: ingestion_workflow_syntax
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  failed_when: ingestion_workflow_syntax.rc != 0
+  tags:
+    - langgraph
+    - validation
+
+- name: Test workflow manager file syntax
+  ansible.builtin.command:
+    cmd: |
+      {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/services/workflow_manager.py
+  register: workflow_manager_syntax
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  failed_when: workflow_manager_syntax.rc != 0
+  tags:
+    - langgraph
+    - validation
+
+- name: Test workflow __init__ file syntax
+  ansible.builtin.command:
+    cmd: |
+      {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/workflows/__init__.py
+  register: workflow_init_syntax
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_user }}"
+  failed_when: workflow_init_syntax.rc != 0
+  tags:
+    - langgraph
+    - validation
+
+- name: Create validation summary
+  ansible.builtin.set_fact:
+    langgraph_validation_summary:
+      langgraph_deps: "{{ langgraph_deps.rc == 0 }}"
+      query_workflow_syntax: "{{ query_workflow_syntax.rc == 0 }}"
+      ingestion_workflow_syntax: "{{ ingestion_workflow_syntax.rc == 0 }}"
+      workflow_manager_syntax: "{{ workflow_manager_syntax.rc == 0 }}"
+      workflow_init_syntax: "{{ workflow_init_syntax.rc == 0 }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+  tags:
+    - langgraph
+    - validation
+
+- name: Display validation summary
+  ansible.builtin.debug:
+    msg:
+      - "=== Component 9: LangGraph Workflows - Validation Summary ==="
+      - "LangGraph Dependencies: {{ 'PASS ✓' if langgraph_validation_summary.langgraph_deps else 'FAIL ✗' }}"
+      - "Query Workflow Syntax: {{ 'PASS ✓' if langgraph_validation_summary.query_workflow_syntax else 'FAIL ✗' }}"
+      - "Ingestion Workflow Syntax: {{ 'PASS ✓' if langgraph_validation_summary.ingestion_workflow_syntax else 'FAIL ✗' }}"
+      - "Workflow Manager Syntax: {{ 'PASS ✓' if langgraph_validation_summary.workflow_manager_syntax else 'FAIL ✗' }}"
+      - "Workflow Init Syntax: {{ 'PASS ✓' if langgraph_validation_summary.workflow_init_syntax else 'FAIL ✗' }}"
+      - ""
+      - "Timestamp: {{ langgraph_validation_summary.timestamp }}"
+      - "Status: {{ '✅ ALL CHECKS PASSED' if (langgraph_validation_summary.langgraph_deps and langgraph_validation_summary.query_workflow_syntax and langgraph_validation_summary.ingestion_workflow_syntax and langgraph_validation_summary.workflow_manager_syntax and langgraph_validation_summary.workflow_init_syntax) else '❌ VALIDATION FAILED' }}"
+      - "============================================================"
+  tags:
+    - langgraph
+    - validation

@@ -1,0 +1,37 @@
+---
+# LightRAG API endpoints deployment
+
+- name: Deploy ingestion API endpoints
+  ansible.builtin.template:
+    src: api/ingestion.py.j2
+    dest: "{{ orchestrator_app_dir }}/api/ingestion.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+
+- name: Deploy query API endpoints
+  ansible.builtin.template:
+    src: api/query.py.j2
+    dest: "{{ orchestrator_app_dir }}/api/query.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+
+- name: Test API endpoints import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from api.ingestion import router as ingestion_router;
+    from api.query import router as query_router;
+    print("✅ LightRAG API endpoints imported")'
+  register: api_import
+  changed_when: false
+  failed_when: api_import.rc != 0
+
+- name: Display API import result
+  ansible.builtin.debug:
+    msg: "{{ api_import.stdout }}"

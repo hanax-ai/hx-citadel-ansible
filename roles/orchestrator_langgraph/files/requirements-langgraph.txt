@@ -1,0 +1,18 @@
+# LangGraph Dependencies
+# Component 9: LangGraph Workflows
+
+# LangGraph framework
+langgraph>=0.2.0
+
+# PostgreSQL checkpoint saver (separate package)
+langgraph-checkpoint-postgres>=2.0.0
+
+# LangChain dependencies
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+
+# Already installed, ensure compatibility
+pydantic>=2.0.0
+redis>=5.0.0
+psycopg>=3.0.0  # Required for AsyncPostgresSaver

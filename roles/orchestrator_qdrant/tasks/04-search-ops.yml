@@ -1,0 +1,18 @@
+---
+# Deploy search operations
+# (Will be expanded in LightRAG component)
+- name: Create placeholder for search operations
+  ansible.builtin.copy:
+    content: |
+      """
+      Vector search operations
+      
+      TODO: Implement in LightRAG component (Component 6)
+      """
+      # Placeholder for now
+    dest: "{{ orchestrator_app_dir }}/services/vector_search.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  tags: [search]

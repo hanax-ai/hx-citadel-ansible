@@ -1,0 +1,41 @@
+---
+# Service user and group creation
+- name: Create orchestrator group
+  ansible.builtin.group:
+    name: "{{ orchestrator_service_group }}"
+    gid: "{{ orchestrator_group_gid }}"
+    state: present
+  become: yes
+  tags: [user]
+
+- name: Create orchestrator user
+  ansible.builtin.user:
+    name: "{{ orchestrator_service_user }}"
+    uid: "{{ orchestrator_user_uid }}"
+    group: "{{ orchestrator_service_group }}"
+    home: "{{ orchestrator_user_home }}"
+    shell: "{{ orchestrator_user_shell }}"
+    create_home: yes
+    comment: "Shield Orchestrator Service User"
+    state: present
+  become: yes
+  tags: [user]
+
+- name: Add orchestrator user to required groups
+  ansible.builtin.user:
+    name: "{{ orchestrator_service_user }}"
+    groups: 
+      - "{{ orchestrator_service_group }}"
+    append: yes
+  become: yes
+  tags: [user]
+
+- name: Set orchestrator user home permissions
+  ansible.builtin.file:
+    path: "{{ orchestrator_user_home }}"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+    state: directory
+  become: yes
+  tags: [user]

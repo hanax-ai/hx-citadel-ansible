@@ -1,0 +1,564 @@
+"""
+Ingestion Workflow (LangGraph)
+Component 9: LangGraph Workflows
+
+Complete multi-step ingestion workflow with intelligent chunking.
+Adapted from reference implementation to use our architecture.
+"""
+
+from langgraph.graph import StateGraph, START, END
+from typing import Annotated, Dict, List, Any
+from typing_extensions import TypedDict
+import logging
+from datetime import datetime
+
+# Our services and agent manager
+from services.lightrag_service import lightrag_service
+from services.event_bus import event_bus
+from services.job_tracker import job_tracker
+from config.settings import settings
+
+# Agent manager will be passed as parameter to workflow functions
+# No direct agent imports to avoid circular dependencies
+
+logger = logging.getLogger("shield-orchestrator.workflows.ingestion")
+
+
+class IngestionState(TypedDict):
+    """State for ingestion workflow"""
+    # Input
+    job_id: str
+    source_type: str  # web, document, text
+    source: str  # URL or file path or text content
+    user_id: str
+    
+    # Validation
+    is_valid: bool
+    validation_message: str
+    
+    # Extraction
+    extracted_content: str
+    extraction_metadata: Dict[str, Any]
+    
+    # Chunking
+    chunks: List[Dict[str, Any]]
+    chunking_strategy: Dict[str, Any]
+    current_chunk_index: int
+    total_chunks: int
+    
+    # Processing
+    processed_chunks: Annotated[List[str], lambda x, y: x + y]
+    failed_chunks: Annotated[List[Dict[str, Any]], lambda x, y: x + y]
+    
+    # Results
+    inserted_count: int
+    failed_count: int
+    
+    # Metadata
+    metadata: Annotated[Dict[str, Any], lambda x, y: {**x, **y}]
+
+
+# Node functions
+async def validate_source_node(state: IngestionState) -> Dict[str, Any]:
+    """
+    Validate source before processing.
+    
+    Checks:
+    - Source type is supported
+    - Source is accessible
+    - Content is processable
+    """
+    source_type = state["source_type"]
+    source = state["source"]
+    job_id = state["job_id"]
+    
+    logger.info(f"Validating source: type={source_type}, source={source[:100]}...")
+    
+    try:
+        # Update job status
+        await job_tracker.update_job_status(
+            job_id,
+            "running",
+            {"step": "validation"}
+        )
+        
+        # Basic validation
+        if source_type not in ["web", "document", "text"]:
+            return {
+                "is_valid": False,
+                "validation_message": f"Unsupported source type: {source_type}",
+                "metadata": {"validation_failed": True}
+            }
+        
+        if not source or not source.strip():
+            return {
+                "is_valid": False,
+                "validation_message": "Empty source provided",
+                "metadata": {"validation_failed": True}
+            }
+        
+        # Source-specific validation
+        if source_type == "web":
+            if not source.startswith(("http://", "https://")):
+                return {
+                    "is_valid": False,
+                    "validation_message": "Invalid URL format",
+                    "metadata": {"validation_failed": True}
+                }
+        
+        logger.info(f"Source validation passed: {source_type}")
+        
+        # Emit validation event
+        await event_bus.emit_event({
+            "event_type": "workflow.ingestion_validated",
+            "data": {
+                "job_id": job_id,
+                "source_type": source_type,
+                "source": source[:200]
+            }
+        })
+        
+        return {
+            "is_valid": True,
+            "validation_message": "Source validated successfully",
+            "metadata": {"validated_at": datetime.utcnow().isoformat()}
+        }
+        
+    except Exception as e:
+        logger.error(f"Source validation error: {e}", exc_info=True)
+        return {
+            "is_valid": False,
+            "validation_message": f"Validation error: {str(e)}",
+            "metadata": {"validation_error": str(e)}
+        }
+
+
+async def extract_content_node(state: IngestionState) -> Dict[str, Any]:
+    """
+    Extract content from source using appropriate agent via agent_manager.
+    
+    - Web sources: Use web_crawl_coordinator agent
+    - Document sources: Use doc_process_coordinator agent  
+    - Text sources: Pass through directly
+    
+    NOTE: Agents are called via agent_manager which is imported at module level
+    from services.agent_manager after it's initialized.
+    """
+    source_type = state["source_type"]
+    source = state["source"]
+    job_id = state["job_id"]
+    
+    logger.info(f"Extracting content from {source_type} source...")
+    
+    try:
+        # Import agent_manager here to avoid circular dependency at module load
+        from services.agent_manager import agent_manager
+        
+        # Update job status
+        await job_tracker.update_job_status(
+            job_id,
+            "running",
+            {"step": "extraction"}
+        )
+        
+        extracted_content = ""
+        extraction_metadata = {}
+        
+        if source_type == "web":
+            # Use web crawl coordinator agent via agent_manager
+            logger.info(f"Crawling web source: {source}")
+            agent = agent_manager.get_agent("web_crawl_coordinator")
+            crawl_result = await agent.run(
+                f"Crawl and extract content from {source} with max_depth=1 and max_pages=10"
+            )
+            
+            # For now, use a simplified response structure
+            # TODO: Enhance agent response parsing
+            extracted_content = str(crawl_result.data) if hasattr(crawl_result, 'data') else str(crawl_result)
+            extraction_metadata = {
+                "source": source,
+                "agent": "web_crawl_coordinator"
+            }
+            
+        elif source_type == "document":
+            # Use document processing coordinator agent via agent_manager
+            logger.info(f"Processing document: {source}")
+            agent = agent_manager.get_agent("doc_process_coordinator")
+            doc_result = await agent.run(
+                f"Process document for ingestion: {source}"
+            )
+            
+            # For now, use a simplified response structure
+            extracted_content = str(doc_result.data) if hasattr(doc_result, 'data') else str(doc_result)
+            extraction_metadata = {
+                "source": source,
+                "agent": "doc_process_coordinator"
+            }
+            
+        else:  # text
+            # Direct text ingestion
+            logger.info("Processing direct text content")
+            extracted_content = source
+            extraction_metadata = {
+                "content_length": len(source)
+            }
+        
+        logger.info(
+            f"Content extracted: {len(extracted_content)} chars, "
+            f"metadata: {extraction_metadata}"
+        )
+        
+        # Emit extraction event
+        await event_bus.emit_event({
+            "event_type": "workflow.content_extracted",
+            "data": {
+                "job_id": job_id,
+                "source_type": source_type,
+                "content_length": len(extracted_content),
+                "metadata": extraction_metadata
+            }
+        })
+        
+        return {
+            "extracted_content": extracted_content,
+            "extraction_metadata": extraction_metadata,
+            "metadata": {"extraction_completed": True}
+        }
+        
+    except Exception as e:
+        logger.error(f"Content extraction failed: {e}", exc_info=True)
+        return {
+            "extracted_content": "",
+            "extraction_metadata": {"error": str(e)},
+            "metadata": {"extraction_error": str(e)}
+        }
+
+
+async def chunk_content_node(state: IngestionState) -> Dict[str, Any]:
+    """
+    Apply intelligent chunking strategy.
+    
+    Uses agent-recommended strategy from doc_process_coordinator or
+    applies sensible defaults for web/text content.
+    """
+    extracted_content = state["extracted_content"]
+    extraction_metadata = state.get("extraction_metadata", {})
+    job_id = state["job_id"]
+    
+    logger.info(f"Chunking content ({len(extracted_content)} chars)...")
+    
+    try:
+        # Update job status
+        await job_tracker.update_job_status(
+            job_id,
+            "running",
+            {"step": "chunking"}
+        )
+        
+        # Get chunking strategy from extraction metadata or use defaults
+        chunking_strategy = extraction_metadata.get("chunking_strategy", {
+            "chunk_size": {{ lightrag_chunk_size | default(1200) }},
+            "chunk_overlap": {{ lightrag_chunk_overlap | default(100) }},
+            "method": "sliding_window"
+        })
+        
+        chunk_size = chunking_strategy.get("chunk_size", 1200)
+        chunk_overlap = chunking_strategy.get("chunk_overlap", 100)
+        
+        # Simple sliding window chunking
+        chunks = []
+        start = 0
+        chunk_idx = 0
+        
+        while start < len(extracted_content):
+            end = min(start + chunk_size, len(extracted_content))
+            chunk_text = extracted_content[start:end]
+            
+            if chunk_text.strip():
+                chunks.append({
+                    "index": chunk_idx,
+                    "text": chunk_text,
+                    "start_pos": start,
+                    "end_pos": end,
+                    "length": len(chunk_text)
+                })
+                chunk_idx += 1
+            
+            start = end - chunk_overlap if end < len(extracted_content) else end
+        
+        logger.info(
+            f"Content chunked into {len(chunks)} chunks "
+            f"(strategy: {chunking_strategy['method']}, "
+            f"size: {chunk_size}, overlap: {chunk_overlap})"
+        )
+        
+        # Emit chunking event
+        await event_bus.emit_event({
+            "event_type": "workflow.content_chunked",
+            "data": {
+                "job_id": job_id,
+                "chunks_count": len(chunks),
+                "chunking_strategy": chunking_strategy
+            }
+        })
+        
+        return {
+            "chunks": chunks,
+            "chunking_strategy": chunking_strategy,
+            "current_chunk_index": 0,
+            "total_chunks": len(chunks),
+            "metadata": {
+                "chunking_completed": True,
+                "chunks_created": len(chunks)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Content chunking failed: {e}", exc_info=True)
+        return {
+            "chunks": [],
+            "total_chunks": 0,
+            "metadata": {"chunking_error": str(e)}
+        }
+
+
+async def process_chunk_node(state: IngestionState) -> Dict[str, Any]:
+    """
+    Process a single chunk - insert into LightRAG.
+    
+    This node processes one chunk at a time in the loop.
+    """
+    chunks = state.get("chunks", [])
+    current_idx = state.get("current_chunk_index", 0)
+    job_id = state["job_id"]
+    
+    if current_idx >= len(chunks):
+        logger.warning(f"No more chunks to process (index {current_idx} >= {len(chunks)})")
+        return {}
+    
+    chunk = chunks[current_idx]
+    chunk_text = chunk["text"]
+    
+    logger.info(f"Processing chunk {current_idx + 1}/{len(chunks)} ({len(chunk_text)} chars)...")
+    
+    try:
+        # Insert chunk into LightRAG
+        await lightrag_service.insert_text(chunk_text)
+        
+        logger.info(f"Chunk {current_idx + 1} inserted successfully")
+        
+        # Update progress
+        await job_tracker.update_job_status(
+            job_id,
+            "running",
+            {
+                "step": "processing",
+                "chunks_processed": current_idx + 1,
+                "total_chunks": len(chunks),
+                "progress": round((current_idx + 1) / len(chunks) * 100, 2)
+            }
+        )
+        
+        return {
+            "processed_chunks": [chunk_text[:100]],  # Track processed (abbreviated)
+            "current_chunk_index": current_idx + 1,
+            "inserted_count": (state.get("inserted_count", 0) + 1)
+        }
+        
+    except Exception as e:
+        logger.error(f"Chunk {current_idx + 1} processing failed: {e}", exc_info=True)
+        
+        return {
+            "failed_chunks": [{
+                "index": current_idx,
+                "text": chunk_text[:100],
+                "error": str(e)
+            }],
+            "current_chunk_index": current_idx + 1,
+            "failed_count": (state.get("failed_count", 0) + 1)
+        }
+
+
+async def emit_completion_node(state: IngestionState) -> Dict[str, Any]:
+    """
+    Emit workflow completion event and update job.
+    
+    Final node to emit telemetry and mark job complete.
+    """
+    job_id = state["job_id"]
+    inserted_count = state.get("inserted_count", 0)
+    failed_count = state.get("failed_count", 0)
+    total_chunks = state.get("total_chunks", 0)
+    
+    logger.info(
+        f"Ingestion workflow completed: "
+        f"inserted={inserted_count}, failed={failed_count}, total={total_chunks}"
+    )
+    
+    try:
+        # Update job to completed
+        await job_tracker.update_job_status(
+            job_id,
+            "completed",
+            {
+                "inserted_count": inserted_count,
+                "failed_count": failed_count,
+                "total_chunks": total_chunks,
+                "success_rate": round(inserted_count / max(total_chunks, 1) * 100, 2)
+            }
+        )
+        
+        # Emit completion event
+        await event_bus.emit_event({
+            "event_type": "workflow.ingestion_completed",
+            "data": {
+                "job_id": job_id,
+                "source_type": state["source_type"],
+                "inserted_count": inserted_count,
+                "failed_count": failed_count,
+                "total_chunks": total_chunks,
+                "metadata": state.get("metadata", {})
+            }
+        })
+        
+        logger.info(f"Job {job_id} marked as completed")
+        
+    except Exception as e:
+        logger.error(f"Failed to emit completion event: {e}")
+    
+    return {}
+
+
+# Conditional routing functions
+def should_extract_content(state: IngestionState) -> str:
+    """Route after validation"""
+    if state.get("is_valid", False):
+        return "extract_content"
+    else:
+        return "emit_completion"
+
+
+def should_process_more_chunks(state: IngestionState) -> str:
+    """Route after chunk processing - loop or finish"""
+    current_idx = state.get("current_chunk_index", 0)
+    total_chunks = state.get("total_chunks", 0)
+    
+    if current_idx < total_chunks:
+        return "process_chunk"  # Loop back
+    else:
+        return "emit_completion"  # Done
+
+
+# Build the ingestion workflow graph
+def build_ingestion_workflow():
+    """
+    Build and return the compiled ingestion workflow graph.
+    
+    Workflow structure:
+      START → validate_source → [valid?] → extract_content → chunk_content
+                                   ↓                              ↓
+                              emit_completion                process_chunk
+                                                                 ↓
+                                                          [more chunks?]
+                                                            ↓       ↓
+                                                        (loop)  emit_completion → END
+    """
+    logger.info("Building ingestion workflow graph...")
+    
+    # Create the graph with our state
+    graph = StateGraph(IngestionState)
+    
+    # Add nodes
+    graph.add_node("validate_source", validate_source_node)
+    graph.add_node("extract_content", extract_content_node)
+    graph.add_node("chunk_content", chunk_content_node)
+    graph.add_node("process_chunk", process_chunk_node)
+    graph.add_node("emit_completion", emit_completion_node)
+    
+    # Add edges
+    graph.add_edge(START, "validate_source")
+    
+    # Conditional after validation
+    graph.add_conditional_edges(
+        "validate_source",
+        should_extract_content,
+        {
+            "extract_content": "extract_content",
+            "emit_completion": "emit_completion"
+        }
+    )
+    
+    # Linear flow through extraction and chunking
+    graph.add_edge("extract_content", "chunk_content")
+    graph.add_edge("chunk_content", "process_chunk")
+    
+    # Loop for chunk processing
+    graph.add_conditional_edges(
+        "process_chunk",
+        should_process_more_chunks,
+        {
+            "process_chunk": "process_chunk",  # Loop back
+            "emit_completion": "emit_completion"
+        }
+    )
+    
+    # Finally end
+    graph.add_edge("emit_completion", END)
+    
+    logger.info("Ingestion workflow graph built successfully")
+    
+    # Return uncompiled graph (will be compiled by workflow_manager with checkpointing)
+    return graph
+
+
+# Create the ingestion workflow graph (uncompiled)
+ingestion_workflow_graph = build_ingestion_workflow()
+
+
+# Convenience execution function
+async def execute_ingestion_workflow(
+    job_id: str,
+    source_type: str,
+    source: str,
+    user_id: str = "system"
+) -> Dict[str, Any]:
+    """
+    Execute the ingestion workflow.
+    
+    Args:
+        job_id: Job identifier for tracking
+        source_type: Type of source (web, document, text)
+        source: Source URL/path/content
+        user_id: User identifier
+    
+    Returns:
+        Workflow result with ingestion statistics
+    """
+    from datetime import datetime
+    
+    # Initialize state
+    initial_state = {
+        "job_id": job_id,
+        "source_type": source_type,
+        "source": source,
+        "user_id": user_id,
+        "is_valid": False,
+        "chunks": [],
+        "processed_chunks": [],
+        "failed_chunks": [],
+        "current_chunk_index": 0,
+        "total_chunks": 0,
+        "inserted_count": 0,
+        "failed_count": 0,
+        "metadata": {
+            "started_at": datetime.utcnow().isoformat()
+        }
+    }
+    
+    logger.info(f"Executing ingestion workflow: job_id={job_id}, source_type={source_type}")
+    
+    # Note: This requires the compiled graph from workflow_manager
+    # This is just a convenience function showing the pattern
+    # Actual execution should go through workflow_manager
+    
+    return initial_state

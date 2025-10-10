@@ -1,0 +1,26 @@
+---
+# Component 6: LightRAG Engine - Main Tasks
+
+- name: Include LightRAG dependencies installation
+  ansible.builtin.import_tasks: 01-dependencies.yml
+  tags: [lightrag, dependencies]
+
+- name: Include LightRAG service deployment
+  ansible.builtin.import_tasks: 02-lightrag-deploy.yml
+  tags: [lightrag, deploy]
+
+- name: Include LightRAG configuration
+  ansible.builtin.import_tasks: 03-configuration.yml
+  tags: [lightrag, config]
+
+- name: Include API endpoints deployment
+  ansible.builtin.import_tasks: 04-api-endpoints.yml
+  tags: [lightrag, api]
+
+- name: Include main.py integration
+  ansible.builtin.import_tasks: 05-main-integration.yml
+  tags: [lightrag, integration]
+
+- name: Include validation
+  ansible.builtin.import_tasks: 06-validation.yml
+  tags: [lightrag, validation]

@@ -1,0 +1,31 @@
+# FastAPI Framework Dependencies
+# Component 2: FastAPI Framework
+
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic[email]>=2.0.0
+pydantic-settings>=2.0.0
+
+# ASGI server enhancements
+uvloop>=0.20.0         # High-performance event loop
+httptools>=0.6.0       # Fast HTTP parsing
+
+# Request/response handling
+python-multipart>=0.0.6   # File uploads
+python-jose[cryptography]  # JWT tokens
+passlib[bcrypt]>=1.7.4    # Password hashing
+
+# WebSocket and SSE
+websockets>=15.0.1
+sse-starlette>=2.0.0
+
+# Middleware
+slowapi>=0.1.9         # Rate limiting
+python-json-logger     # JSON logging
+
+# Utilities
+pyyaml>=6.0
+python-dateutil
+pytz
+psutil>=6.0.0          # System metrics for health checks

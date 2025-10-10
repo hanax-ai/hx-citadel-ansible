@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: fqdn-policy-enforcer
+        name: Enforce FQDN/short-name policy (no localhost / 127.0.0.1 / ::1 / 192.168.10.x)
+        entry: bash scripts/check-fqdn.sh .
+        language: system
+        pass_filenames: false
+        stages: [commit, push]

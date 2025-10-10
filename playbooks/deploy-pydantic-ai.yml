@@ -1,0 +1,44 @@
+---
+# Deploy Component 8: Pydantic AI Agents
+# Target: hx-orchestrator-server
+
+- name: Deploy Pydantic AI Agents to Orchestrator
+  hosts: orchestrator_nodes
+  gather_facts: yes
+  become: yes
+  
+  vars:
+    orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
+    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator/.venv"
+    orchestrator_service_user: "orchestrator"
+    orchestrator_service_group: "orchestrator"
+    orchestrator_port: 8000
+  
+  roles:
+    - role: orchestrator_pydantic_ai
+      tags: [pydantic-ai, component-8]
+  
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Component 8: Pydantic AI Agents"
+          - "=========================================="
+          - "Status: ✅ DEPLOYED"
+          - ""
+          - "Deployed Agents:"
+          - "  1. web_crawl_coordinator - Web crawling with Brave Search"
+          - "  2. doc_process_coordinator - Document analysis and chunking"
+          - "  3. query_router - Intelligent query routing (fast/deep)"
+          - ""
+          - "Services:"
+          - "  - agent_manager - Centralized agent lifecycle management"
+          - ""
+          - "Integration:"
+          - "  - LiteLLM Proxy: {{ lookup('env', 'ORCHESTRATOR_LLM_API_BASE') | default('configured via vault') }}"
+          - "  - Model: {{ lookup('env', 'ORCHESTRATOR_LLM_MODEL') | default('llama3.2:latest') }}"
+          - ""
+          - "Next: Component 9 - LangGraph Workflows"
+          - "=========================================="
+      tags: [always]

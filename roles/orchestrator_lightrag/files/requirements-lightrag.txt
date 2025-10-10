@@ -1,0 +1,26 @@
+# LightRAG Dependencies
+# Component 6: LightRAG Engine - Hybrid Knowledge Graph + Vector Retrieval
+
+# LightRAG with API support
+lightrag-hku[api]>=1.0.0
+
+# Core dependencies (most already installed from Components 1-5)
+networkx>=3.0  # Graph algorithms for KG
+numpy>=1.24.0  # Numerical operations
+pandas>=2.0.0  # Data manipulation
+tiktoken>=0.5.0  # Token counting
+tenacity>=8.2.0  # Retry logic
+json_repair>=0.7.0  # JSON parsing
+
+# PostgreSQL KG storage (already installed in Component 3)
+asyncpg>=0.29.0
+sqlalchemy[asyncio]>=2.0.0
+
+# OpenAI-compatible LLM (LiteLLM compatibility)
+openai>=1.0.0
+
+# Ollama Python client (for embeddings)
+ollama>=0.1.0
+
+# Excel export (optional)
+xlsxwriter>=3.1.0

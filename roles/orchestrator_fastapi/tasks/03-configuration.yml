@@ -1,0 +1,34 @@
+---
+# Configuration deployment
+- name: Deploy environment configuration
+  ansible.builtin.template:
+    src: config/.env.j2
+    dest: "{{ orchestrator_app_dir }}/config/.env"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0600"  # Sensitive file
+  become: yes
+  notify: restart orchestrator
+  tags: [configuration]
+
+- name: Deploy logging configuration
+  ansible.builtin.template:
+    src: logging.yaml.j2
+    dest: "{{ orchestrator_app_dir }}/config/logging.yaml"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [configuration]
+
+- name: Deploy logging utilities
+  ansible.builtin.template:
+    src: utils/logging_config.py.j2
+    dest: "{{ orchestrator_app_dir }}/utils/logging_config.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [configuration]

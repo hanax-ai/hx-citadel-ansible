@@ -1,0 +1,66 @@
+"""
+Database models for HX-Citadel Shield Orchestrator
+"""
+
+from datetime import datetime
+from typing import Optional, Dict, Any
+from sqlalchemy import String, Integer, DateTime, Text, JSON
+from sqlalchemy.orm import Mapped, mapped_column
+from database.connection import Base
+
+
+class JobStatus(Base):
+    """
+    Job status tracking for ingestion pipeline.
+    
+    Tracks async job processing across worker pool:
+      - Job metadata (type, source)
+      - Progress (chunks processed/total)
+      - Status (queued, processing, completed, failed)
+      - Timestamps (created, started, completed)
+      - Error tracking
+    
+    Storage: PostgreSQL (persistent audit trail)
+    Also cached in Redis for fast access
+    """
+    __tablename__ = "job_status"
+    
+    # Primary key
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
+    
+    # Job metadata
+    job_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "lightrag_ingestion"
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued")  # queued, processing, completed, failed
+    
+    # Progress tracking
+    chunks_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    chunks_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    
+    # Additional metadata (JSON) - using job_metadata to avoid SQLAlchemy reserved word
+    job_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
+    # Error tracking
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    def __repr__(self) -> str:
+        return f"<JobStatus(id={self.id}, type={self.job_type}, status={self.status}, progress={self.chunks_processed}/{self.chunks_total})>"
+    
+    @property
+    def percent_complete(self) -> float:
+        """Calculate completion percentage"""
+        if self.chunks_total == 0:
+            return 0.0
+        return round((self.chunks_processed / self.chunks_total) * 100, 2)
+    
+    @property
+    def duration_seconds(self) -> Optional[float]:
+        """Calculate job duration in seconds"""
+        if not self.started_at:
+            return None
+        end_time = self.completed_at or datetime.utcnow()
+        return (end_time - self.started_at).total_seconds()

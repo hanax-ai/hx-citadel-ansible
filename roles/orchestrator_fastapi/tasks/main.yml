@@ -1,0 +1,21 @@
+---
+# Main task orchestrator
+- name: Include dependencies installation
+  ansible.builtin.import_tasks: 01-dependencies.yml
+  tags: [fastapi, dependencies]
+
+- name: Include application structure deployment
+  ansible.builtin.import_tasks: 02-application-structure.yml
+  tags: [fastapi, application]
+
+- name: Include configuration deployment
+  ansible.builtin.import_tasks: 03-configuration.yml
+  tags: [fastapi, configuration]
+
+- name: Include service deployment
+  ansible.builtin.import_tasks: 04-service.yml
+  tags: [fastapi, service]
+
+- name: Include health checks
+  ansible.builtin.import_tasks: 05-health-checks.yml
+  tags: [fastapi, health, validation]

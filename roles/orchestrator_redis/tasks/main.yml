@@ -1,0 +1,21 @@
+---
+# Main tasks for orchestrator_redis role
+- name: Include Redis client installation tasks
+  ansible.builtin.include_tasks: 01-dependencies.yml
+  tags: [redis, dependencies]
+
+- name: Include consumer group setup tasks
+  ansible.builtin.include_tasks: 02-consumer-groups.yml
+  tags: [redis, consumer-groups]
+
+- name: Include Redis Streams wrapper deployment tasks
+  ansible.builtin.include_tasks: 03-streams-wrapper.yml
+  tags: [redis, services]
+
+- name: Include API endpoints deployment tasks
+  ansible.builtin.include_tasks: 04-api-endpoints.yml
+  tags: [redis, api]
+
+- name: Include validation tasks
+  ansible.builtin.include_tasks: 05-validation.yml
+  tags: [redis, validation]

@@ -1,0 +1,183 @@
+"""
+LightRAG chunk processor for workers.
+
+Processes chunks through LightRAG engine:
+  1. Extract entities (LLM)
+  2. Extract relationships (LLM)
+  3. Update Knowledge Graph (NetworkX)
+  4. Generate embeddings (Ollama)
+  5. Store vectors (nano-vectordb)
+  6. Update job status
+  7. Emit progress events
+"""
+
+import logging
+import json
+from typing import Dict, Any
+from datetime import datetime
+
+from services.lightrag_service import lightrag_service
+from services.job_tracker import job_tracker
+from services.event_bus import event_bus
+
+logger = logging.getLogger("shield-orchestrator.processor")
+
+
+class LightRAGProcessor:
+    """
+    Processes chunks through LightRAG engine.
+    
+    Features:
+      - Entity extraction via LLM
+      - Relationship mapping via LLM
+      - Knowledge Graph updates
+      - Vector embedding generation
+      - Progress tracking
+      - Event emission
+    """
+    
+    async def process_chunk(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process single chunk through LightRAG.
+        
+        Args:
+            task: Task from Redis Streams queue with fields:
+                  - job_id: Job UUID
+                  - chunk_id: Chunk identifier
+                  - content: Text content to process
+                  - source_uri: Source URI
+                  - metadata: Additional metadata (JSON string)
+        
+        Returns:
+            Processing result with entity/relationship counts
+        """
+        job_id = task.get("job_id")
+        chunk_id = task.get("chunk_id", "unknown")
+        content = task.get("content", "")
+        source_uri = task.get("source_uri", "")
+        
+        # Parse metadata (JSON string)
+        metadata = {}
+        if "metadata" in task:
+            try:
+                metadata = json.loads(task["metadata"]) if isinstance(task["metadata"], str) else task["metadata"]
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid metadata JSON for chunk {chunk_id}")
+        
+        logger.info(f"Processing chunk {chunk_id} (job: {job_id}, length: {len(content)} chars)")
+        
+        try:
+            # Update job status: processing (if first chunk)
+            current_progress = await job_tracker.get_progress(job_id)
+            if current_progress.get("status") == "queued":
+                await job_tracker.update_job(job_id, status="processing")
+                
+                # Emit started event
+                await event_bus.emit_event(
+                    event_type="ingestion.started",
+                    job_id=job_id,
+                    data={
+                        "chunks_total": current_progress.get("chunks_total", 0),
+                        "started_at": datetime.utcnow().isoformat()
+                    }
+                )
+            
+            # Process through LightRAG
+            # Combines source_uri with content for context
+            full_metadata = {
+                **metadata,
+                "source_uri": source_uri,
+                "chunk_id": chunk_id,
+                "job_id": job_id,
+                "processed_at": datetime.utcnow().isoformat()
+            }
+            
+            result = await lightrag_service.insert_text(
+                text=content,
+                metadata=full_metadata
+            )
+            
+            # Update job progress
+            chunks_processed = await job_tracker.increment_processed(job_id)
+            progress = await job_tracker.get_progress(job_id)
+            
+            # Emit progress event
+            await event_bus.emit_event(
+                event_type="ingestion.progress",
+                job_id=job_id,
+                data={
+                    "chunk_id": chunk_id,
+                    "chunks_processed": progress["chunks_processed"],
+                    "chunks_total": progress["chunks_total"],
+                    "percent_complete": progress["percent_complete"],
+                    "entities_extracted": result.get("entities_extracted", 0),
+                    "relationships_extracted": result.get("relationships_extracted", 0)
+                }
+            )
+            
+            # Check if job complete
+            if progress["percent_complete"] >= 100:
+                await job_tracker.update_job(job_id, status="completed")
+                
+                # Get final stats from LightRAG
+                stats = await lightrag_service.get_stats()
+                
+                # Emit completed event
+                await event_bus.emit_event(
+                    event_type="ingestion.completed",
+                    job_id=job_id,
+                    data={
+                        "chunks_processed": progress["chunks_processed"],
+                        "duration_seconds": self._calculate_duration(progress),
+                        "kg_entities": stats.get("kg_entities", 0),
+                        "kg_relationships": stats.get("kg_relationships", 0),
+                        "completed_at": datetime.utcnow().isoformat()
+                    }
+                )
+                
+                logger.info(f"✅ Job {job_id} completed ({progress['chunks_processed']} chunks processed)")
+            else:
+                logger.info(f"✅ Chunk {chunk_id} processed ({progress['percent_complete']:.1f}% complete)")
+            
+            return {
+                "status": "success",
+                "chunk_id": chunk_id,
+                "job_id": job_id,
+                "entities_extracted": result.get("entities_extracted", 0),
+                "relationships_extracted": result.get("relationships_extracted", 0),
+                "percent_complete": progress["percent_complete"]
+            }
+        
+        except Exception as e:
+            logger.error(f"Chunk processing error (chunk: {chunk_id}, job: {job_id}): {str(e)}", exc_info=True)
+            
+            # Update job status: failed
+            await job_tracker.update_job(job_id, status="failed", error=str(e))
+            
+            # Emit failure event
+            await event_bus.emit_event(
+                event_type="ingestion.failed",
+                job_id=job_id,
+                data={
+                    "error": str(e),
+                    "chunk_id": chunk_id,
+                    "failed_at": datetime.utcnow().isoformat()
+                }
+            )
+            
+            raise
+    
+    def _calculate_duration(self, progress: Dict[str, Any]) -> float:
+        """Calculate job duration in seconds"""
+        started_at = progress.get("started_at")
+        completed_at = progress.get("completed_at")
+        
+        if started_at and completed_at:
+            try:
+                start = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                end = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+                return (end - start).total_seconds()
+            except Exception:
+                pass
+        
+        return 0.0

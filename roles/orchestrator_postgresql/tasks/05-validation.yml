@@ -1,0 +1,46 @@
+---
+# PostgreSQL integration validation
+- name: Test database connection from orchestrator
+  ansible.builtin.command: >
+    psql -h {{ postgres_host }} -U {{ postgres_user }} -d {{ postgres_database }} -c "SELECT current_database();"
+  environment:
+    PGPASSWORD: "{{ vault_postgres_orchestrator_password }}"
+  register: db_connection_test
+  changed_when: false
+  tags: [validation]
+
+- name: Verify database tables
+  ansible.builtin.command: >
+    psql -h {{ postgres_host }} -U {{ postgres_user }} -d {{ postgres_database }} -tAc 
+    "SELECT tablename FROM pg_tables WHERE schemaname='public';"
+  environment:
+    PGPASSWORD: "{{ vault_postgres_orchestrator_password }}"
+  register: schema_verification
+  changed_when: false
+  tags: [validation]
+
+- name: Check Alembic migration status
+  ansible.builtin.command: "{{ orchestrator_venv_dir }}/bin/alembic current"
+  args:
+    chdir: "{{ orchestrator_app_dir }}"
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  register: alembic_status
+  changed_when: false
+  tags: [validation]
+
+
+
+- name: Display PostgreSQL validation summary
+  ansible.builtin.debug:
+    msg:
+      - "============================================================"
+      - "PostgreSQL Integration Validation"
+      - "============================================================"
+      - "✅ Database: {{ postgres_database }}"
+      - "✅ Connection: Successful to {{ postgres_host }}"
+      - "✅ Tables: {{ schema_verification.stdout_lines | length }} tables created"
+      - "✅ Alembic: {{ alembic_status.stdout }}"
+      - "✅ PostgreSQL integration complete!"
+      - "============================================================"
+  tags: [validation]

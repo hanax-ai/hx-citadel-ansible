@@ -1,0 +1,52 @@
+---
+# Component 5: Qdrant Integration Deployment
+# Deploys Qdrant vector database client and embedding services
+
+- name: Deploy Qdrant Integration to Orchestrator
+  hosts: hx-orchestrator-server
+  gather_facts: yes
+  
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/all/vault.yml
+  
+  vars:
+    # Import orchestrator variables from Component 1
+    orchestrator_service_user: "orchestrator"
+    orchestrator_service_group: "orchestrator"
+    orchestrator_base_dir: "/opt/hx-citadel-shield"
+    orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
+    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator-venv"
+  
+  tasks:
+    - name: Component 5 - Qdrant Integration
+      ansible.builtin.debug:
+        msg:
+          - "============================================================"
+          - "Component 5: Qdrant Integration"
+          - "============================================================"
+          - "Qdrant Server: {{ qdrant_url }}"
+          - "Collection: {{ qdrant_collection }}"
+          - "Ollama Server: {{ ollama_url }}"
+          - "Embedding Model: {{ ollama_embedding_model }}"
+          - "============================================================"
+  
+  roles:
+    - role: orchestrator_qdrant
+      tags: [qdrant]
+  
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================================"
+          - "Component 5: Qdrant Integration - DEPLOYMENT COMPLETE"
+          - "============================================================"
+          - "Qdrant Server: {{ qdrant_url }}"
+          - "Collection: {{ qdrant_collection }}"
+          - "Embedding Model: {{ ollama_embedding_model }} ({{ ollama_embedding_dim }}D)"
+          - "Services Deployed:"
+          - "  - services/qdrant_client.py (QdrantService)"
+          - "  - services/embeddings.py (EmbeddingService)"
+          - "  - services/vector_search.py (placeholder)"
+          - "============================================================"

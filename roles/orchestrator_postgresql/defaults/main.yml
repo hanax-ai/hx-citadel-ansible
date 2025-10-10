@@ -1,0 +1,18 @@
+---
+# Component 3: PostgreSQL Integration - Default Variables
+
+# Database server
+postgres_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
+postgres_port: 5432
+postgres_database: "shield_orchestrator"
+postgres_user: "orchestrator"
+postgres_superuser: "postgres"
+
+# Connection pooling
+postgres_pool_size: 20
+postgres_max_overflow: 10
+postgres_pool_recycle: 3600
+
+# Alembic
+alembic_enabled: true
+alembic_auto_upgrade: true

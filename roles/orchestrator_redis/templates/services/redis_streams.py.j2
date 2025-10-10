@@ -1,0 +1,327 @@
+"""
+Redis Streams wrapper for task queue and event bus
+"""
+
+import redis.asyncio as redis
+from typing import List, Dict, Any, Optional
+import json
+import logging
+import uuid
+from datetime import datetime
+
+logger = logging.getLogger("shield-orchestrator.redis")
+
+
+class RedisStreamsClient:
+    """
+    Redis Streams client for task queue and event bus.
+    
+    Features:
+      - At-least-once delivery (consumer groups)
+      - Message acknowledgment (XACK)
+      - Dead letter handling (retry limits)
+      - Automatic trimming (MAXLEN)
+    """
+    
+    def __init__(self):
+        self.client: Optional[redis.Redis] = None
+        self.ingestion_stream = "{{ redis_stream_ingestion }}"
+        self.events_stream = "{{ redis_stream_events }}"
+        self.maxlen = {{ redis_stream_maxlen }}
+    
+    async def connect(self):
+        """Initialize Redis connection"""
+        self.client = await redis.from_url(
+            "{{ redis_url }}",
+            encoding="utf-8",
+            decode_responses=True,
+            max_connections=20
+        )
+        logger.info("✅ Redis Streams client connected")
+    
+    async def close(self):
+        """Close Redis connection"""
+        if self.client:
+            await self.client.aclose()
+            logger.info("✅ Redis Streams client closed")
+    
+    # ========================================
+    # TASK QUEUE OPERATIONS (Ingestion)
+    # ========================================
+    
+    async def add_task(
+        self,
+        job_id: str,
+        chunk_id: str,
+        content: str,
+        source_uri: str,
+        source_type: str,
+        metadata: dict = None
+    ) -> str:
+        """
+        Add task to ingestion queue.
+        
+        Returns:
+            Message ID from Redis
+        """
+        message = {
+            "job_id": job_id,
+            "chunk_id": chunk_id,
+            "content": content,
+            "source_uri": source_uri,
+            "source_type": source_type,
+            "metadata": json.dumps(metadata or {}),
+            "retry_count": "0",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        message_id = await self.client.xadd(
+            self.ingestion_stream,
+            message,
+            maxlen=self.maxlen,
+            approximate=True
+        )
+        
+        logger.debug(f"Task queued: {message_id} (job: {job_id})")
+        return message_id
+    
+    async def read_tasks(
+        self,
+        consumer_group: str,
+        consumer_name: str,
+        count: int = {{ redis_batch_size }},
+        block_ms: int = {{ redis_block_timeout_ms }}
+    ) -> List[Dict[str, Any]]:
+        """
+        Read tasks from ingestion queue (consumer group).
+        
+        Returns:
+            List of tasks with message IDs for ACK
+        """
+        try:
+            messages = await self.client.xreadgroup(
+                groupname=consumer_group,
+                consumername=consumer_name,
+                streams={self.ingestion_stream: ">"},
+                count=count,
+                block=block_ms
+            )
+            
+            tasks = []
+            if messages:
+                for stream_name, stream_messages in messages:
+                    for message_id, message_data in stream_messages:
+                        task = {
+                            "message_id": message_id,
+                            "job_id": message_data["job_id"],
+                            "chunk_id": message_data["chunk_id"],
+                            "content": message_data["content"],
+                            "source_uri": message_data["source_uri"],
+                            "source_type": message_data["source_type"],
+                            "metadata": json.loads(message_data["metadata"]),
+                            "retry_count": int(message_data["retry_count"]),
+                            "timestamp": message_data["timestamp"]
+                        }
+                        tasks.append(task)
+            
+            return tasks
+        
+        except Exception as e:
+            logger.error(f"Error reading tasks: {str(e)}")
+            return []
+    
+    async def ack_task(self, consumer_group: str, message_id: str):
+        """Acknowledge task completion"""
+        await self.client.xack(
+            self.ingestion_stream,
+            consumer_group,
+            message_id
+        )
+        logger.debug(f"Task acknowledged: {message_id}")
+    
+    async def get_queue_depth(self) -> int:
+        """Get current queue depth"""
+        info = await self.client.xinfo_stream(self.ingestion_stream)
+        return info["length"]
+    
+    async def ensure_consumer_group(self, stream_name: str, group_name: str):
+        """
+        Ensure a consumer group exists for a stream.
+        Creates the group if it doesn't exist, ignores if it already exists.
+        
+        Args:
+            stream_name: The name of the Redis Stream
+            group_name: The name of the consumer group to create
+        """
+        try:
+            # Create consumer group starting from beginning (0)
+            await self.client.xgroup_create(
+                name=stream_name,
+                groupname=group_name,
+                id="0",
+                mkstream=True  # Create stream if it doesn't exist
+            )
+            logger.info(f"Created consumer group '{group_name}' for stream '{stream_name}'")
+        except Exception as e:
+            # BUSYGROUP means the group already exists - this is fine
+            if "BUSYGROUP" in str(e):
+                logger.debug(f"Consumer group '{group_name}' already exists for stream '{stream_name}'")
+            else:
+                # Re-raise unexpected errors
+                logger.error(f"Error creating consumer group: {e}")
+                raise
+    
+    # ========================================
+    # EVENT BUS OPERATIONS
+    # ========================================
+    
+    async def emit_event(
+        self,
+        event_type: str,
+        job_id: str = None,
+        data: dict = None,
+        metadata: dict = None
+    ) -> str:
+        """
+        Emit event to event bus.
+        
+        Event types:
+          - ingestion.queued, ingestion.started, ingestion.progress, etc.
+          - query.started, query.completed, etc.
+          - worker.started, worker.stopped, etc.
+        
+        Returns:
+            Event ID from Redis
+        """
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "type": event_type,
+            "timestamp": datetime.utcnow().isoformat(),
+            "job_id": job_id or "",
+            "data": json.dumps(data or {}),
+            "metadata": json.dumps(metadata or {})
+        }
+        
+        event_id = await self.client.xadd(
+            self.events_stream,
+            event,
+            maxlen=self.maxlen,
+            approximate=True
+        )
+        
+        logger.debug(f"Event emitted: {event_type} ({event_id})")
+        return event_id
+    
+    async def read_events(
+        self,
+        consumer_group: str,
+        consumer_name: str,
+        last_id: str = ">",
+        count: int = 100,
+        block_ms: int = 5000
+    ) -> List[Dict[str, Any]]:
+        """
+        Read events from event stream (consumer group).
+        
+        Args:
+            last_id: ">" for new events, or specific ID for replay
+        
+        Returns:
+            List of events
+        """
+        try:
+            messages = await self.client.xreadgroup(
+                groupname=consumer_group,
+                consumername=consumer_name,
+                streams={self.events_stream: last_id},
+                count=count,
+                block=block_ms
+            )
+            
+            events = []
+            if messages:
+                for stream_name, stream_messages in messages:
+                    for message_id, message_data in stream_messages:
+                        event = {
+                            "message_id": message_id,
+                            "event_id": message_data["event_id"],
+                            "type": message_data["type"],
+                            "timestamp": message_data["timestamp"],
+                            "job_id": message_data["job_id"],
+                            "data": json.loads(message_data["data"]),
+                            "metadata": json.loads(message_data["metadata"])
+                        }
+                        events.append(event)
+            
+            return events
+        
+        except Exception as e:
+            logger.error(f"Error reading events: {str(e)}")
+            return []
+    
+    async def ack_event(self, consumer_group: str, message_id: str):
+        """Acknowledge event received"""
+        await self.client.xack(
+            self.events_stream,
+            consumer_group,
+            message_id
+        )
+
+
+# Global client instance
+redis_streams = RedisStreamsClient()
+
+
+async def init_redis():
+    """Initialize Redis Streams client"""
+    await redis_streams.connect()
+
+
+async def close_redis():
+    """Close Redis Streams client"""
+    await redis_streams.close()
+
+
+async def check_redis_health() -> dict:
+    """
+    Check Redis health for /health/detailed endpoint.
+    
+    Returns:
+        dict with status, latency, and stream info
+    """
+    import time
+    
+    try:
+        start = time.time()
+        await redis_streams.client.ping()
+        latency_ms = (time.time() - start) * 1000
+        
+        # Get stream info
+        ingestion_info = await redis_streams.client.xinfo_stream(redis_streams.ingestion_stream)
+        events_info = await redis_streams.client.xinfo_stream(redis_streams.events_stream)
+        
+        # Get consumer groups
+        ingestion_groups = await redis_streams.client.xinfo_groups(redis_streams.ingestion_stream)
+        events_groups = await redis_streams.client.xinfo_groups(redis_streams.events_stream)
+        
+        return {
+            "status": "up",
+            "latency_ms": round(latency_ms, 2),
+            "streams": {
+                redis_streams.ingestion_stream: {
+                    "length": ingestion_info["length"],
+                    "consumers": len(ingestion_groups)
+                },
+                redis_streams.events_stream: {
+                    "length": events_info["length"],
+                    "consumers": len(events_groups)
+                }
+            }
+        }
+    except Exception as e:
+        logger.error(f"Redis health check failed: {str(e)}")
+        return {
+            "status": "down",
+            "error": str(e),
+            "latency_ms": 0
+        }

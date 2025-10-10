@@ -1,0 +1,62 @@
+[Unit]
+Description=Shield Orchestrator Server (Intelligence Hub)
+Documentation=https://github.com/hanax-ai/hx-citadel-shield
+After=network-online.target postgresql.service redis.service
+Wants=network-online.target
+Requires=network-online.target
+
+[Service]
+Type=notify
+User={{ orchestrator_service_user }}
+Group={{ orchestrator_service_group }}
+WorkingDirectory={{ orchestrator_app_dir }}
+
+# Environment
+Environment=PATH={{ orchestrator_venv_dir }}/bin:/usr/local/bin:/usr/bin
+EnvironmentFile={{ orchestrator_app_dir }}/config/.env
+
+# Execution
+ExecStart={{ orchestrator_venv_dir }}/bin/uvicorn main:app \
+    --host {{ orchestrator_host }} \
+    --port {{ orchestrator_port }} \
+    --workers {{ orchestrator_workers }} \
+    --loop uvloop \
+    --log-config {{ log_config_file }}
+
+# Reload support
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Restart policy
+Restart=always
+RestartSec=10s
+StartLimitInterval=5min
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shield-orchestrator
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=16G
+CPUQuota=800%
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{ orchestrator_data_dir }} {{ orchestrator_log_dir }} {{ orchestrator_app_dir }}/logs
+ReadOnlyPaths={{ orchestrator_app_dir }}
+
+# Watchdog (health check for auto-restart)
+WatchdogSec=60
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target

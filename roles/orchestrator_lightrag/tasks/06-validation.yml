@@ -1,0 +1,56 @@
+---
+# LightRAG validation
+
+- name: Wait for orchestrator service to be available
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ orchestrator_port }}"
+    delay: 5
+    timeout: 60
+  when: orchestrator_validate_after_deploy | default(true)
+
+- name: Test LightRAG health endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:{{ orchestrator_port }}/lightrag/health"
+    method: GET
+    return_content: yes
+    status_code: 200
+  register: lightrag_health
+  retries: 3
+  delay: 5
+  until: lightrag_health.status == 200
+  when: orchestrator_validate_after_deploy | default(true)
+
+- name: Display LightRAG health status
+  ansible.builtin.debug:
+    msg: "{{ lightrag_health.content }}"
+  when: orchestrator_validate_after_deploy | default(true)
+
+- name: Test LightRAG stats endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:{{ orchestrator_port }}/lightrag/stats"
+    method: GET
+    return_content: yes
+    status_code: 200
+  register: lightrag_stats
+  when: orchestrator_validate_after_deploy | default(true)
+
+- name: Display LightRAG stats
+  ansible.builtin.debug:
+    msg: "{{ lightrag_stats.content }}"
+  when: orchestrator_validate_after_deploy | default(true)
+
+- name: Check orchestrator logs for LightRAG initialization
+  ansible.builtin.command: >
+    journalctl -u shield-orchestrator.service --since "5 minutes ago" --no-pager | grep -i lightrag | tail -5
+  register: lightrag_logs
+  changed_when: false
+  failed_when: false
+  when: orchestrator_validate_after_deploy | default(true)
+
+- name: Display LightRAG logs
+  ansible.builtin.debug:
+    msg: "{{ lightrag_logs.stdout_lines }}"
+  when: 
+    - orchestrator_validate_after_deploy | default(true)
+    - lightrag_logs.stdout_lines is defined

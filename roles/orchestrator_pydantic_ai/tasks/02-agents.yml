@@ -1,0 +1,102 @@
+---
+# Deploy Pydantic AI agent modules
+# Component 8: Pydantic AI Agents
+
+- name: Create agents directory
+  ansible.builtin.file:
+    path: "{{ orchestrator_app_dir }}/agents"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+  tags: [agents]
+
+- name: Deploy web crawl coordinator agent
+  ansible.builtin.template:
+    src: agents/web_crawl_coordinator.py.j2
+    dest: "{{ orchestrator_app_dir }}/agents/web_crawl_coordinator.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [agents]
+
+- name: Deploy document process coordinator agent
+  ansible.builtin.template:
+    src: agents/doc_process_coordinator.py.j2
+    dest: "{{ orchestrator_app_dir }}/agents/doc_process_coordinator.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [agents]
+
+- name: Deploy query router agent
+  ansible.builtin.template:
+    src: agents/query_router.py.j2
+    dest: "{{ orchestrator_app_dir }}/agents/query_router.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [agents]
+
+- name: Create agents __init__.py
+  ansible.builtin.copy:
+    content: |
+      """
+      Pydantic AI Agents
+      Component 8: Pydantic AI Agents
+      """
+      
+      from agents.web_crawl_coordinator import web_crawl_coordinator, coordinate_web_crawl
+      from agents.doc_process_coordinator import doc_process_coordinator, coordinate_doc_processing
+      from agents.query_router import query_router_agent, route_query
+      
+      __all__ = [
+          "web_crawl_coordinator",
+          "coordinate_web_crawl",
+          "doc_process_coordinator",
+          "coordinate_doc_processing",
+          "query_router_agent",
+          "route_query",
+      ]
+    dest: "{{ orchestrator_app_dir }}/agents/__init__.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [agents]
+
+- name: Deploy agent manager service
+  ansible.builtin.template:
+    src: services/agent_manager.py.j2
+    dest: "{{ orchestrator_app_dir }}/services/agent_manager.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [agents, services]
+
+- name: Test agent imports
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from agents import web_crawl_coordinator, doc_process_coordinator, query_router_agent;
+    from services.agent_manager import agent_manager;
+    print("All agents imported successfully")'
+  register: agent_import_test
+  changed_when: false
+  failed_when: agent_import_test.rc != 0
+  tags: [agents, validation]
+
+- name: Display agent import result
+  ansible.builtin.debug:
+    msg: "{{ agent_import_test.stdout }}"
+  tags: [agents, validation]

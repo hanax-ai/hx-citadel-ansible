@@ -1,0 +1,15 @@
+# PostgreSQL Dependencies
+# Component 3: PostgreSQL Integration
+
+# PostgreSQL async driver
+asyncpg>=0.29.0
+
+# ORM (optional but recommended)
+sqlalchemy[asyncio]>=2.0.0
+
+# Database migrations
+alembic>=1.13.0
+
+# Utilities
+psycopg2-binary>=2.9.9     # For pg_dump/restore scripts
+greenlet>=3.0.0            # For SQLAlchemy async support

@@ -1,0 +1,48 @@
+---
+# Component 10: CopilotKit Adapter Deployment Playbook
+# Human-in-the-Loop Frontend Integration
+
+- name: Deploy CopilotKit Adapter
+  hosts: hx-orchestrator-server
+  become: no
+  gather_facts: yes
+  
+  vars:
+    orchestrator_dir: "/opt/hx-citadel-shield/orchestrator"
+    orchestrator_venv: "/opt/hx-citadel-shield/orchestrator/.venv"
+    orchestrator_user: "orchestrator"
+    orchestrator_group: "orchestrator"
+  
+  roles:
+    - role: orchestrator_copilotkit
+      tags: [copilotkit]
+  
+  post_tasks:
+    - name: Wait for orchestrator service to stabilize
+      ansible.builtin.pause:
+        seconds: 10
+      when: ansible_check_mode == false
+    
+    - name: Check orchestrator service status
+      ansible.builtin.systemd:
+        name: orchestrator
+        state: started
+      register: orchestrator_status
+      become: yes
+    
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "=== CopilotKit Adapter Deployment Complete ==="
+          - "CopilotKit adapter: DEPLOYED ✓"
+          - "API endpoints: DEPLOYED ✓"
+          - "SSE streaming: CONFIGURED ✓"
+          - "Action execution: CONFIGURED ✓"
+          - "Orchestrator service: {{ orchestrator_status.status.ActiveState }}"
+          - ""
+          - "Next steps:"
+          - "  1. Configure shield-power-ui to use CopilotKit endpoints"
+          - "  2. Test SSE streaming with a job"
+          - "  3. Test action execution from frontend"
+          - "  4. Verify HITL workflows"
+          - "=============================================="

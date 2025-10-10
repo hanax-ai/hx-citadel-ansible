@@ -1,0 +1,44 @@
+---
+# Orchestrator Base Configuration
+orchestrator_service_user: "orchestrator"
+orchestrator_service_group: "orchestrator"
+orchestrator_user_uid: 1001
+orchestrator_group_gid: 1001
+orchestrator_user_home: "/home/orchestrator"
+orchestrator_user_shell: "/bin/bash"
+
+# Application directories
+orchestrator_base_dir: "/opt/hx-citadel-shield"
+orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
+orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator-venv"
+orchestrator_data_dir: "/opt/hx-citadel-shield/data"
+orchestrator_log_dir: "/var/log/hx-citadel/orchestrator"
+
+# LightRAG data directories
+lightrag_working_dir: "/opt/hx-citadel-shield/data/lightrag"
+lightrag_cache_dir: "/opt/hx-citadel-shield/data/lightrag/cache"
+lightrag_logs_dir: "/opt/hx-citadel-shield/data/lightrag/logs"
+lightrag_checkpoints_dir: "/opt/hx-citadel-shield/data/lightrag/checkpoints"
+
+# Python configuration
+python_version: "3.12"
+python_pip_version: "latest"
+
+# System packages
+base_packages:
+  - python3.12
+  - python3.12-venv
+  - python3.12-dev
+  - python3-pip
+  - build-essential
+  - libpq-dev        # PostgreSQL client
+  - libssl-dev       # SSL/TLS
+  - libffi-dev       # Foreign function interface
+  - redis-tools      # Redis CLI
+  - postgresql-client  # PostgreSQL CLI
+  - curl
+  - wget
+  - git
+  - jq
+  - htop
+  - vim

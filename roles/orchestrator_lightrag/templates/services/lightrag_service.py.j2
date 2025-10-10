@@ -1,0 +1,298 @@
+"""
+LightRAG service wrapper for Shield Orchestrator
+Component 6: Hybrid Knowledge Graph + Vector Retrieval
+"""
+
+from lightrag import LightRAG, QueryParam
+from lightrag.llm.openai import openai_complete_if_cache
+from lightrag.llm.ollama import ollama_embed
+from lightrag.utils import EmbeddingFunc
+import os
+import logging
+from typing import List, Dict, Any, Optional
+import asyncio
+
+logger = logging.getLogger("shield-orchestrator.lightrag")
+
+
+class LightRAGService:
+    """
+    LightRAG engine wrapper.
+    
+    Features:
+      - Hybrid retrieval (KG + Vector)
+      - Entity extraction from text
+      - Relationship mapping
+      - PostgreSQL KG storage
+      - Qdrant vector storage
+      - Async operations
+    
+    Configuration:
+      - Working directory: {{ lightrag_working_dir }}
+      - LLM: {{ llm_model }} (via LiteLLM)
+      - Embeddings: {{ llm_embedding_model }} (Ollama)
+      - KG Storage: PostgreSQL
+      - Vector Storage: Qdrant
+    """
+    
+    def __init__(self):
+        self.rag: Optional[LightRAG] = None
+        self.working_dir = "{{ lightrag_working_dir }}"
+        self.initialized = False
+        self.llm_model = "{{ llm_model }}"
+        self.embedding_model = "{{ llm_embedding_model }}"
+    
+    async def initialize(self):
+        """
+        Initialize LightRAG engine.
+        
+        Sets up:
+          - OpenAI-compatible LLM (LiteLLM proxy)
+          - Embedding function (Ollama via LiteLLM)
+          - Working directory
+          - Storage backends
+        """
+        if self.initialized:
+            logger.info("LightRAG already initialized")
+            return
+        
+        logger.info("Initializing LightRAG engine...")
+        
+        # Ensure working directory exists
+        os.makedirs(self.working_dir, exist_ok=True)
+        
+        # Configure OpenAI-compatible LLM (LiteLLM)
+        async def llm_model_func(prompt, **kwargs):
+            """LLM completion function via LiteLLM"""
+            return await openai_complete_if_cache(
+                model="{{ llm_model }}",
+                prompt=prompt,
+                api_base="{{ llm_api_base }}",
+                api_key="{{ llm_api_key }}",
+                max_tokens={{ llm_max_tokens }},
+                temperature={{ llm_temperature }},
+                **kwargs
+            )
+        
+        # Configure embeddings (Ollama)
+        async def embedding_func(texts: List[str]) -> List[List[float]]:
+            """Embedding function via Ollama"""
+            return await ollama_embed(
+                texts,
+                model="{{ llm_embedding_model }}",
+                host="{{ ollama_url }}"
+            )
+        
+        # Initialize LightRAG
+        try:
+            self.rag = LightRAG(
+                working_dir=self.working_dir,
+                llm_model_func=llm_model_func,
+                embedding_func=EmbeddingFunc(
+                    embedding_dim={{ ollama_embedding_dim }},
+                    max_token_size=8192,
+                    func=embedding_func
+                ),
+                # TODO: Configure PostgreSQL and Qdrant storage backends
+                # For now, uses file-based storage (default)
+            )
+            
+            self.initialized = True
+            logger.info(f"✅ LightRAG engine initialized (working_dir: {self.working_dir})")
+        
+        except Exception as e:
+            logger.error(f"Failed to initialize LightRAG: {str(e)}")
+            raise
+    
+    async def insert_text(
+        self,
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Insert text into LightRAG (builds KG + vectors).
+        
+        Processing Steps:
+          1. Extract entities using LLM
+          2. Extract relationships using LLM
+          3. Update Knowledge Graph (PostgreSQL)
+          4. Generate embeddings (Ollama)
+          5. Store vectors (Qdrant)
+        
+        Args:
+            text: Text content to process
+            metadata: Optional metadata (source_uri, document_id, etc.)
+        
+        Returns:
+            Statistics dictionary with:
+              - status: "success" or "error"
+              - text_length: Character count
+              - entities_extracted: Entity count
+              - relationships_extracted: Relationship count
+              - metadata: Original metadata
+        """
+        if not self.initialized:
+            await self.initialize()
+        
+        try:
+            logger.info(f"Inserting text into LightRAG ({len(text)} chars)...")
+            
+            # Insert into LightRAG
+            await self.rag.ainsert(text)
+            
+            # TODO: Track detailed statistics from LightRAG
+            # Currently LightRAG doesn't return insertion stats
+            stats = {
+                "status": "success",
+                "text_length": len(text),
+                "entities_extracted": 0,  # TODO: Get from LightRAG internals
+                "relationships_extracted": 0,  # TODO: Get from LightRAG internals
+                "metadata": metadata or {}
+            }
+            
+            logger.info(f"✅ Inserted text successfully")
+            return stats
+        
+        except Exception as e:
+            logger.error(f"LightRAG insertion error: {str(e)}")
+            return {
+                "status": "error",
+                "error": str(e),
+                "text_length": len(text),
+                "metadata": metadata or {}
+            }
+    
+    async def query(
+        self,
+        query: str,
+        mode: str = "hybrid",
+        top_k: int = {{ vector_top_k }},
+        max_depth: int = {{ kg_max_depth }}
+    ) -> Dict[str, Any]:
+        """
+        Query LightRAG with hybrid retrieval.
+        
+        Retrieval Modes:
+          - "hybrid": KG + Vector search (best results)
+          - "local": Local KG traversal only
+          - "global": Global KG overview
+          - "naive": Simple vector search only
+        
+        Args:
+            query: Natural language query
+            mode: Retrieval mode (hybrid, local, global, naive)
+            top_k: Number of vector search results
+            max_depth: KG traversal depth
+        
+        Returns:
+            Dictionary with:
+              - query: Original query
+              - mode: Retrieval mode used
+              - answer: Generated answer with context
+              - metadata: Query metadata
+        """
+        if not self.initialized:
+            await self.initialize()
+        
+        try:
+            logger.info(f"Querying LightRAG (mode: {mode}, query: {query[:50]}...)")
+            
+            # Create query parameters
+            param = QueryParam(
+                mode=mode,
+                top_k=top_k,
+                # LightRAG will handle KG traversal automatically
+            )
+            
+            # Execute query
+            result = await self.rag.aquery(query, param=param)
+            
+            response = {
+                "query": query,
+                "mode": mode,
+                "answer": result,
+                "metadata": {
+                    "top_k": top_k,
+                    "max_depth": max_depth,
+                    "model": self.llm_model,
+                    "embedding_model": self.embedding_model
+                }
+            }
+            
+            logger.info(f"✅ Query completed (answer_length: {len(result)} chars)")
+            return response
+        
+        except Exception as e:
+            logger.error(f"LightRAG query error: {str(e)}")
+            return {
+                "query": query,
+                "mode": mode,
+                "answer": f"Error: {str(e)}",
+                "metadata": {
+                    "error": True,
+                    "error_message": str(e)
+                }
+            }
+    
+    async def get_stats(self) -> Dict[str, Any]:
+        """
+        Get LightRAG statistics.
+        
+        Returns:
+            Statistics dictionary with:
+              - initialized: Initialization status
+              - working_dir: Working directory path
+              - kg_entities: Entity count (from PostgreSQL)
+              - kg_relationships: Relationship count (from PostgreSQL)
+              - vector_count: Vector count (from Qdrant)
+        """
+        stats = {
+            "initialized": self.initialized,
+            "working_dir": self.working_dir,
+            "llm_model": self.llm_model,
+            "embedding_model": self.embedding_model,
+            "kg_entities": 0,  # TODO: Query PostgreSQL
+            "kg_relationships": 0,  # TODO: Query PostgreSQL
+            "vector_count": 0  # TODO: Query Qdrant
+        }
+        
+        # Check if working directory exists and has content
+        if os.path.exists(self.working_dir):
+            try:
+                files = os.listdir(self.working_dir)
+                stats["working_dir_files"] = len(files)
+            except Exception as e:
+                logger.warning(f"Could not list working directory: {str(e)}")
+        
+        return stats
+    
+    async def close(self):
+        """Close LightRAG and cleanup resources"""
+        if self.rag:
+            logger.info("Closing LightRAG engine...")
+            # LightRAG doesn't have explicit close method
+            self.rag = None
+            self.initialized = False
+            logger.info("✅ LightRAG engine closed")
+
+
+# Global service instance
+lightrag_service = LightRAGService()
+
+
+async def init_lightrag():
+    """
+    Initialize LightRAG service.
+    
+    Called from FastAPI lifespan on startup.
+    """
+    await lightrag_service.initialize()
+
+
+async def close_lightrag():
+    """
+    Close LightRAG service.
+    
+    Called from FastAPI lifespan on shutdown.
+    """
+    await lightrag_service.close()

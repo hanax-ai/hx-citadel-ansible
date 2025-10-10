@@ -1,0 +1,9 @@
+---
+# Handlers for orchestrator_redis role
+- name: restart orchestrator
+  ansible.builtin.systemd:
+    name: shield-orchestrator
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  listen: restart orchestrator

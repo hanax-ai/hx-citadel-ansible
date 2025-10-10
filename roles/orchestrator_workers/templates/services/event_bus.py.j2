@@ -1,0 +1,235 @@
+"""
+Event bus service for real-time SSE (Server-Sent Events) streaming.
+
+Provides pub/sub event system for:
+  - Ingestion progress updates
+  - Worker status changes
+  - Job completion notifications
+  - System health events
+"""
+
+import asyncio
+import logging
+import json
+from typing import Dict, List, Any, Optional, Set
+from datetime import datetime
+from collections import deque
+from dataclasses import dataclass, asdict
+
+logger = logging.getLogger("shield-orchestrator.event-bus")
+
+
+@dataclass
+class Event:
+    """Event data structure"""
+    event_type: str
+    timestamp: str
+    job_id: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    
+    def to_sse(self) -> str:
+        """Convert to SSE format"""
+        event_data = asdict(self)
+        return f"event: {self.event_type}\ndata: {json.dumps(event_data)}\n\n"
+
+
+class EventBus:
+    """
+    Async event bus with SSE streaming support.
+    
+    Features:
+      - Multiple subscribers (SSE clients)
+      - Event filtering by type
+      - Event buffering (last N events)
+      - Automatic cleanup of stale clients
+      - Memory-efficient (max clients: {{ event_bus_max_clients }})
+    """
+    
+    def __init__(
+        self,
+        max_clients: int = {{ event_bus_max_clients }},
+        buffer_size: int = 100,
+        keepalive_interval: int = {{ event_bus_keepalive_interval }}
+    ):
+        self.max_clients = max_clients
+        self.buffer_size = buffer_size
+        self.keepalive_interval = keepalive_interval
+        
+        # Active subscribers
+        self.subscribers: Set[asyncio.Queue] = set()
+        
+        # Event buffer (for new subscribers)
+        self.event_buffer: deque = deque(maxlen=buffer_size)
+        
+        # Statistics
+        self.events_emitted = 0
+        self.events_dropped = 0
+        
+        logger.info(f"Event bus initialized (max_clients={max_clients}, buffer_size={buffer_size})")
+    
+    async def subscribe(
+        self,
+        event_types: Optional[List[str]] = None,
+        include_history: bool = False
+    ) -> asyncio.Queue:
+        """
+        Subscribe to events.
+        
+        Args:
+            event_types: Filter by event types (None = all events)
+            include_history: Send buffered events on subscribe
+        
+        Returns:
+            Async queue for receiving events
+        """
+        if len(self.subscribers) >= self.max_clients:
+            logger.warning(f"Max clients reached ({self.max_clients}), rejecting subscription")
+            raise RuntimeError("Max event bus clients reached")
+        
+        # Create queue for this subscriber
+        queue: asyncio.Queue = asyncio.Queue(maxsize=50)
+        self.subscribers.add(queue)
+        
+        logger.info(f"New subscriber (total: {len(self.subscribers)})")
+        
+        # Send buffered events if requested
+        if include_history:
+            for event in self.event_buffer:
+                if event_types is None or event.event_type in event_types:
+                    try:
+                        queue.put_nowait(event)
+                    except asyncio.QueueFull:
+                        logger.warning("Subscriber queue full, skipping history")
+                        break
+        
+        return queue
+    
+    def unsubscribe(self, queue: asyncio.Queue):
+        """Unsubscribe from events"""
+        if queue in self.subscribers:
+            self.subscribers.remove(queue)
+            logger.info(f"Subscriber removed (total: {len(self.subscribers)})")
+    
+    async def emit_event(
+        self,
+        event_type: str,
+        job_id: Optional[str] = None,
+        data: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Emit event to all subscribers.
+        
+        Args:
+            event_type: Event type (e.g., "ingestion.started")
+            job_id: Optional job ID
+            data: Event payload
+            metadata: Additional metadata
+        """
+        event = Event(
+            event_type=event_type,
+            timestamp=datetime.utcnow().isoformat(),
+            job_id=job_id,
+            data=data,
+            metadata=metadata
+        )
+        
+        # Add to buffer
+        self.event_buffer.append(event)
+        self.events_emitted += 1
+        
+        # Send to all subscribers
+        dead_subscribers = set()
+        
+        for queue in self.subscribers:
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                logger.warning("Subscriber queue full, dropping event")
+                self.events_dropped += 1
+            except Exception as e:
+                logger.error(f"Error sending event to subscriber: {str(e)}")
+                dead_subscribers.add(queue)
+        
+        # Clean up dead subscribers
+        for queue in dead_subscribers:
+            self.unsubscribe(queue)
+        
+        logger.debug(f"Event emitted: {event_type} (subscribers: {len(self.subscribers)})")
+    
+    async def stream_events(
+        self,
+        queue: asyncio.Queue,
+        event_types: Optional[List[str]] = None
+    ):
+        """
+        Async generator for SSE streaming.
+        
+        Args:
+            queue: Subscriber queue
+            event_types: Filter by event types
+        
+        Yields:
+            SSE-formatted event strings
+        """
+        try:
+            # Send keepalive comments periodically
+            last_keepalive = asyncio.get_event_loop().time()
+            
+            while True:
+                try:
+                    # Wait for event with timeout (for keepalive)
+                    event = await asyncio.wait_for(
+                        queue.get(),
+                        timeout=self.keepalive_interval
+                    )
+                    
+                    # Filter by event type
+                    if event_types is None or event.event_type in event_types:
+                        yield event.to_sse()
+                    
+                    last_keepalive = asyncio.get_event_loop().time()
+                
+                except asyncio.TimeoutError:
+                    # Send keepalive comment
+                    current_time = asyncio.get_event_loop().time()
+                    if current_time - last_keepalive >= self.keepalive_interval:
+                        yield f": keepalive\n\n"
+                        last_keepalive = current_time
+        
+        except asyncio.CancelledError:
+            logger.info("Event stream cancelled")
+        
+        finally:
+            # Clean up subscription
+            self.unsubscribe(queue)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get event bus statistics"""
+        return {
+            "active_subscribers": len(self.subscribers),
+            "max_clients": self.max_clients,
+            "events_emitted": self.events_emitted,
+            "events_dropped": self.events_dropped,
+            "buffer_size": len(self.event_buffer),
+            "buffer_max": self.buffer_size
+        }
+
+
+# Global event bus instance
+event_bus = EventBus()
+
+
+async def init_event_bus():
+    """Initialize event bus (called at startup)"""
+    logger.info("✅ Event bus initialized")
+
+
+async def close_event_bus():
+    """Cleanup event bus (called at shutdown)"""
+    # Notify all subscribers
+    for queue in list(event_bus.subscribers):
+        event_bus.unsubscribe(queue)
+    
+    logger.info("✅ Event bus closed")

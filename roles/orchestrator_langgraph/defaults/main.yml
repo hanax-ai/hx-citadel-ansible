@@ -1,0 +1,26 @@
+---
+# LangGraph Workflow Configuration
+# Component 9: LangGraph Workflows
+
+# Orchestrator paths (should match fastapi role)
+orchestrator_user: orchestrator
+orchestrator_group: orchestrator
+orchestrator_dir: /opt/hx-citadel-shield/orchestrator
+orchestrator_venv: /opt/hx-citadel-shield/orchestrator/.venv
+
+# Workflow configuration
+langgraph_enable: true
+langgraph_checkpoint_backend: "postgres"  # Changed to postgres for AsyncPostgresSaver
+langgraph_state_retention_hours: 72
+
+# Workflow limits
+workflow_max_iterations: 10
+workflow_timeout_seconds: 300
+workflow_max_concurrent: 5
+
+# LightRAG configuration for workflows
+lightrag_chunk_size: 1200
+lightrag_chunk_overlap: 100
+
+# Qdrant configuration for workflows
+qdrant_collection: "hx_corpus_v1"

@@ -1,0 +1,156 @@
+"""
+Database connection management for Shield Orchestrator.
+Handles async PostgreSQL connections with connection pooling.
+"""
+
+import asyncio
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Optional
+import logging
+
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+)
+from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.orm import DeclarativeBase
+
+from config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
+    pass
+
+
+class DatabaseManager:
+    """
+    Manages database connections and sessions.
+    Implements singleton pattern for engine management.
+    """
+    
+    _engine: Optional[AsyncEngine] = None
+    _sessionmaker: Optional[async_sessionmaker[AsyncSession]] = None
+    
+    @classmethod
+    def get_engine(cls) -> AsyncEngine:
+        """
+        Get or create the database engine.
+        
+        Returns:
+            AsyncEngine: SQLAlchemy async engine instance
+        """
+        if cls._engine is None:
+            cls._engine = create_async_engine(
+                settings.database_url,
+                echo=False,  # Set to True for SQL query logging
+                pool_pre_ping=True,  # Verify connections before using
+                pool_size={{ db_pool_size | default(10) }},
+                max_overflow={{ db_max_overflow | default(20) }},
+                pool_recycle=3600,  # Recycle connections after 1 hour
+                connect_args={
+                    "server_settings": {
+                        "application_name": "shield_orchestrator",
+                        "jit": "off",  # Disable JIT for better connection time
+                    },
+                    "timeout": 30,
+                    "command_timeout": 60,
+                    "ssl": False,  # Disable SSL for local PostgreSQL connections
+                },
+            )
+            logger.info("Database engine created successfully")
+        return cls._engine
+    
+    @classmethod
+    def get_sessionmaker(cls) -> async_sessionmaker[AsyncSession]:
+        """
+        Get or create the session maker.
+        
+        Returns:
+            async_sessionmaker: Session factory for creating database sessions
+        """
+        if cls._sessionmaker is None:
+            engine = cls.get_engine()
+            cls._sessionmaker = async_sessionmaker(
+                engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autocommit=False,
+                autoflush=False,
+            )
+            logger.info("Database sessionmaker created successfully")
+        return cls._sessionmaker
+    
+    @classmethod
+    async def close(cls) -> None:
+        """Close database connections and dispose engine."""
+        if cls._engine is not None:
+            await cls._engine.dispose()
+            cls._engine = None
+            cls._sessionmaker = None
+            logger.info("Database connections closed")
+    
+    @classmethod
+    async def healthcheck(cls) -> bool:
+        """
+        Check database connectivity.
+        
+        Returns:
+            bool: True if database is accessible, False otherwise
+        """
+        try:
+            engine = cls.get_engine()
+            async with engine.connect() as conn:
+                await conn.execute("SELECT 1")
+            return True
+        except Exception as e:
+            logger.error(f"Database healthcheck failed: {e}")
+            return False
+
+
+@asynccontextmanager
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency for getting database sessions.
+    
+    Yields:
+        AsyncSession: Database session
+        
+    Example:
+        async with get_db_session() as session:
+            result = await session.execute(query)
+    """
+    sessionmaker = DatabaseManager.get_sessionmaker()
+    async with sessionmaker() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def init_database() -> None:
+    """
+    Initialize database tables.
+    Should be called on application startup.
+    """
+    engine = DatabaseManager.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables initialized")
+
+
+async def close_database() -> None:
+    """
+    Close database connections.
+    Should be called on application shutdown.
+    """
+    await DatabaseManager.close()
+    logger.info("Database closed")

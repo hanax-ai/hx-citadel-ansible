@@ -1,0 +1,24 @@
+---
+# Redis Configuration
+redis_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
+redis_port: 6379
+redis_db: 0
+redis_password: "{{ vault_redis_password }}"
+redis_url: "redis://:{{ vault_redis_password }}@{{ hx_hosts_fqdn['hx-sqldb-server'] }}:6379/0"
+
+# Redis Streams configuration
+redis_stream_ingestion: "shield:ingestion_queue"
+redis_stream_events: "shield:events"
+redis_stream_maxlen: 10000
+
+# Consumer groups
+redis_consumer_group_workers: "lightrag-workers"
+redis_consumer_group_ag_ui: "ag-ui-frontend"
+redis_consumer_group_power_ui: "power-ui-frontend"
+redis_consumer_group_dashboard: "dashboard-frontend"
+redis_consumer_group_metrics: "metrics-collector"
+
+# Performance tuning
+redis_batch_size: 10
+redis_block_timeout_ms: 5000
+redis_retry_attempts: 3

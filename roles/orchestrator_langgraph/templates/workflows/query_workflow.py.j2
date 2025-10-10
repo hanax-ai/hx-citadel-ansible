@@ -1,0 +1,407 @@
+"""
+Query Workflow (LangGraph)
+Component 9: LangGraph Workflows
+
+Complete multi-step query workflow with intelligent routing.
+Adapted from reference implementation to use our architecture.
+"""
+
+from langgraph.graph import StateGraph, START, END
+from typing import Annotated, Dict, List, Any
+from typing_extensions import TypedDict
+import logging
+
+# Our services  
+from services.lightrag_service import lightrag_service
+from services.qdrant_client import qdrant_service
+from services.embeddings import embedding_service
+from services.event_bus import event_bus
+
+# Agent manager will be imported at runtime in node functions to avoid circular dependencies
+
+logger = logging.getLogger("shield-orchestrator.workflows.query")
+
+
+class QueryState(TypedDict):
+    """State for query workflow"""
+    # Input
+    query: str
+    user_id: str
+    session_id: str
+    
+    # Routing decision
+    routing_decision: Dict[str, Any]  # RoutingDecision dict
+    path: str  # fast or deep
+    mode: str  # vector, hybrid, or kg
+    
+    # Results
+    results: List[Dict[str, Any]]
+    answer: str
+    sources: List[Dict[str, Any]]
+    
+    # Metadata
+    metadata: Annotated[Dict[str, Any], lambda x, y: {**x, **y}]
+    execution_time_ms: int
+
+
+# Node functions
+async def route_query_node(state: QueryState) -> Dict[str, Any]:
+    """
+    Route query using query_router agent via agent_manager.
+    
+    This is the intelligence layer - the agent analyzes complexity,
+    intent, and requirements to determine optimal retrieval path.
+    """
+    query = state["query"]
+    logger.info(f"Routing query: {query[:100]}...")
+    
+    try:
+        # Import agent_manager at runtime to avoid circular dependency
+        from services.agent_manager import agent_manager
+        
+        # Call query router agent for intelligent routing
+        agent = agent_manager.get_agent("query_router")
+        result = await agent.run(f"Route this query and determine the best retrieval strategy: {query}")
+        
+        # Parse agent response - for now use defaults
+        # TODO: Enhance agent response parsing to extract structured routing decision
+        path = "fast"  # Default to fast path
+        mode = "vector"  # Default to vector search
+        confidence = 0.8
+        reason = str(result.data) if hasattr(result, 'data') else "Default routing"
+        
+        # Emit routing event
+        await event_bus.emit_event({
+            "event_type": "workflow.query_routed",
+            "data": {
+                "query": query,
+                "path": path,
+                "mode": mode,
+                "confidence": confidence,
+                "reason": reason
+            }
+        })
+        
+        logger.info(
+            f"Query routed to {path} path "
+            f"(mode: {mode}, confidence: {confidence:.2f})"
+        )
+        
+        return {
+            "routing_decision": {"path": path, "mode": mode, "confidence": confidence, "reason": reason},
+            "path": path,
+            "mode": mode,
+            "metadata": {
+                "routing_reason": reason,
+                "routing_confidence": confidence,
+                "estimated_latency_ms": decision.estimated_latency_ms
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Query routing failed: {e}", exc_info=True)
+        # Fallback to fast path on error
+        return {
+            "path": "fast",
+            "mode": "vector",
+            "metadata": {
+                "routing_error": str(e),
+                "routing_fallback": True
+            }
+        }
+
+
+async def fast_path_search(state: QueryState) -> Dict[str, Any]:
+    """
+    Fast path: Direct Qdrant vector search.
+    
+    Optimized for:
+    - Simple factual queries
+    - Low latency requirements
+    - Direct information lookup
+    """
+    query = state["query"]
+    logger.info(f"Executing fast path (Qdrant vector search)")
+    
+    try:
+        # Get query embedding
+        embedding = await embedding_service.get_embedding(query)
+        
+        # Search Qdrant
+        search_results = await qdrant_service.search(
+            collection_name="{{ qdrant_collection | default('hx_corpus_v1') }}",
+            query_vector=embedding,
+            limit=10,
+            score_threshold=0.7
+        )
+        
+        # Format results
+        results = []
+        sources = []
+        
+        for result in search_results:
+            payload = result.payload or {}
+            results.append({
+                "text": payload.get("text", ""),
+                "score": result.score,
+                "metadata": payload.get("metadata", {})
+            })
+            
+            sources.append({
+                "id": result.id,
+                "score": result.score,
+                "source": payload.get("metadata", {}).get("source", "unknown")
+            })
+        
+        logger.info(f"Fast path returned {len(results)} results")
+        
+        return {
+            "results": results,
+            "sources": sources,
+            "metadata": {
+                "path_used": "fast",
+                "results_count": len(results)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Fast path search failed: {e}", exc_info=True)
+        return {
+            "results": [],
+            "sources": [],
+            "metadata": {"fast_path_error": str(e)}
+        }
+
+
+async def deep_path_search(state: QueryState) -> Dict[str, Any]:
+    """
+    Deep path: LightRAG hybrid retrieval.
+    
+    Optimized for:
+    - Complex analytical queries
+    - Multi-hop reasoning
+    - Relationship exploration
+    - Context-heavy questions
+    """
+    query = state["query"]
+    mode = state["mode"]
+    logger.info(f"Executing deep path (LightRAG {mode} mode)")
+    
+    try:
+        # Query via LightRAG with appropriate mode
+        result = await lightrag_service.query(
+            query=query,
+            mode=mode,
+            only_need_context=False
+        )
+        
+        # LightRAG returns answer directly
+        answer = result.get("answer", "")
+        
+        # Extract sources/context if available
+        sources = []
+        if "context" in result:
+            sources.append({
+                "type": "lightrag_context",
+                "content": result["context"]
+            })
+        
+        logger.info(f"Deep path generated answer ({len(answer)} chars)")
+        
+        return {
+            "answer": answer,
+            "sources": sources,
+            "metadata": {
+                "path_used": "deep",
+                "retrieval_mode": mode,
+                "answer_length": len(answer)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Deep path search failed: {e}", exc_info=True)
+        return {
+            "answer": f"Error during deep path search: {str(e)}",
+            "sources": [],
+            "metadata": {"deep_path_error": str(e)}
+        }
+
+
+async def generate_answer_node(state: QueryState) -> Dict[str, Any]:
+    """
+    Generate final answer.
+    
+    For fast path: Synthesize answer from retrieved results
+    For deep path: Answer already generated, just format
+    """
+    path = state["path"]
+    query = state["query"]
+    
+    if path == "fast":
+        # Fast path needs answer generation from results
+        results = state.get("results", [])
+        
+        if not results:
+            answer = "No relevant information found for your query."
+        else:
+            # Simple answer generation (could be enhanced with LLM)
+            context_texts = [r["text"] for r in results[:3]]
+            answer = f"Based on the search results:\n\n" + "\n\n".join(context_texts)
+        
+        logger.info(f"Generated answer for fast path ({len(answer)} chars)")
+        
+        return {
+            "answer": answer,
+            "metadata": {"answer_generated": True}
+        }
+    
+    else:
+        # Deep path already has answer from LightRAG
+        answer = state.get("answer", "")
+        logger.info(f"Using deep path answer ({len(answer)} chars)")
+        
+        return {
+            "metadata": {"answer_source": "lightrag"}
+        }
+
+
+async def emit_completion_event(state: QueryState) -> Dict[str, Any]:
+    """
+    Emit workflow completion event.
+    
+    Final node to emit telemetry and tracking events.
+    """
+    try:
+        await event_bus.emit_event({
+            "event_type": "workflow.query_completed",
+            "data": {
+                "query": state["query"],
+                "path": state["path"],
+                "mode": state.get("mode"),
+                "answer_length": len(state.get("answer", "")),
+                "sources_count": len(state.get("sources", [])),
+                "metadata": state.get("metadata", {})
+            }
+        })
+        
+        logger.info("Query workflow completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to emit completion event: {e}")
+    
+    return {}
+
+
+# Conditional routing function
+def route_after_routing_decision(state: QueryState) -> str:
+    """
+    Determine which path to take based on routing decision.
+    
+    This implements the conditional branching based on agent decision.
+    """
+    path = state.get("path", "fast")
+    
+    if path == "deep":
+        return "deep_path"
+    else:
+        return "fast_path"
+
+
+# Build the query workflow graph
+def build_query_workflow():
+    """
+    Build and return the compiled query workflow graph.
+    
+    Workflow structure:
+      START → route_query → [conditional] → fast_path OR deep_path
+                                         ↓
+                              generate_answer → emit_completion → END
+    """
+    logger.info("Building query workflow graph...")
+    
+    # Create the graph with our state
+    graph = StateGraph(QueryState)
+    
+    # Add nodes
+    graph.add_node("route_query", route_query_node)
+    graph.add_node("fast_path", fast_path_search)
+    graph.add_node("deep_path", deep_path_search)
+    graph.add_node("generate_answer", generate_answer_node)
+    graph.add_node("emit_completion", emit_completion_event)
+    
+    # Add edges
+    graph.add_edge(START, "route_query")
+    
+    # Conditional edge after routing
+    graph.add_conditional_edges(
+        "route_query",
+        route_after_routing_decision,
+        {
+            "fast_path": "fast_path",
+            "deep_path": "deep_path"
+        }
+    )
+    
+    # Both paths converge to answer generation
+    graph.add_edge("fast_path", "generate_answer")
+    graph.add_edge("deep_path", "generate_answer")
+    
+    # Then emit completion event
+    graph.add_edge("generate_answer", "emit_completion")
+    
+    # Finally end
+    graph.add_edge("emit_completion", END)
+    
+    logger.info("Query workflow graph built successfully")
+    
+    # Return uncompiled graph (will be compiled by workflow_manager with checkpointing)
+    return graph
+
+
+# Create the query workflow graph (uncompiled)
+query_workflow_graph = build_query_workflow()
+
+
+# Convenience execution function
+async def execute_query_workflow(
+    query: str,
+    user_id: str = "system",
+    session_id: str = None
+) -> Dict[str, Any]:
+    """
+    Execute the query workflow.
+    
+    Args:
+        query: User's query string
+        user_id: User identifier
+        session_id: Session identifier for checkpointing
+    
+    Returns:
+        Workflow result with answer and metadata
+    """
+    import uuid
+    from datetime import datetime
+    
+    if session_id is None:
+        session_id = str(uuid.uuid4())
+    
+    # Initialize state
+    initial_state = {
+        "query": query,
+        "user_id": user_id,
+        "session_id": session_id,
+        "results": [],
+        "sources": [],
+        "answer": "",
+        "metadata": {
+            "started_at": datetime.utcnow().isoformat()
+        }
+    }
+    
+    logger.info(f"Executing query workflow: session={session_id}")
+    
+    # Note: This requires the compiled graph from workflow_manager
+    # This is just a convenience function showing the pattern
+    # Actual execution should go through workflow_manager
+    
+    return initial_state

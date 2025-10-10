@@ -1,0 +1,64 @@
+---
+# Application structure deployment
+- name: Create application logs directory
+  ansible.builtin.file:
+    path: "{{ orchestrator_app_dir }}/logs"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+  tags: [application]
+
+- name: Deploy main application file
+  ansible.builtin.template:
+    src: main.py.j2
+    dest: "{{ orchestrator_app_dir }}/main.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+  notify: restart orchestrator
+  tags: [application]
+
+- name: Deploy configuration settings
+  ansible.builtin.template:
+    src: config/settings.py.j2
+    dest: "{{ orchestrator_app_dir }}/config/settings.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [application]
+
+- name: Create __init__.py files
+  ansible.builtin.copy:
+    content: '"""{{ item.split("/")[-1] | title }} module"""'
+    dest: "{{ orchestrator_app_dir }}/{{ item }}/__init__.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  loop:
+    - config
+    - models
+    - services
+    - agents
+    - workflows
+    - workers
+    - api
+    - database
+    - utils
+  become: yes
+  tags: [application]
+
+- name: Deploy health check API
+  ansible.builtin.template:
+    src: api/health.py.j2
+    dest: "{{ orchestrator_app_dir }}/api/health.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [application]

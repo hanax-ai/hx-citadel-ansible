@@ -1,0 +1,33 @@
+---
+# Worker Pool Configuration
+worker_pool_size: 4
+worker_batch_size: 10
+worker_retry_attempts: 3
+worker_timeout_seconds: 300
+worker_health_check_interval: 30
+worker_max_tasks_per_child: 1000
+worker_graceful_shutdown_timeout: 60
+
+# Redis Streams Configuration (from Component 4)
+# Redis is running on hx-sqldb-server
+redis_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
+redis_port: 6379
+redis_stream_ingestion: "shield:ingestion_queue"
+redis_consumer_group_workers: "lightrag-workers"
+redis_consumer_block_ms: 30000  # 30 seconds
+
+# Job Tracking Configuration
+job_status_ttl: 3600  # 1 hour after completion (seconds)
+job_cleanup_interval: 300  # 5 minutes
+
+# Database Configuration (from Component 3)
+postgres_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
+postgres_port: 5432
+postgres_database: shield_orchestrator
+postgres_user: orchestrator
+postgres_password: "{{ vault_postgresql_orchestrator_password }}"
+
+# Event Bus Configuration
+event_bus_max_clients: 100
+event_bus_keepalive_interval: 15  # seconds
+event_bus_message_ttl: 60  # seconds

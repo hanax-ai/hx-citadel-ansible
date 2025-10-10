@@ -1,0 +1,27 @@
+---
+# Embedding service deployment
+- name: Deploy embedding service module
+  ansible.builtin.template:
+    src: services/embeddings.py.j2
+    dest: "{{ orchestrator_app_dir }}/services/embeddings.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [embeddings]
+
+- name: Test embedding service import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from services.embeddings import EmbeddingService; 
+    print("✅ Embedding service imported")'
+  register: embedding_import_test
+  changed_when: false
+  tags: [embeddings, validation]
+
+- name: Display embedding import result
+  ansible.builtin.debug:
+    msg: "{{ embedding_import_test.stdout }}"
+  tags: [embeddings]

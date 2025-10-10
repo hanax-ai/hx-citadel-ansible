@@ -1,0 +1,27 @@
+---
+# Deploy Redis Streams wrapper module
+- name: Deploy Redis Streams wrapper
+  ansible.builtin.template:
+    src: services/redis_streams.py.j2
+    dest: "{{ orchestrator_app_dir }}/services/redis_streams.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [services]
+
+- name: Test Redis Streams wrapper import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from services.redis_streams import RedisStreamsClient; 
+    print("✅ Redis Streams wrapper imported successfully")'
+  register: wrapper_import_test
+  changed_when: false
+  tags: [services, validation]
+
+- name: Display wrapper import result
+  ansible.builtin.debug:
+    msg: "{{ wrapper_import_test.stdout }}"
+  tags: [services]

@@ -1,0 +1,38 @@
+---
+# Component 4: Redis Streams Integration Deployment
+- name: Deploy Redis Streams Integration to Orchestrator
+  hosts: hx-orchestrator-server
+  become: yes
+  gather_facts: yes
+  
+  vars_files:
+    - ../group_vars/all/vault.yml
+  
+  vars:
+    # Import variables from Component 1 (orchestrator_base_setup)
+    orchestrator_service_user: "orchestrator"
+    orchestrator_service_group: "orchestrator"
+    orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
+    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator-venv"
+    orchestrator_data_dir: "/opt/hx-citadel-shield/data"
+    orchestrator_log_dir: "/var/log/hx-citadel/orchestrator"
+  
+  roles:
+    - orchestrator_redis
+  
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================================"
+          - "Component 4: Redis Streams Integration - DEPLOYMENT COMPLETE"
+          - "============================================================"
+          - "Redis Server: {{ redis_host }}:{{ redis_port }}"
+          - "Ingestion Stream: {{ redis_stream_ingestion }}"
+          - "Events Stream: {{ redis_stream_events }}"
+          - "API Endpoints:"
+          - "  - GET /events/stream (SSE)"
+          - "  - GET /events/stats"
+          - "  - GET /events/ws (WebSocket - TODO)"
+          - "============================================================"
+      tags: [always]

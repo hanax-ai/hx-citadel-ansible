@@ -1,0 +1,201 @@
+"""
+Job tracking API endpoints.
+
+Provides status and progress tracking for async jobs.
+"""
+
+from fastapi import APIRouter, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import Dict, Any, List, Optional
+import logging
+
+from services.job_tracker import job_tracker
+from services.event_bus import event_bus
+
+router = APIRouter()
+logger = logging.getLogger("shield-orchestrator.jobs")
+
+
+class JobStatusResponse(BaseModel):
+    """Job status response"""
+    job_id: str
+    job_type: str
+    status: str  # queued, processing, completed, failed
+    chunks_total: int
+    chunks_processed: int
+    percent_complete: float
+    created_at: str
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class JobListItem(BaseModel):
+    """Job list item"""
+    job_id: str
+    job_type: str
+    status: str
+    chunks_total: int
+    chunks_processed: int
+    percent_complete: float
+    created_at: str
+    duration_seconds: Optional[float] = None
+
+
+class JobListResponse(BaseModel):
+    """Job list response"""
+    jobs: List[JobListItem]
+    count: int
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=JobStatusResponse,
+    tags=["jobs"],
+    summary="Get job status",
+    description="Get status and progress for a specific job"
+)
+async def get_job_status(job_id: str):
+    """
+    Get job status and progress.
+    
+    Args:
+        job_id: Job UUID
+    
+    Returns:
+        Job status with progress percentage
+    
+    Raises:
+        404: Job not found
+        500: Internal server error
+    """
+    try:
+        progress = await job_tracker.get_progress(job_id)
+        
+        if "error" in progress:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job {job_id} not found"
+            )
+        
+        return JobStatusResponse(**progress)
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.error(f"Error getting job status: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get(
+    "/jobs",
+    response_model=JobListResponse,
+    tags=["jobs"],
+    summary="List jobs",
+    description="List recent jobs with optional status filter"
+)
+async def list_jobs(
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status"),
+    limit: int = Query(50, ge=1, le=100, description="Max results")
+):
+    """
+    List recent jobs.
+    
+    Args:
+        status_filter: Optional status filter (queued, processing, completed, failed)
+        limit: Max results (1-100)
+    
+    Returns:
+        List of jobs
+    """
+    try:
+        jobs = await job_tracker.list_jobs(status=status_filter, limit=limit)
+        
+        return JobListResponse(
+            jobs=[JobListItem(**job) for job in jobs],
+            count=len(jobs)
+        )
+    
+    except Exception as e:
+        logger.error(f"Error listing jobs: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get(
+    "/events/stream",
+    tags=["events"],
+    summary="Event stream (SSE)",
+    description="Server-Sent Events stream for real-time updates"
+)
+async def stream_events(
+    event_types: Optional[str] = Query(
+        None,
+        description="Comma-separated event types (e.g., 'ingestion.started,ingestion.progress')"
+    )
+):
+    """
+    Stream events via SSE (Server-Sent Events).
+    
+    Event Types:
+      - ingestion.started: Job started processing
+      - ingestion.progress: Chunk processed
+      - ingestion.completed: Job completed successfully
+      - ingestion.failed: Job failed with error
+      - worker.started: Worker started
+      - worker.stopped: Worker stopped
+      - worker.task_failed: Worker task failed
+      - worker_pool.started: Worker pool started
+      - worker_pool.stopped: Worker pool stopped
+    
+    Args:
+        event_types: Optional comma-separated event type filter
+    
+    Returns:
+        SSE stream
+    """
+    try:
+        # Parse event types
+        event_type_list = None
+        if event_types:
+            event_type_list = [t.strip() for t in event_types.split(",")]
+        
+        # Subscribe to events
+        queue = await event_bus.subscribe(
+            event_types=event_type_list,
+            include_history=False
+        )
+        
+        logger.info(f"New SSE client (filters: {event_type_list})")
+        
+        # Stream events
+        return StreamingResponse(
+            event_bus.stream_events(queue, event_type_list),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
+    
+    except RuntimeError as e:
+        # Max clients reached
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+    
+    except Exception as e:
+        logger.error(f"Error starting event stream: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

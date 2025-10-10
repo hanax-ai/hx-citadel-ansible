@@ -1,0 +1,153 @@
+"""
+Health check endpoints
+"""
+
+from fastapi import APIRouter, status
+from pydantic import BaseModel
+from datetime import datetime
+import psutil
+import time
+
+router = APIRouter()
+
+# Application start time (for uptime calculation)
+START_TIME = time.time()
+
+
+class HealthResponse(BaseModel):
+    """Basic health response"""
+    status: str
+    timestamp: datetime
+    version: str
+    uptime_seconds: float
+
+
+class ComponentHealth(BaseModel):
+    """Individual component health"""
+    status: str
+    latency_ms: float = 0
+    details: dict = {}
+
+
+class DetailedHealthResponse(BaseModel):
+    """Detailed health with all dependencies"""
+    status: str
+    timestamp: datetime
+    components: dict
+    overall_status: str
+
+
+@router.get(
+    "{{ health_check_path }}",
+    response_model=HealthResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["health"]
+)
+async def health_check():
+    """
+    Basic health check (liveness probe).
+    
+    Returns:
+        200: Service is alive
+        503: Service is unhealthy
+    """
+    return HealthResponse(
+        status="healthy",
+        timestamp=datetime.utcnow(),
+        version="{{ api_version }}",
+        uptime_seconds=time.time() - START_TIME
+    )
+
+
+@router.get(
+    "{{ health_detailed_path }}",
+    response_model=DetailedHealthResponse,
+    tags=["health"]
+)
+async def health_detailed():
+    """
+    Detailed health check with dependency status.
+    
+    Checks:
+      - PostgreSQL connection
+      - Redis connection
+      - Qdrant availability
+      - Ollama LLM
+      - LightRAG engine
+      - Worker pool
+    
+    Returns:
+        200: All systems operational
+        207: Partial (some dependencies down)
+        503: Critical systems down
+    """
+    components = {}
+    
+    # TODO: Add dependency checks in subsequent deployments
+    # components["postgresql"] = await check_postgresql()
+    # components["redis"] = await check_redis()
+    # components["qdrant"] = await check_qdrant()
+    # components["ollama"] = await check_ollama()
+    # components["lightrag"] = await check_lightrag()
+    # components["worker_pool"] = await check_worker_pool()
+    
+    # For now, return basic status
+    components["application"] = {
+        "status": "up",
+        "memory_mb": psutil.Process().memory_info().rss / 1024 / 1024,
+        "cpu_percent": psutil.Process().cpu_percent(interval=0.1)
+    }
+    
+    overall_status = "healthy"
+    
+    return DetailedHealthResponse(
+        status="healthy",
+        timestamp=datetime.utcnow(),
+        components=components,
+        overall_status=overall_status
+    )
+
+
+@router.get(
+    "{{ health_readiness_path }}",
+    status_code=status.HTTP_200_OK,
+    tags=["health"]
+)
+async def health_readiness():
+    """
+    Readiness probe (is service ready to accept traffic?).
+    
+    Checks:
+      - Database migrations applied
+      - Redis connection established
+      - Configuration loaded
+      - Worker pool started
+    
+    Returns:
+        200: Ready to accept traffic
+        503: Still initializing
+    """
+    # TODO: Add readiness checks in subsequent deployments
+    return {"ready": True, "timestamp": datetime.utcnow()}
+
+
+@router.get(
+    "{{ health_liveness_path }}",
+    status_code=status.HTTP_200_OK,
+    tags=["health"]
+)
+async def health_liveness():
+    """
+    Liveness probe (is process alive?).
+    
+    Used by systemd watchdog for auto-restart.
+    
+    Returns:
+        200: Process is alive
+        No response: Process dead (restart)
+    """
+    return {
+        "alive": True,
+        "pid": psutil.Process().pid,
+        "timestamp": datetime.utcnow()
+    }

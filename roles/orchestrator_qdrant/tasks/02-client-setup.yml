@@ -1,0 +1,27 @@
+---
+# Qdrant client module deployment
+- name: Deploy Qdrant client module
+  ansible.builtin.template:
+    src: services/qdrant_client.py.j2
+    dest: "{{ orchestrator_app_dir }}/services/qdrant_client.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [client]
+
+- name: Test Qdrant client module import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from services.qdrant_client import QdrantService; 
+    print("✅ Qdrant service module imported")'
+  register: client_import_test
+  changed_when: false
+  tags: [client, validation]
+
+- name: Display client import result
+  ansible.builtin.debug:
+    msg: "{{ client_import_test.stdout }}"
+  tags: [client]

@@ -1,0 +1,133 @@
+"""
+Event streaming endpoints (SSE and WebSocket)
+"""
+
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
+from sse_starlette.sse import EventSourceResponse
+import json
+import asyncio
+import logging
+from datetime import datetime
+
+from services.redis_streams import redis_streams
+
+router = APIRouter()
+logger = logging.getLogger("shield-orchestrator.events")
+
+
+@router.get("/stream")
+async def event_stream(request: Request, last_id: str = "0"):
+    """
+    Server-Sent Events (SSE) endpoint for real-time event streaming.
+    
+    Args:
+        last_id: Last event ID (for replay), default "0" for all events
+    
+    Usage:
+        curl -N http://hx-orchestrator-server.dev-test.hana-x.ai:8000/events/stream
+        
+        # With event replay from specific ID
+        curl -N http://hx-orchestrator-server.dev-test.hana-x.ai:8000/events/stream?last_id=1234567890-0
+    """
+    
+    async def event_generator():
+        """Generate SSE events from Redis Streams"""
+        consumer_name = f"sse-{request.client.host}"
+        
+        try:
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logger.info(f"Client disconnected: {consumer_name}")
+                    break
+                
+                # Read events from Redis Streams
+                events = await redis_streams.read_events(
+                    consumer_group="{{ redis_consumer_group_power_ui }}",
+                    consumer_name=consumer_name,
+                    last_id=last_id,
+                    count=10,
+                    block_ms=5000
+                )
+                
+                # Yield events
+                for event in events:
+                    yield {
+                        "event": event["type"],
+                        "id": event["message_id"],
+                        "data": json.dumps({
+                            "event_id": event["event_id"],
+                            "job_id": event["job_id"],
+                            "timestamp": event["timestamp"],
+                            **event["data"]
+                        })
+                    }
+                    
+                    # Acknowledge event
+                    await redis_streams.ack_event(
+                        "{{ redis_consumer_group_power_ui }}",
+                        event["message_id"]
+                    )
+                    
+                    # Update last_id for next iteration
+                    last_id = event["message_id"]
+                
+                # Small delay to prevent busy loop
+                if not events:
+                    await asyncio.sleep(0.1)
+        
+        except Exception as e:
+            logger.error(f"Event stream error: {str(e)}")
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)})
+            }
+    
+    return EventSourceResponse(event_generator())
+
+
+@router.get("/ws")
+async def event_websocket():
+    """
+    WebSocket endpoint for event streaming (AG-UI).
+    
+    TODO: Implement WebSocket handler in subsequent deployment
+    """
+    return {"message": "WebSocket endpoint - to be implemented"}
+
+
+@router.get("/stats")
+async def event_stats():
+    """
+    Get event stream statistics.
+    
+    Returns:
+        Stream lengths, consumer group info, throughput metrics
+    """
+    try:
+        ingestion_info = await redis_streams.client.xinfo_stream(redis_streams.ingestion_stream)
+        events_info = await redis_streams.client.xinfo_stream(redis_streams.events_stream)
+        
+        ingestion_groups = await redis_streams.client.xinfo_groups(redis_streams.ingestion_stream)
+        events_groups = await redis_streams.client.xinfo_groups(redis_streams.events_stream)
+        
+        return {
+            "streams": {
+                redis_streams.ingestion_stream: {
+                    "length": ingestion_info["length"],
+                    "first_entry": ingestion_info.get("first-entry", [None])[0],
+                    "last_entry": ingestion_info.get("last-entry", [None])[0],
+                    "consumer_groups": [g["name"] for g in ingestion_groups]
+                },
+                redis_streams.events_stream: {
+                    "length": events_info["length"],
+                    "first_entry": events_info.get("first-entry", [None])[0],
+                    "last_entry": events_info.get("last-entry", [None])[0],
+                    "consumer_groups": [g["name"] for g in events_groups]
+                }
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {"error": str(e)}

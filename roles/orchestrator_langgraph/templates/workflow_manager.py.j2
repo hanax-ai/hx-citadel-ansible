@@ -1,0 +1,453 @@
+"""
+Workflow Manager (LangGraph)
+Component 9: LangGraph Workflows
+
+Manages workflow compilation, execution, and PostgreSQL-based checkpointing.
+Refactored to reuse existing database connections.
+"""
+
+import logging
+from typing import Dict, Any, Optional
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+logger = logging.getLogger("shield-orchestrator.workflow_manager")
+
+
+class WorkflowManager:
+    """
+    Manages LangGraph workflows with PostgreSQL checkpointing.
+    
+    Responsibilities:
+    - Compile workflows with checkpoint backend
+    - Execute workflows with session management
+    - Manage workflow state persistence
+    - Provide workflow health checks
+    
+    Design: Reuses existing database connection pool instead of creating new connections.
+    Workflows are compiled lazily during initialize() to avoid import-time circular dependencies.
+    """
+    
+    def __init__(self):
+        self.postgres_saver: Optional[AsyncPostgresSaver] = None
+        self.db_engine = None  # Will be set during initialize
+        
+        # Compiled workflows (set during initialize())
+        self.query_workflow = None
+        self.ingestion_workflow = None
+        
+        # Workflow graphs (imported lazily)
+        self._query_workflow_graph = None
+        self._ingestion_workflow_graph = None
+        
+        self._initialized = False
+    
+    async def initialize(self, db_engine) -> None:
+        """
+        Initialize workflow manager with PostgreSQL checkpointing.
+        Reuses existing database engine from main application.
+        
+        Args:
+            db_engine: SQLAlchemy async engine from database.connection
+        """
+        if self._initialized:
+            logger.info("✅ Workflow manager already initialized")
+            return
+        
+        logger.info("🚀 Initializing workflow manager...")
+        
+        # Store database engine reference
+        self.db_engine = db_engine
+        
+        # Create PostgreSQL checkpointer using the engine's connection pool
+        # Instead of creating a new connection, we'll use the engine's pool
+        try:
+            from sqlalchemy import text
+            from config.settings import settings
+            
+            logger.info("Creating PostgreSQL checkpointer...")
+            
+            # Build asyncpg connection string from settings
+            # This ensures we use the same credentials as the working SQLAlchemy connection
+            asyncpg_url = settings.database_url.replace('postgresql+asyncpg://', 'postgresql://')
+            
+            logger.info(f"Connecting to PostgreSQL for checkpointing...")
+            
+            # Create checkpointer - from_conn_string returns async context manager
+            saver_cm = AsyncPostgresSaver.from_conn_string(asyncpg_url)
+            
+            # Enter the async context manager to get the saver
+            self.postgres_saver = await saver_cm.__aenter__()
+            
+            # Setup creates the checkpoint tables
+            await self.postgres_saver.setup()
+            logger.info("✅ PostgreSQL checkpointing configured")
+        except Exception as e:
+            logger.error(f"❌ PostgreSQL checkpointing setup failed: {e}")
+            raise
+        
+        # Lazy import workflow graphs to avoid circular dependencies
+        from workflows.query_workflow import query_workflow_graph
+        from workflows.ingestion_workflow import ingestion_workflow_graph
+        
+        self._query_workflow_graph = query_workflow_graph
+        self._ingestion_workflow_graph = ingestion_workflow_graph
+        
+        # Compile workflows with checkpointer
+        self.query_workflow = self._query_workflow_graph.compile(
+            checkpointer=self.postgres_saver
+        )
+        logger.info("✅ Query workflow compiled")
+        
+        self.ingestion_workflow = self._ingestion_workflow_graph.compile(
+            checkpointer=self.postgres_saver
+        )
+        logger.info("✅ Ingestion workflow compiled")
+        
+        self._initialized = True
+        logger.info("✅ Workflow manager initialized successfully")
+    
+    async def shutdown(self) -> None:
+        """Clean up workflow manager resources."""
+        if self.postgres_saver:
+            # AsyncPostgresSaver cleanup if needed
+            # Note: We don't close the DB engine as it's owned by main app
+            pass
+        
+        self._initialized = False
+        logger.info("✅ Workflow manager shutdown complete")
+    
+    async def execute_query_workflow(
+        self,
+        query: str,
+        user_id: str = "system",
+        session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute query workflow with checkpointing.
+        
+        Args:
+            query: User's query string
+            user_id: User identifier
+            session_id: Optional session ID for checkpoint resume
+        
+        Returns:
+            Final workflow state with answer and metadata
+        """
+        if not self._initialized:
+            raise RuntimeError("Workflow manager not initialized")
+        
+        import uuid
+        from datetime import datetime
+        
+        # Generate session ID if not provided
+        if session_id is None:
+            session_id = f"query-{uuid.uuid4()}"
+        
+        logger.info(f"Executing query workflow: session={session_id}, query={query[:100]}...")
+        
+        # Initialize state
+        initial_state: QueryState = {
+            "query": query,
+            "user_id": user_id,
+            "session_id": session_id,
+            "routing_decision": {},
+            "path": "",
+            "mode": "",
+            "results": [],
+            "answer": "",
+            "sources": [],
+            "metadata": {
+                "started_at": datetime.utcnow().isoformat(),
+                "session_id": session_id
+            },
+            "execution_time_ms": 0
+        }
+        
+        # Execute workflow with checkpointing
+        config = {
+            "configurable": {
+                "thread_id": session_id
+            }
+        }
+        
+        try:
+            start_time = datetime.utcnow()
+            
+            # Run the workflow
+            final_state = await self.query_workflow.ainvoke(
+                initial_state,
+                config=config
+            )
+            
+            end_time = datetime.utcnow()
+            execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
+            
+            # Update execution time
+            final_state["execution_time_ms"] = execution_time_ms
+            final_state["metadata"]["completed_at"] = end_time.isoformat()
+            
+            logger.info(
+                f"Query workflow completed: session={session_id}, "
+                f"time={execution_time_ms}ms, answer_length={len(final_state.get('answer', ''))}"
+            )
+            
+            return final_state
+            
+        except Exception as e:
+            logger.error(f"Query workflow execution failed: {e}", exc_info=True)
+            raise
+    
+    async def execute_ingestion_workflow(
+        self,
+        job_id: str,
+        source_type: str,
+        source: str,
+        user_id: str = "system"
+    ) -> Dict[str, Any]:
+        """
+        Execute ingestion workflow with checkpointing.
+        
+        Args:
+            job_id: Job identifier for tracking
+            source_type: Type of source (web, document, text)
+            source: Source URL/path/content
+            user_id: User identifier
+        
+        Returns:
+            Final workflow state with ingestion statistics
+        """
+        if not self._initialized:
+            raise RuntimeError("Workflow manager not initialized")
+        
+        from datetime import datetime
+        
+        logger.info(
+            f"Executing ingestion workflow: job_id={job_id}, "
+            f"source_type={source_type}, source={source[:100]}..."
+        )
+        
+        # Initialize state
+        initial_state: IngestionState = {
+            "job_id": job_id,
+            "source_type": source_type,
+            "source": source,
+            "user_id": user_id,
+            "is_valid": False,
+            "validation_message": "",
+            "extracted_content": "",
+            "extraction_metadata": {},
+            "chunks": [],
+            "chunking_strategy": {},
+            "current_chunk_index": 0,
+            "total_chunks": 0,
+            "processed_chunks": [],
+            "failed_chunks": [],
+            "inserted_count": 0,
+            "failed_count": 0,
+            "metadata": {
+                "started_at": datetime.utcnow().isoformat(),
+                "job_id": job_id
+            }
+        }
+        
+        # Execute workflow with checkpointing
+        config = {
+            "configurable": {
+                "thread_id": job_id  # Use job_id as checkpoint thread
+            }
+        }
+        
+        try:
+            start_time = datetime.utcnow()
+            
+            # Run the workflow
+            final_state = await self.ingestion_workflow.ainvoke(
+                initial_state,
+                config=config
+            )
+            
+            end_time = datetime.utcnow()
+            execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
+            
+            # Update completion metadata
+            final_state["metadata"]["completed_at"] = end_time.isoformat()
+            final_state["metadata"]["execution_time_ms"] = execution_time_ms
+            
+            logger.info(
+                f"Ingestion workflow completed: job_id={job_id}, "
+                f"time={execution_time_ms}ms, "
+                f"inserted={final_state.get('inserted_count', 0)}, "
+                f"failed={final_state.get('failed_count', 0)}"
+            )
+            
+            return final_state
+            
+        except Exception as e:
+            logger.error(f"Ingestion workflow execution failed: {e}", exc_info=True)
+            raise
+    
+    async def get_workflow_state(
+        self,
+        workflow_type: str,
+        thread_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve checkpointed workflow state.
+        
+        Args:
+            workflow_type: "query" or "ingestion"
+            thread_id: Session/job ID used as checkpoint thread
+        
+        Returns:
+            Workflow state if checkpoint exists, None otherwise
+        """
+        if not self._initialized:
+            raise RuntimeError("Workflow manager not initialized")
+        
+        logger.info(f"Retrieving workflow state: type={workflow_type}, thread={thread_id}")
+        
+        try:
+            config = {
+                "configurable": {
+                    "thread_id": thread_id
+                }
+            }
+            
+            # Get the appropriate workflow
+            if workflow_type == "query":
+                workflow = self.query_workflow
+            elif workflow_type == "ingestion":
+                workflow = self.ingestion_workflow
+            else:
+                raise ValueError(f"Unknown workflow type: {workflow_type}")
+            
+            # Get state from checkpoint
+            state = await workflow.aget_state(config)
+            
+            if state and state.values:
+                logger.info(f"Found checkpoint for {workflow_type} workflow: {thread_id}")
+                return state.values
+            else:
+                logger.info(f"No checkpoint found for {workflow_type} workflow: {thread_id}")
+                return None
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve workflow state: {e}", exc_info=True)
+            return None
+    
+    async def resume_workflow(
+        self,
+        workflow_type: str,
+        thread_id: str,
+        updates: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Resume a checkpointed workflow from where it left off.
+        
+        Args:
+            workflow_type: "query" or "ingestion"
+            thread_id: Session/job ID used as checkpoint thread
+            updates: Optional state updates to apply before resuming
+        
+        Returns:
+            Final workflow state after resumption
+        """
+        if not self._initialized:
+            raise RuntimeError("Workflow manager not initialized")
+        
+        logger.info(f"Resuming workflow: type={workflow_type}, thread={thread_id}")
+        
+        try:
+            config = {
+                "configurable": {
+                    "thread_id": thread_id
+                }
+            }
+            
+            # Get the appropriate workflow
+            if workflow_type == "query":
+                workflow = self.query_workflow
+            elif workflow_type == "ingestion":
+                workflow = self.ingestion_workflow
+            else:
+                raise ValueError(f"Unknown workflow type: {workflow_type}")
+            
+            # Resume from checkpoint
+            if updates:
+                final_state = await workflow.ainvoke(updates, config=config)
+            else:
+                final_state = await workflow.ainvoke(None, config=config)
+            
+            logger.info(f"Workflow resumed successfully: {workflow_type} - {thread_id}")
+            return final_state
+            
+        except Exception as e:
+            logger.error(f"Failed to resume workflow: {e}", exc_info=True)
+            raise
+    
+    async def healthcheck(self) -> Dict[str, Any]:
+        """
+        Check workflow manager health.
+        
+        Returns:
+            Health status with component checks
+        """
+        health = {
+            "initialized": self._initialized,
+            "redis": "unknown",
+            "postgres_saver": "unknown",
+            "query_workflow": "unknown",
+            "ingestion_workflow": "unknown"
+        }
+        
+        if not self._initialized:
+            return health
+        
+        # Check Redis
+        try:
+            await self.redis_client.ping()
+            health["redis"] = "ok"
+        except Exception as e:
+            health["redis"] = f"error: {str(e)}"
+        
+        # Check PostgreSQL saver
+        try:
+            if self.postgres_saver:
+                # Try a simple operation
+                health["postgres_saver"] = "ok"
+            else:
+                health["postgres_saver"] = "not_initialized"
+        except Exception as e:
+            health["postgres_saver"] = f"error: {str(e)}"
+        
+        # Check compiled workflows
+        health["query_workflow"] = "ok" if self.query_workflow else "not_compiled"
+        health["ingestion_workflow"] = "ok" if self.ingestion_workflow else "not_compiled"
+        
+        return health
+
+
+# Global workflow manager instance
+workflow_manager = WorkflowManager()
+
+
+# Lifecycle functions for FastAPI integration
+async def startup_workflow_manager():
+    """Initialize workflow manager on startup"""
+    logger.info("Starting workflow manager...")
+    try:
+        await workflow_manager.initialize()
+        logger.info("Workflow manager started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start workflow manager: {e}", exc_info=True)
+        raise
+
+
+async def shutdown_workflow_manager():
+    """Shutdown workflow manager on application exit"""
+    logger.info("Stopping workflow manager...")
+    try:
+        await workflow_manager.shutdown()
+        logger.info("Workflow manager stopped successfully")
+    except Exception as e:
+        logger.error(f"Error during workflow manager shutdown: {e}", exc_info=True)

@@ -1,0 +1,74 @@
+---
+# Directory structure creation
+- name: Create base application directory
+  ansible.builtin.file:
+    path: "{{ orchestrator_base_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: yes
+  tags: [directories]
+
+- name: Create orchestrator application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  loop:
+    - "{{ orchestrator_app_dir }}"
+    - "{{ orchestrator_app_dir }}/config"
+    - "{{ orchestrator_app_dir }}/models"
+    - "{{ orchestrator_app_dir }}/services"
+    - "{{ orchestrator_app_dir }}/agents"
+    - "{{ orchestrator_app_dir }}/workflows"
+    - "{{ orchestrator_app_dir }}/workers"
+    - "{{ orchestrator_app_dir }}/api"
+    - "{{ orchestrator_app_dir }}/database"
+    - "{{ orchestrator_app_dir }}/utils"
+    - "{{ orchestrator_app_dir }}/tests"
+  become: yes
+  tags: [directories]
+
+- name: Create data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0750"
+  loop:
+    - "{{ orchestrator_data_dir }}"
+    - "{{ lightrag_working_dir }}"
+    - "{{ lightrag_working_dir }}/vdb"
+    - "{{ lightrag_cache_dir }}"
+    - "{{ lightrag_cache_dir }}/entity_extraction"
+    - "{{ lightrag_cache_dir }}/relationship_extraction"
+    - "{{ lightrag_logs_dir }}"
+    - "{{ lightrag_checkpoints_dir }}"
+  become: yes
+  tags: [directories]
+
+- name: Create log directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  loop:
+    - "{{ orchestrator_log_dir }}"
+    - "{{ orchestrator_log_dir }}/api"
+    - "{{ orchestrator_log_dir }}/workers"
+    - "{{ orchestrator_log_dir }}/lightrag"
+  become: yes
+  tags: [directories]
+
+- name: Verify directory ownership
+  ansible.builtin.stat:
+    path: "{{ orchestrator_app_dir }}"
+  register: app_dir_stat
+  failed_when: app_dir_stat.stat.pw_name != orchestrator_service_user
+  tags: [directories, validation]

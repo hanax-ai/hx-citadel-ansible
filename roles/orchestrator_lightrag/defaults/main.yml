@@ -1,0 +1,76 @@
+---
+# Component 6: LightRAG Engine - Default Variables
+
+# LightRAG Configuration
+lightrag_working_dir: "/opt/hx-citadel-shield/data/lightrag"
+lightrag_kg_enable: true
+lightrag_vector_enable: true
+lightrag_hybrid_enable: true
+
+# LLM Configuration (via LiteLLM - OpenAI compatible) - FQDN COMPLIANT
+llm_api_base: "http://{{ hx_hosts_fqdn['hx-litellm-server'] }}:4000/v1"
+llm_api_key: "{{ vault_litellm_api_key }}"
+llm_model: "llama3.2:latest"
+llm_embedding_model: "mxbai-embed-large"
+llm_max_tokens: 4096
+llm_temperature: 0.0  # Deterministic for entity extraction
+
+# Ollama Configuration (for embeddings) - FQDN COMPLIANT
+ollama_url: "http://{{ hx_hosts_fqdn['hx-ollama1'] }}:11434"
+ollama_embedding_model: "mxbai-embed-large"
+ollama_embedding_dim: 1024
+
+# Entity Extraction Configuration
+entity_types:
+  - "PERSON"
+  - "ORGANIZATION"
+  - "LOCATION"
+  - "CONCEPT"
+  - "EVENT"
+  - "PRODUCT"
+  - "TECHNOLOGY"
+
+entity_extraction_prompt: |
+  Extract entities and their types from the following text.
+  Entity types: PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, PRODUCT, TECHNOLOGY
+  
+  Return JSON:
+  {
+    "entities": [
+      {"name": "...", "type": "...", "description": "..."},
+      ...
+    ]
+  }
+
+# Relationship Extraction Configuration
+relationship_extraction_prompt: |
+  Extract relationships between entities from the following text.
+  
+  Return JSON:
+  {
+    "relationships": [
+      {"source": "...", "target": "...", "type": "...", "description": "..."},
+      ...
+    ]
+  }
+
+# Hybrid Retrieval Configuration
+hybrid_alpha: 0.5  # 0.5 = equal weight KG and Vector
+kg_max_depth: 2    # Graph traversal depth
+vector_top_k: 10   # Vector search results
+min_score_threshold: 0.7  # Minimum relevance score
+
+# Storage Configuration - FQDN COMPLIANT
+postgres_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
+postgres_port: 5432
+postgres_database: "shield_orchestrator"
+postgres_user: "orchestrator"
+
+qdrant_url: "https://{{ hx_hosts_fqdn['hx-vectordb-server'] }}:6333"
+qdrant_api_key: "{{ vault_qdrant_api_key }}"
+qdrant_collection: "hx_corpus_v1"
+qdrant_verify_ssl: false
+
+# Performance tuning
+lightrag_batch_size: 100
+lightrag_timeout: 300  # 5 minutes for complex operations

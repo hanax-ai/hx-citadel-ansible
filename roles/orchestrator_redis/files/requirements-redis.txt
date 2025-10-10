@@ -1,0 +1,11 @@
+# Redis Dependencies
+# Component 4: Redis Streams Integration
+
+# Redis client with C parser (faster)
+redis[hiredis]>=5.0.0
+
+# Async Redis client
+redis>=5.0.0
+
+# Serialization
+msgpack>=1.0.0     # Efficient binary serialization (optional)

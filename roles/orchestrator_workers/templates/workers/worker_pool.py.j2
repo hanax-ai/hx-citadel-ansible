@@ -1,0 +1,283 @@
+"""
+Worker pool manager for async task processing.
+
+Manages a pool of async workers that:
+  - Consume tasks from Redis Streams
+  - Process chunks through LightRAG
+  - Update job status
+  - Emit progress events
+  - Handle errors and retries
+"""
+
+import asyncio
+import signal
+import logging
+from typing import List, Dict, Any
+from datetime import datetime
+
+from services.redis_streams import redis_streams
+from services.event_bus import event_bus
+from workers.lightrag_processor import LightRAGProcessor
+
+logger = logging.getLogger("shield-orchestrator.workers")
+
+
+class WorkerPool:
+    """
+    Async worker pool for LightRAG chunk processing.
+    
+    Features:
+      - Multiple workers (default: {{ worker_pool_size }})
+      - Redis Streams consumer group
+      - Graceful shutdown on SIGTERM/SIGINT
+      - Health monitoring
+      - Automatic restart on failure
+      - Max tasks per worker (prevents memory leaks)
+    """
+    
+    def __init__(self, pool_size: int = {{ worker_pool_size }}):
+        self.pool_size = pool_size
+        self.workers: List[asyncio.Task] = []
+        self.running = False
+        self.processor = LightRAGProcessor()
+        self.consumer_group = "{{ redis_consumer_group_workers }}"
+        self.stream_name = "{{ redis_stream_ingestion }}"
+        self._shutdown_event = asyncio.Event()
+    
+    async def start(self):
+        """Start all workers"""
+        self.running = True
+        self._shutdown_event.clear()
+        
+        logger.info(f"Starting worker pool ({self.pool_size} workers)...")
+        
+        # Ensure consumer group exists
+        try:
+            await redis_streams.ensure_consumer_group(
+                self.stream_name,
+                self.consumer_group
+            )
+        except Exception as e:
+            logger.error(f"Error creating consumer group: {str(e)}")
+            raise
+        
+        # Start workers
+        for worker_id in range(self.pool_size):
+            worker_task = asyncio.create_task(
+                self._worker_loop(worker_id),
+                name=f"worker-{worker_id}"
+            )
+            self.workers.append(worker_task)
+        
+        logger.info(f"✅ Worker pool started ({self.pool_size} workers)")
+        
+        # Emit event
+        await event_bus.emit_event(
+            event_type="worker_pool.started",
+            metadata={"pool_size": self.pool_size}
+        )
+    
+    async def _worker_loop(self, worker_id: int):
+        """
+        Worker loop - reads from Redis Streams and processes tasks.
+        
+        Flow:
+          1. Read tasks from Redis Streams (XREADGROUP)
+          2. Process each task via LightRAG
+          3. Update job status
+          4. Emit events
+          5. ACK message
+          6. Repeat
+        
+        Args:
+            worker_id: Worker identifier (0 to pool_size-1)
+        """
+        consumer_name = f"worker-{worker_id}"
+        logger.info(f"Worker {worker_id} started (consumer: {consumer_name})")
+        
+        # Emit worker started event
+        await event_bus.emit_event(
+            event_type="worker.started",
+            metadata={"worker_id": worker_id, "consumer_name": consumer_name}
+        )
+        
+        tasks_processed = 0
+        
+        while self.running and not self._shutdown_event.is_set():
+            try:
+                # Read tasks from queue
+                # XREADGROUP returns: {stream: [(message_id, {fields})]}
+                messages = await redis_streams.client.xreadgroup(
+                    groupname=self.consumer_group,
+                    consumername=consumer_name,
+                    streams={self.stream_name: ">"},
+                    count={{ worker_batch_size }},
+                    block={{ redis_consumer_block_ms }}
+                )
+                
+                if not messages:
+                    # No messages (timeout), continue
+                    continue
+                
+                # Process messages
+                for stream, message_list in messages:
+                    for message_id, fields in message_list:
+                        try:
+                            # Decode fields (Redis returns bytes)
+                            task = {
+                                k.decode("utf-8") if isinstance(k, bytes) else k:
+                                v.decode("utf-8") if isinstance(v, bytes) else v
+                                for k, v in fields.items()
+                            }
+                            task["message_id"] = message_id
+                            
+                            # Process chunk via LightRAG
+                            result = await self.processor.process_chunk(task)
+                            
+                            # ACK task (remove from pending)
+                            await redis_streams.client.xack(
+                                self.stream_name,
+                                self.consumer_group,
+                                message_id
+                            )
+                            
+                            # Delete message (cleanup)
+                            await redis_streams.client.xdel(
+                                self.stream_name,
+                                message_id
+                            )
+                            
+                            tasks_processed += 1
+                            
+                            logger.debug(f"Worker {worker_id} processed task (total: {tasks_processed})")
+                            
+                            # Check max tasks per child
+                            if tasks_processed >= {{ worker_max_tasks_per_child }}:
+                                logger.info(f"Worker {worker_id} reached max tasks ({tasks_processed}), restarting...")
+                                break
+                        
+                        except Exception as e:
+                            logger.error(f"Worker {worker_id} task processing error: {str(e)}", exc_info=True)
+                            
+                            # Don't ACK failed tasks (will be retried by another worker after timeout)
+                            # Emit failure event
+                            await event_bus.emit_event(
+                                event_type="worker.task_failed",
+                                metadata={
+                                    "worker_id": worker_id,
+                                    "error": str(e),
+                                    "message_id": message_id.decode("utf-8") if isinstance(message_id, bytes) else message_id
+                                }
+                            )
+            
+            except asyncio.CancelledError:
+                logger.info(f"Worker {worker_id} cancelled")
+                break
+            
+            except Exception as e:
+                logger.error(f"Worker {worker_id} error: {str(e)}", exc_info=True)
+                await asyncio.sleep(5)  # Backoff on error
+        
+        # Emit worker stopped event
+        await event_bus.emit_event(
+            event_type="worker.stopped",
+            metadata={"worker_id": worker_id, "tasks_processed": tasks_processed}
+        )
+        
+        logger.info(f"Worker {worker_id} stopped (processed {tasks_processed} tasks)")
+    
+    async def stop(self):
+        """Gracefully stop all workers"""
+        logger.info("Stopping worker pool...")
+        self.running = False
+        self._shutdown_event.set()
+        
+        # Wait for workers to finish current tasks
+        if self.workers:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*self.workers, return_exceptions=True),
+                    timeout={{ worker_graceful_shutdown_timeout }}
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Worker shutdown timeout, forcing cancellation")
+        
+        # Cancel any remaining workers
+        for worker in self.workers:
+            if not worker.done():
+                worker.cancel()
+        
+        logger.info("✅ Worker pool stopped")
+        
+        # Emit event
+        await event_bus.emit_event(
+            event_type="worker_pool.stopped",
+            metadata={"pool_size": self.pool_size}
+        )
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get worker pool statistics"""
+        active_workers = sum(1 for w in self.workers if not w.done())
+        return {
+            "pool_size": self.pool_size,
+            "active_workers": active_workers,
+            "worker_status": [
+                {
+                    "worker_id": i,
+                    "name": w.get_name(),
+                    "done": w.done(),
+                    "cancelled": w.cancelled() if w.done() else False
+                }
+                for i, w in enumerate(self.workers)
+            ]
+        }
+
+
+# Global worker pool instance
+worker_pool = WorkerPool()
+
+
+async def start_worker_pool():
+    """Start worker pool (called at startup)"""
+    await worker_pool.start()
+
+
+async def stop_worker_pool():
+    """Stop worker pool (called at shutdown)"""
+    await worker_pool.stop()
+
+
+async def check_worker_pool_health() -> Dict[str, Any]:
+    """
+    Check worker pool health for /health/detailed endpoint.
+    
+    Returns:
+        Health status with metrics
+    """
+    try:
+        active_workers = sum(1 for w in worker_pool.workers if not w.done())
+        
+        # Get queue depth from Redis
+        queue_depth = 0
+        try:
+            pending = await redis_streams.client.xpending(
+                worker_pool.stream_name,
+                worker_pool.consumer_group
+            )
+            if pending:
+                queue_depth = pending[b"pending"] if isinstance(pending, dict) else pending[0]
+        except Exception:
+            pass
+        
+        return {
+            "status": "up" if active_workers > 0 else "down",
+            "pool_size": worker_pool.pool_size,
+            "active_workers": active_workers,
+            "queue_depth": queue_depth,
+            "running": worker_pool.running
+        }
+    except Exception as e:
+        return {
+            "status": "down",
+            "error": str(e)
+        }

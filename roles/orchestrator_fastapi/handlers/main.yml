@@ -1,0 +1,12 @@
+---
+# Handlers for service management
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: restart orchestrator
+  ansible.builtin.systemd:
+    name: shield-orchestrator
+    state: restarted
+  become: yes

@@ -1,0 +1,15 @@
+---
+# Main tasks for Pydantic AI Agents
+# Component 8: Pydantic AI Agents
+
+- name: Include dependency installation tasks
+  ansible.builtin.include_tasks: 01-dependencies.yml
+  tags: [pydantic-ai, dependencies]
+
+- name: Include agent deployment tasks
+  ansible.builtin.include_tasks: 02-agents.yml
+  tags: [pydantic-ai, agents]
+
+- name: Include validation tasks
+  ansible.builtin.include_tasks: 03-validation.yml
+  tags: [pydantic-ai, validation]

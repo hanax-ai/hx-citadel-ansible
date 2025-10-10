@@ -1,0 +1,41 @@
+---
+# Component 2: FastAPI Framework Deployment
+- name: Deploy FastAPI Framework to Orchestrator
+  hosts: hx-orchestrator-server
+  become: yes
+  gather_facts: yes
+  
+  vars_files:
+    - ../group_vars/all/vault.yml
+  
+  vars:
+    # Import variables from Component 1 (orchestrator_base_setup)
+    orchestrator_service_user: "orchestrator"
+    orchestrator_service_group: "orchestrator"
+    orchestrator_app_dir: "/opt/hx-citadel-shield/orchestrator"
+    orchestrator_venv_dir: "/opt/hx-citadel-shield/orchestrator-venv"
+    orchestrator_data_dir: "/opt/hx-citadel-shield/data"
+    orchestrator_log_dir: "/var/log/hx-citadel/orchestrator"
+  
+  roles:
+    - orchestrator_fastapi
+  
+  tags:
+    - orchestrator
+    - fastapi
+    - component2
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================================"
+          - "Component 2: FastAPI Framework - DEPLOYMENT COMPLETE"
+          - "============================================================"
+          - "Service: shield-orchestrator"
+          - "API Endpoint: http://{{ ansible_default_ipv4.address }}:{{ orchestrator_port }}"
+          - "API Documentation: http://{{ ansible_default_ipv4.address }}:{{ orchestrator_port }}/docs"
+          - "Health Check: http://{{ ansible_default_ipv4.address }}:{{ orchestrator_port }}/health"
+          - "============================================================"
+      tags:
+        - always

@@ -1,0 +1,314 @@
+"""
+Job tracking service using Redis and PostgreSQL.
+
+Dual storage strategy:
+  - Redis: Real-time status (fast access, TTL cleanup)
+  - PostgreSQL: Persistent audit trail (full history)
+"""
+
+import logging
+import json
+from typing import Dict, Any, Optional
+from datetime import datetime
+from uuid import uuid4
+
+from services.redis_streams import redis_streams
+from database.models import JobStatus
+from database.connection import DatabaseManager
+from sqlalchemy import select
+
+logger = logging.getLogger("shield-orchestrator.job-tracker")
+
+
+class JobTracker:
+    """
+    Tracks job status across ingestion pipeline.
+    
+    Features:
+      - Dual storage (Redis + PostgreSQL)
+      - Progress tracking (chunks processed/total)
+      - Status management (queued → processing → completed/failed)
+      - TTL cleanup in Redis ({{ job_status_ttl }}s)
+      - Full audit trail in PostgreSQL
+    """
+    
+    def __init__(self):
+        self.job_status_ttl = {{ job_status_ttl }}  # seconds
+    
+    async def create_job(
+        self,
+        job_type: str,
+        chunks_total: int,
+        metadata: Optional[Dict[str, Any]] = None,
+        job_id: Optional[str] = None
+    ) -> str:
+        """
+        Create new job.
+        
+        Args:
+            job_type: Job type identifier (e.g., "lightrag_ingestion")
+            chunks_total: Total number of chunks to process
+            metadata: Additional job metadata
+            job_id: Optional job ID (generated if None)
+        
+        Returns:
+            Job ID (UUID)
+        """
+        if job_id is None:
+            job_id = str(uuid4())
+        
+        created_at = datetime.utcnow()
+        
+        # Store in Redis (fast access)
+        await redis_streams.client.hset(
+            f"job:{job_id}",
+            mapping={
+                "job_id": job_id,
+                "job_type": job_type,
+                "status": "queued",
+                "chunks_total": str(chunks_total),
+                "chunks_processed": "0",
+                "created_at": created_at.isoformat(),
+                "metadata": json.dumps(metadata or {})
+            }
+        )
+        
+        # Set TTL
+        await redis_streams.client.expire(f"job:{job_id}", self.job_status_ttl)
+        
+        # Store in PostgreSQL (persistent)
+        try:
+            sessionmaker = DatabaseManager.get_sessionmaker()
+            async with sessionmaker() as session:
+                job = JobStatus(
+                    id=job_id,
+                    job_type=job_type,
+                    status="queued",
+                    chunks_total=chunks_total,
+                    chunks_processed=0,
+                    created_at=created_at,
+                    job_metadata=metadata or {}
+                )
+                session.add(job)
+                await session.commit()
+                
+                logger.info(f"Job created: {job_id} (type={job_type}, chunks={chunks_total})")
+        
+        except Exception as e:
+            logger.error(f"Error creating job in PostgreSQL: {str(e)}")
+            # Continue with Redis-only (PostgreSQL failure shouldn't block job creation)
+        
+        return job_id
+    
+    async def update_job(
+        self,
+        job_id: str,
+        status: Optional[str] = None,
+        error: Optional[str] = None
+    ):
+        """
+        Update job status.
+        
+        Args:
+            job_id: Job ID
+            status: New status (queued, processing, completed, failed)
+            error: Error message (for failed status)
+        """
+        updates = {}
+        
+        if status:
+            updates["status"] = status
+        
+        if error:
+            updates["error_message"] = error
+        
+        # Update Redis
+        if updates:
+            await redis_streams.client.hset(f"job:{job_id}", mapping=updates)
+            
+            # Extend TTL on update
+            await redis_streams.client.expire(f"job:{job_id}", self.job_status_ttl)
+        
+        # Update PostgreSQL
+        try:
+            sessionmaker = DatabaseManager.get_sessionmaker()
+            async with sessionmaker() as session:
+                result = await session.execute(
+                    select(JobStatus).where(JobStatus.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+                
+                if job:
+                    if status:
+                        job.status = status
+                        
+                        # Update timestamps
+                        if status == "processing" and not job.started_at:
+                            job.started_at = datetime.utcnow()
+                            await redis_streams.client.hset(
+                                f"job:{job_id}",
+                                "started_at",
+                                job.started_at.isoformat()
+                            )
+                        
+                        elif status in ["completed", "failed"]:
+                            job.completed_at = datetime.utcnow()
+                            await redis_streams.client.hset(
+                                f"job:{job_id}",
+                                "completed_at",
+                                job.completed_at.isoformat()
+                            )
+                    
+                    if error:
+                        job.error_message = error
+                    
+                    await session.commit()
+                    
+                    logger.debug(f"Job updated: {job_id} (status={status})")
+                else:
+                    logger.warning(f"Job not found in PostgreSQL: {job_id}")
+        
+        except Exception as e:
+            logger.error(f"Error updating job in PostgreSQL: {str(e)}")
+    
+    async def increment_processed(self, job_id: str):
+        """
+        Increment chunks processed counter.
+        
+        Args:
+            job_id: Job ID
+        """
+        # Increment in Redis
+        new_count = await redis_streams.client.hincrby(
+            f"job:{job_id}",
+            "chunks_processed",
+            1
+        )
+        
+        # Update PostgreSQL
+        try:
+            sessionmaker = DatabaseManager.get_sessionmaker()
+            async with sessionmaker() as session:
+                result = await session.execute(
+                    select(JobStatus).where(JobStatus.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+                
+                if job:
+                    job.chunks_processed += 1
+                    await session.commit()
+                    
+                    logger.debug(f"Job progress: {job_id} ({job.chunks_processed}/{job.chunks_total})")
+        
+        except Exception as e:
+            logger.error(f"Error incrementing progress in PostgreSQL: {str(e)}")
+        
+        return int(new_count)
+    
+    async def get_progress(self, job_id: str) -> Dict[str, Any]:
+        """
+        Get job progress.
+        
+        Args:
+            job_id: Job ID
+        
+        Returns:
+            Job progress data
+        """
+        # Try Redis first (fast)
+        job_data = await redis_streams.client.hgetall(f"job:{job_id}")
+        
+        if job_data:
+            chunks_total = int(job_data.get(b"chunks_total", b"0"))
+            chunks_processed = int(job_data.get(b"chunks_processed", b"0"))
+            percent = (chunks_processed / chunks_total * 100) if chunks_total > 0 else 0
+            
+            # Decode bytes to strings
+            return {
+                "job_id": job_id,
+                "status": job_data.get(b"status", b"unknown").decode("utf-8"),
+                "job_type": job_data.get(b"job_type", b"unknown").decode("utf-8"),
+                "chunks_total": chunks_total,
+                "chunks_processed": chunks_processed,
+                "percent_complete": round(percent, 2),
+                "created_at": job_data.get(b"created_at", b"").decode("utf-8"),
+                "started_at": job_data.get(b"started_at", b"").decode("utf-8") or None,
+                "completed_at": job_data.get(b"completed_at", b"").decode("utf-8") or None,
+                "error_message": job_data.get(b"error_message", b"").decode("utf-8") or None
+            }
+        
+        # Fallback to PostgreSQL (if Redis expired)
+        try:
+            sessionmaker = DatabaseManager.get_sessionmaker()
+            async with sessionmaker() as session:
+                result = await session.execute(
+                    select(JobStatus).where(JobStatus.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+                
+                if job:
+                    return {
+                        "job_id": job.id,
+                        "status": job.status,
+                        "job_type": job.job_type,
+                        "chunks_total": job.chunks_total,
+                        "chunks_processed": job.chunks_processed,
+                        "percent_complete": job.percent_complete,
+                        "created_at": job.created_at.isoformat(),
+                        "started_at": job.started_at.isoformat() if job.started_at else None,
+                        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                        "error_message": job.error_message
+                    }
+        
+        except Exception as e:
+            logger.error(f"Error getting progress from PostgreSQL: {str(e)}")
+        
+        return {"error": "Job not found"}
+    
+    async def list_jobs(
+        self,
+        status: Optional[str] = None,
+        limit: int = 50
+    ) -> list:
+        """
+        List jobs from PostgreSQL.
+        
+        Args:
+            status: Filter by status (None = all)
+            limit: Max results
+        
+        Returns:
+            List of jobs
+        """
+        try:
+            sessionmaker = DatabaseManager.get_sessionmaker()
+            async with sessionmaker() as session:
+                query = select(JobStatus).order_by(JobStatus.created_at.desc()).limit(limit)
+                
+                if status:
+                    query = query.where(JobStatus.status == status)
+                
+                result = await session.execute(query)
+                jobs = result.scalars().all()
+                
+                return [
+                    {
+                        "job_id": job.id,
+                        "job_type": job.job_type,
+                        "status": job.status,
+                        "chunks_total": job.chunks_total,
+                        "chunks_processed": job.chunks_processed,
+                        "percent_complete": job.percent_complete,
+                        "created_at": job.created_at.isoformat(),
+                        "duration_seconds": job.duration_seconds
+                    }
+                    for job in jobs
+                ]
+        
+        except Exception as e:
+            logger.error(f"Error listing jobs: {str(e)}")
+            return []
+
+
+# Global job tracker instance
+job_tracker = JobTracker()

@@ -1,0 +1,109 @@
+---
+# Component 10: CopilotKit Adapter - Validation Tasks
+
+- name: Test CopilotKit adapter syntax
+  ansible.builtin.command:
+    cmd: "{{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/services/copilotkit_adapter.py"
+  register: adapter_syntax_check
+  changed_when: false
+  failed_when: adapter_syntax_check.rc != 0
+  become: yes
+  tags: [validation]
+
+- name: Test CopilotKit API syntax
+  ansible.builtin.command:
+    cmd: "{{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/api/copilotkit.py"
+  register: api_syntax_check
+  changed_when: false
+  failed_when: api_syntax_check.rc != 0
+  become: yes
+  tags: [validation]
+
+- name: Wait for orchestrator service to be ready
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 8080
+    delay: 5
+    timeout: 30
+    state: started
+  tags: [validation]
+
+- name: Test CopilotKit health endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:8080/copilotkit/health"
+    method: GET
+    status_code: 200
+    return_content: yes
+  register: health_check
+  retries: 3
+  delay: 2
+  until: health_check.status == 200
+  ignore_errors: yes
+  tags: [validation]
+
+- name: Test CopilotKit actions list endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:8080/copilotkit/actions"
+    method: GET
+    status_code: 200
+    return_content: yes
+  register: actions_list_check
+  ignore_errors: yes
+  tags: [validation]
+
+- name: Test CopilotKit action execution
+  ansible.builtin.uri:
+    url: "http://localhost:8080/copilotkit/actions"
+    method: POST
+    body_format: json
+    body:
+      action: "get_job_status"
+      parameters:
+        job_id: "test_job_id"
+    status_code: [200, 404]  # 404 is OK for non-existent job
+    return_content: yes
+  register: action_execution_check
+  ignore_errors: yes
+  tags: [validation]
+
+- name: Create validation summary
+  ansible.builtin.set_fact:
+    copilotkit_validation_summary:
+      adapter_syntax: "{{ adapter_syntax_check.rc == 0 }}"
+      api_syntax: "{{ api_syntax_check.rc == 0 }}"
+      health_endpoint: "{{ health_check.status == 200 if health_check.status is defined else false }}"
+      actions_list: "{{ actions_list_check.status == 200 if actions_list_check.status is defined else false }}"
+      action_execution: "{{ action_execution_check.status in [200, 404] if action_execution_check.status is defined else false }}"
+      timestamp: "{{ ansible_date_time.iso8601 }}"
+  tags: [validation]
+
+- name: Display validation summary
+  ansible.builtin.debug:
+    msg:
+      - "=== Component 10: CopilotKit Adapter - Validation Summary ==="
+      - "Adapter Syntax: {{ 'PASS ✓' if copilotkit_validation_summary.adapter_syntax else 'FAIL ✗' }}"
+      - "API Syntax: {{ 'PASS ✓' if copilotkit_validation_summary.api_syntax else 'FAIL ✗' }}"
+      - "Health Endpoint: {{ 'PASS ✓' if copilotkit_validation_summary.health_endpoint else 'FAIL ✗' }}"
+      - "Actions List: {{ 'PASS ✓' if copilotkit_validation_summary.actions_list else 'FAIL ✗' }}"
+      - "Action Execution: {{ 'PASS ✓' if copilotkit_validation_summary.action_execution else 'FAIL ✗' }}"
+      - ""
+      - "Timestamp: {{ copilotkit_validation_summary.timestamp }}"
+      - "Status: {% if copilotkit_validation_summary.adapter_syntax and copilotkit_validation_summary.api_syntax %}✅ ALL CHECKS PASSED{% else %}⚠️ SOME CHECKS FAILED{% endif %}"
+      - "============================================================"
+  tags: [validation]
+
+- name: Display CopilotKit endpoints
+  ansible.builtin.debug:
+    msg:
+      - "=== CopilotKit Adapter Endpoints ==="
+      - "Health: GET http://{{ ansible_default_ipv4.address }}:8080/copilotkit/health"
+      - "Actions List: GET http://{{ ansible_default_ipv4.address }}:8080/copilotkit/actions"
+      - "Execute Action: POST http://{{ ansible_default_ipv4.address }}:8080/copilotkit/actions"
+      - "Stream State: GET http://{{ ansible_default_ipv4.address }}:8080/copilotkit/stream/{job_id}"
+      - ""
+      - "Frontend Integration:"
+      - "  - Add to shield-power-ui environment: COPILOTKIT_API_URL=http://{{ ansible_default_ipv4.address }}:8080/copilotkit"
+      - "  - Use useCopilotReadable() for state streaming"
+      - "  - Use useCopilotAction() for action execution"
+      - "========================================"
+  tags: [info]

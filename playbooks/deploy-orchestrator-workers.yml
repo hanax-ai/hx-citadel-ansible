@@ -1,0 +1,45 @@
+---
+# Deployment playbook for Component 7: Worker Pool
+# Deploys async task processing infrastructure
+
+- name: Deploy Worker Pool to Orchestrator Server
+  hosts: hx-orchestrator-server
+  gather_facts: yes
+  become: no
+  
+  vars_files:
+    - ../group_vars/all/fqdn_map.yml
+    - ../group_vars/all/vault.yml
+  
+  vars:
+    orchestrator_app_dir: /opt/hx-citadel-shield/orchestrator
+    orchestrator_venv_dir: /opt/hx-citadel-shield/orchestrator-venv
+    orchestrator_service_user: orchestrator
+    orchestrator_service_group: orchestrator
+    orchestrator_validate_after_deploy: true
+  
+  roles:
+    - role: orchestrator_workers
+      tags: [workers]
+  
+  post_tasks:
+    - name: Final deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Component 7: Worker Pool - DEPLOYED"
+          - "=========================================="
+          - "Worker Pool Size: {{ worker_pool_size }}"
+          - "Redis Consumer Group: {{ redis_consumer_group_workers }}"
+          - "Redis Stream: {{ redis_stream_ingestion }}"
+          - "Job Status TTL: {{ job_status_ttl }}s"
+          - "Max Clients (Event Bus): {{ event_bus_max_clients }}"
+          - ""
+          - "API Endpoints:"
+          - "  - GET  /jobs?status=<filter>&limit=<n>"
+          - "  - GET  /jobs/{job_id}"
+          - "  - GET  /events/stream"
+          - ""
+          - "Next: Test ingestion workflow!"
+          - "=========================================="
+      tags: [always]

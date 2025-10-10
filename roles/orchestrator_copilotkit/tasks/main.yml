@@ -1,0 +1,11 @@
+---
+# Component 10: CopilotKit Adapter - Main Tasks
+# Human-in-the-Loop Frontend Integration
+
+- name: Include adapter deployment tasks
+  ansible.builtin.include_tasks: 01-adapter.yml
+  tags: [copilotkit, adapter]
+
+- name: Include validation tasks
+  ansible.builtin.include_tasks: 02-validation.yml
+  tags: [copilotkit, validation]

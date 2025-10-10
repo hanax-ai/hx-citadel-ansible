@@ -1,0 +1,40 @@
+---
+# Database models deployment
+
+- name: Ensure database directory exists
+  ansible.builtin.file:
+    path: "{{ orchestrator_app_dir }}/database"
+    state: directory
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0755"
+  become: yes
+  tags: [database]
+
+- name: Deploy JobStatus model
+  ansible.builtin.template:
+    src: database/models.py.j2
+    dest: "{{ orchestrator_app_dir }}/database/models.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [database]
+
+- name: Test database models import
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
+    from database.models import JobStatus; 
+    print("✅ JobStatus model imported")'
+  register: models_import_test
+  changed_when: false
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
+  tags: [database, validation]
+
+- name: Display models import result
+  ansible.builtin.debug:
+    msg: "{{ models_import_test.stdout }}"
+  tags: [database, validation]

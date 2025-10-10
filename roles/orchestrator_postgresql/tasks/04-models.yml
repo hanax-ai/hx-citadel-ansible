@@ -1,0 +1,48 @@
+---
+# Deploy database models
+- name: Deploy database connection module
+  ansible.builtin.template:
+    src: database/connection.py.j2
+    dest: "{{ orchestrator_app_dir }}/database/connection.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [models]
+
+- name: Deploy database models
+  ansible.builtin.template:
+    src: database/models.py.j2
+    dest: "{{ orchestrator_app_dir }}/database/models.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  notify: restart orchestrator
+  tags: [models]
+
+- name: Create database __init__.py
+  ansible.builtin.copy:
+    content: '"""Database module"""'
+    dest: "{{ orchestrator_app_dir }}/database/__init__.py"
+    owner: "{{ orchestrator_service_user }}"
+    group: "{{ orchestrator_service_group }}"
+    mode: "0644"
+  become: yes
+  tags: [models]
+
+- name: Test model imports
+  ansible.builtin.command: >
+    {{ orchestrator_venv_dir }}/bin/python -c 
+    'from database.models import Task, WorkflowExecution, AgentSession; print("✅ Models imported successfully")'
+  args:
+    chdir: "{{ orchestrator_app_dir }}"
+  register: model_import_test
+  changed_when: false
+  tags: [models, validation]
+
+- name: Display model import result
+  ansible.builtin.debug:
+    msg: "{{ model_import_test.stdout }}"
+  tags: [models]

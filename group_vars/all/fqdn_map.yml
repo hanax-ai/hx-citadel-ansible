@@ -1,0 +1,90 @@
+---
+# HX-Citadel Fleet FQDN Mappings
+# Use these variables in all playbooks, templates, and configs
+# Never hardcode localhost, 127.0.0.1, or raw IPs
+
+hx_domain: dev-test.hana-x.ai
+hx_dc_ip: 192.168.10.2
+
+# Short hostname → FQDN mapping
+# Usage: {{ hx_hosts_fqdn['hx-ollama1'] }}
+hx_hosts_fqdn:
+  hx-dc-server: hx-dc-server.dev-test.hana-x.ai
+  hx-ca-server: hx-ca-server.dev-test.hana-x.ai
+  hx-orchestrator-server: hx-orchestrator-server.dev-test.hana-x.ai
+  hx-vectordb-server: hx-vectordb-server.dev-test.hana-x.ai
+  hx-litellm-server: hx-litellm-server.dev-test.hana-x.ai
+  hx-prisma-server: hx-prisma-server.dev-test.hana-x.ai
+  hx-sqldb-server: hx-sqldb-server.dev-test.hana-x.ai
+  hx-ollama1: hx-ollama1.dev-test.hana-x.ai
+  hx-ollama2: hx-ollama2.dev-test.hana-x.ai
+  hx-webui-server: hx-webui-server.dev-test.hana-x.ai
+  hx-qwebui-server: hx-qwebui-server.dev-test.hana-x.ai
+  hx-dev-server: hx-dev-server.dev-test.hana-x.ai
+  hx-test-server: hx-test-server.dev-test.hana-x.ai
+  hx-devops-server: hx-devops-server.dev-test.hana-x.ai
+  hx-metrics-server: hx-metrics-server.dev-test.hana-x.ai
+  hx-fs-server: hx-fs-server.dev-test.hana-x.ai
+  hx-mcp1-server: hx-mcp1-server.dev-test.hana-x.ai
+
+# FQDN → IP mapping (for reporting/validation only; prefer DNS for runtime)
+# Usage: {{ hx_hosts_ip['hx-vectordb-server.dev-test.hana-x.ai'] }}
+hx_hosts_ip:
+  hx-dc-server.dev-test.hana-x.ai: 192.168.10.2
+  hx-ca-server.dev-test.hana-x.ai: 192.168.10.4
+  hx-orchestrator-server.dev-test.hana-x.ai: 192.168.10.8
+  hx-vectordb-server.dev-test.hana-x.ai: 192.168.10.9
+  hx-webui-server.dev-test.hana-x.ai: 192.168.10.11
+  hx-dev-server.dev-test.hana-x.ai: 192.168.10.12
+  hx-test-server.dev-test.hana-x.ai: 192.168.10.13
+  hx-devops-server.dev-test.hana-x.ai: 192.168.10.14
+  hx-metrics-server.dev-test.hana-x.ai: 192.168.10.16
+  hx-fs-server.dev-test.hana-x.ai: 192.168.10.17
+  hx-litellm-server.dev-test.hana-x.ai: 192.168.10.46
+  hx-prisma-server.dev-test.hana-x.ai: 192.168.10.47
+  hx-sqldb-server.dev-test.hana-x.ai: 192.168.10.48
+  hx-ollama1.dev-test.hana-x.ai: 192.168.10.50
+  hx-ollama2.dev-test.hana-x.ai: 192.168.10.52
+  hx-qwebui-server.dev-test.hana-x.ai: 192.168.10.53
+  hx-mcp1-server.dev-test.hana-x.ai: 192.168.10.59
+
+# IP → FQDN mapping (for auto-fix tasks only; DO NOT use in runtime configs)
+# Usage: In lint/auto-rewrite tasks only
+hx_ip_to_fqdn:
+  "192.168.10.2": "hx-dc-server.dev-test.hana-x.ai"
+  "192.168.10.4": "hx-ca-server.dev-test.hana-x.ai"
+  "192.168.10.8": "hx-orchestrator-server.dev-test.hana-x.ai"
+  "192.168.10.9": "hx-vectordb-server.dev-test.hana-x.ai"
+  "192.168.10.11": "hx-webui-server.dev-test.hana-x.ai"
+  "192.168.10.12": "hx-dev-server.dev-test.hana-x.ai"
+  "192.168.10.13": "hx-test-server.dev-test.hana-x.ai"
+  "192.168.10.14": "hx-devops-server.dev-test.hana-x.ai"
+  "192.168.10.16": "hx-metrics-server.dev-test.hana-x.ai"
+  "192.168.10.17": "hx-fs-server.dev-test.hana-x.ai"
+  "192.168.10.46": "hx-litellm-server.dev-test.hana-x.ai"
+  "192.168.10.47": "hx-prisma-server.dev-test.hana-x.ai"
+  "192.168.10.48": "hx-sqldb-server.dev-test.hana-x.ai"
+  "192.168.10.50": "hx-ollama1.dev-test.hana-x.ai"
+  "192.168.10.52": "hx-ollama2.dev-test.hana-x.ai"
+  "192.168.10.53": "hx-qwebui-server.dev-test.hana-x.ai"
+  "192.168.10.59": "hx-mcp1-server.dev-test.hana-x.ai"
+
+# Short hostname → IP mapping (legacy; prefer FQDN lookups)
+hx_hosts_short_ip:
+  hx-dc-server: 192.168.10.2
+  hx-ca-server: 192.168.10.4
+  hx-orchestrator-server: 192.168.10.8
+  hx-vectordb-server: 192.168.10.9
+  hx-webui-server: 192.168.10.11
+  hx-qwebui-server: 192.168.10.53
+  hx-dev-server: 192.168.10.12
+  hx-test-server: 192.168.10.13
+  hx-devops-server: 192.168.10.14
+  hx-metrics-server: 192.168.10.16
+  hx-fs-server: 192.168.10.17
+  hx-litellm-server: 192.168.10.46
+  hx-prisma-server: 192.168.10.47
+  hx-sqldb-server: 192.168.10.48
+  hx-ollama1: 192.168.10.50
+  hx-ollama2: 192.168.10.52
+  hx-mcp1-server: 192.168.10.59

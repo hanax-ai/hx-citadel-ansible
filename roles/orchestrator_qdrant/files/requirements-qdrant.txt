@@ -1,0 +1,11 @@
+# Qdrant Dependencies
+# Component 5: Qdrant Integration
+
+# Qdrant client
+qdrant-client>=1.7.0
+
+# gRPC support (for better performance)
+grpcio>=1.60.0
+
+# HTTP client (already installed, but ensure version)
+httpx[http2]>=0.28.1

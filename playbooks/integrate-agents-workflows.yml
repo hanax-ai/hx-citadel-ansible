@@ -1,0 +1,45 @@
+---
+# Integrate Component 8 (Agents) and Component 9 (Workflows) into main.py
+
+- name: Integrate Agents and Workflows into Orchestrator
+  hosts: hx-orchestrator-server
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    orchestrator_dir: /opt/hx-citadel-shield/orchestrator
+  
+  pre_tasks:
+    - name: Display integration information
+      ansible.builtin.debug:
+        msg:
+          - "=== Integrating Components 8 & 9 into Orchestrator ==="
+          - "Target: {{ inventory_hostname }}"
+          - "Orchestrator directory: {{ orchestrator_dir }}"
+          - "Timestamp: {{ ansible_date_time.iso8601 }}"
+          - "=================================================="
+  
+  tasks:
+    - name: Include integration tasks
+      ansible.builtin.include_tasks:
+        file: ../roles/fastapi/tasks/integrate-agents-workflows.yml
+  
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg:
+          - "=== Integration Complete ==="
+          - "Components integrated into main.py:"
+          - "  ✓ Component 8: Pydantic AI Agents"
+          - "  ✓ Component 9: LangGraph Workflows"
+          - ""
+          - "Services available:"
+          - "  - agent_manager (query_router, web_crawl_coordinator, doc_process_coordinator)"
+          - "  - workflow_manager (query_workflow, ingestion_workflow)"
+          - ""
+          - "Next steps:"
+          - "  1. Test agent execution"
+          - "  2. Test workflow execution"
+          - "  3. Verify PostgreSQL checkpointing"
+          - "  4. Document Components 8 & 9"
+          - "============================"

@@ -5,7 +5,7 @@ qdrant_ui_root: /opt/qdrant-ui
 qdrant_ui_build_artifact_dir: dist
 qdrant_ui_owner: www-data
 qdrant_ui_group: www-data
-qdrant_ui_backend_host: 192.168.10.8
+qdrant_ui_backend_host: "{{ hx_hosts_fqdn['hx-orchestrator-server'] }}"
 qdrant_ui_backend_port: 6333
 qdrant_ui_backend_protocol: http
 qdrant_ui_backend_ssl_verify: "off"

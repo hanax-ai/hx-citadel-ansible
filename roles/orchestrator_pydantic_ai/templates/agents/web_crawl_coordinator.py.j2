@@ -1,0 +1,219 @@
+"""
+Web Crawl Coordinator Agent
+Component 8: Pydantic AI Agents
+
+Coordinates web crawling operations with intelligent query planning.
+Refactored from reference to use LiteLLM proxy and our architecture.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Optional
+
+from httpx import AsyncClient
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+
+from pydantic_ai.models.openai import OpenAIModel
+
+from config.settings import settings
+
+logger = logging.getLogger("shield-orchestrator.agents.web_crawl")
+
+
+# Agent response models
+class WebSearchResult(BaseModel):
+    """Structured web search result"""
+    title: str
+    summary: str
+    url: str
+    relevance_score: float = Field(ge=0.0, le=1.0)
+
+
+class CrawlPlan(BaseModel):
+    """Crawl planning response"""
+    search_queries: list[str] = Field(description="Optimized search queries for the crawl")
+    max_pages: int = Field(description="Maximum pages to crawl", ge=1, le=100)
+    priority_domains: list[str] = Field(description="Priority domains to focus on")
+    reasoning: str = Field(description="Reasoning for the crawl plan")
+
+
+# Agent dependencies
+@dataclass
+class WebCrawlDeps:
+    """Dependencies for web crawl agent"""
+    client: AsyncClient
+    brave_api_key: Optional[str] = None
+
+
+# Initialize model with LiteLLM provider
+# Note: pydantic-ai supports 'litellm' provider out of the box
+# It will use OPENAI_API_BASE and OPENAI_API_KEY environment variables
+model = OpenAIModel(
+    model_name=settings.llm_model,
+    provider='litellm'
+)
+
+# Create agent
+web_crawl_coordinator = Agent(
+    model=model,
+    system_prompt=f"""You are an expert web crawl coordinator for the HX-Citadel Shield system.
+Your role is to plan and coordinate web crawling operations efficiently.
+
+The current date is: {datetime.now().strftime("%Y-%m-%d")}
+
+When planning crawls:
+1. Break down broad topics into specific search queries
+2. Prioritize authoritative sources
+3. Avoid duplicate or redundant pages
+4. Consider rate limits and politeness
+5. Focus on recent, relevant content
+
+You have access to Brave Search API for web searches.
+""",
+    deps_type=WebCrawlDeps,
+    retries={{ agent_retry_count | default(2) }}
+)
+
+
+@web_crawl_coordinator.tool
+async def search_web(
+    ctx: RunContext[WebCrawlDeps],
+    search_query: str
+) -> str:
+    """
+    Search the web using Brave Search API.
+
+    Args:
+        ctx: The context with dependencies
+        search_query: The query to search for
+
+    Returns:
+        Formatted search results string
+    """
+    logger.info(f"Searching web for: {search_query}")
+    
+    if ctx.deps.brave_api_key is None:
+        logger.warning("No Brave API key provided, returning test results")
+        return "Test web search result. Configure BRAVE_API_KEY for real searches."
+
+    headers = {
+        'X-Subscription-Token': ctx.deps.brave_api_key,
+        'Accept': 'application/json',
+    }
+    
+    try:
+        response = await ctx.deps.client.get(
+            'https://api.search.brave.com/res/v1/web/search',
+            params={
+                'q': search_query,
+                'count': 5,
+                'text_decorations': True,
+                'search_lang': 'en'
+            },
+            headers=headers,
+            timeout={{ web_crawl_timeout_seconds | default(30) }}
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        # Format results
+        results = []
+        web_results = data.get('web', {}).get('results', [])
+        
+        for item in web_results[:3]:
+            title = item.get('title', '')
+            description = item.get('description', '')
+            url = item.get('url', '')
+            
+            if title and description:
+                results.append(
+                    f"Title: {title}\n"
+                    f"Summary: {description}\n"
+                    f"Source: {url}\n"
+                )
+        
+        return "\n".join(results) if results else "No results found."
+        
+    except Exception as e:
+        logger.error(f"Web search failed: {e}")
+        return f"Search error: {str(e)}"
+
+
+@web_crawl_coordinator.tool
+async def get_url_content(
+    ctx: RunContext[WebCrawlDeps],
+    url: str
+) -> str:
+    """
+    Fetch content from a specific URL.
+
+    Args:
+        ctx: The context with dependencies
+        url: The URL to fetch
+
+    Returns:
+        Page content or error message
+    """
+    logger.info(f"Fetching URL: {url}")
+    
+    try:
+        response = await ctx.deps.client.get(
+            url,
+            timeout={{ web_crawl_timeout_seconds | default(30) }},
+            follow_redirects=True
+        )
+        response.raise_for_status()
+        
+        # Return text content (truncated to avoid token limits)
+        content = response.text[:5000]
+        return f"Content from {url}:\n{content}"
+        
+    except Exception as e:
+        logger.error(f"URL fetch failed for {url}: {e}")
+        return f"Failed to fetch {url}: {str(e)}"
+
+
+# Convenience functions
+async def coordinate_web_crawl(
+    url: str,
+    allowed_domains: list[str],
+    max_pages: int = {{ web_crawl_max_pages | default(10) }}
+) -> dict[str, Any]:
+    """
+    Coordinate a web crawl operation.
+
+    Args:
+        url: Starting URL
+        allowed_domains: List of allowed domains
+        max_pages: Maximum pages to crawl
+
+    Returns:
+        Crawl results dictionary
+    """
+    async with AsyncClient() as client:
+        # TODO: Get Brave API key from vault
+        brave_api_key = None  # settings.brave_api_key if exists
+        
+        deps = WebCrawlDeps(
+            client=client,
+            brave_api_key=brave_api_key
+        )
+        
+        prompt = f"""Plan a web crawl starting from: {url}
+
+Allowed domains: {', '.join(allowed_domains) if allowed_domains else 'any'}
+Maximum pages: {max_pages}
+
+Create an optimized crawl plan."""
+
+        result = await web_crawl_coordinator.run(
+            prompt,
+            deps=deps,
+            result_type=CrawlPlan
+        )
+        
+        return result.data.model_dump()

@@ -1,0 +1,75 @@
+# HX-Citadel FQDN Policy Allowlist
+# Patterns listed here will NOT trigger FQDN policy violations
+# Use sparingly - only for legitimate localhost/IP usage
+
+# Documentation files - planning documents with example code
+docs/.*\.md:
+docs/.*\.backup:
+.*\.md:.*192\.168\.10\.
+configuration/.*\.md:
+status/.*\.md:
+README\.md:
+
+# README files - documentation examples
+roles/.*/README\.md:
+
+# Health check scripts - testing local process
+roles/base-setup/templates/health-check\.sh\.j2:
+roles/.*/templates/.*monitor\.sh\.j2:
+
+# Qdrant Web UI localhost checks (validates local nginx)
+roles/qdrant_web_ui/tasks/main\.yml:.*curl.*localhost
+
+# PostgreSQL role defaults - these are templated examples
+roles/postgresql_role/defaults/main\.yml:
+roles/postgresql_role/tasks/.*.yml:
+roles/postgresql/defaults/main\.yml:
+roles/postgresql/tasks/main\.yml:
+
+# Redis role - bind defaults (overridden in production playbooks)
+roles/redis/defaults/main\.yml:
+roles/redis_role/defaults/main\.yml:
+roles/redis_role/templates/redis\.conf\.j2:
+group_vars/db_nodes\.yml:.*redis_bind_interface
+
+# Health checks - validate local service before external access
+roles/.*/tasks/.*health.*\.yml:.*localhost
+roles/.*/tasks/.*validation.*\.yml:.*localhost
+roles/.*/handlers/main\.yml:.*localhost
+
+# Inventory files - legitimate internal network IP addressing
+inventory/.*\.ini:.*ansible_host.*192\.168\.10\.
+
+# Group variables - legitimate internal network addressing for bind interfaces
+group_vars/.*\.yml:
+
+# FQDN mapping - legitimate bidirectional IP<->FQDN mapping
+group_vars/all/fqdn_map\.yml:
+
+# Maintenance playbooks - host inventory and updates
+maintenance/.*\.yml:
+
+# FastAPI templates - CORS localhost origins
+roles/orchestrator_fastapi/templates/.*\.j2:
+roles/fastapi/tasks/.*\.yml:
+
+# CopilotKit - localhost validation and frontend origins
+roles/orchestrator_copilotkit/tasks/.*\.yml:
+roles/orchestrator_copilotkit/defaults/main\.yml:
+
+# Smoke tests and validation - legitimate localhost health checks
+playbooks/smoke-tests\.yml:
+playbooks/.*validation.*\.yml:
+playbooks/deploy-orchestrator-local\.yml:
+playbooks/preflight-check\.yml:
+playbooks/recover-mcp-server\.yml:
+playbooks/deploy-qdrant-ui\.yml:
+playbooks/deploy-langgraph\.yml:
+playbooks/validate-mcp-prereqs\.yml:
+
+# Pre-commit config - describes the policy itself
+\.pre-commit-config\.yaml:
+
+# FQDN policy checker itself and allowlist
+scripts/check-fqdn\.sh:
+\.fqdn-allowlist:

@@ -1,0 +1,272 @@
+"""
+Query Router Agent
+Component 8: Pydantic AI Agents
+
+Intelligently routes queries to fast (Qdrant) or deep (LightRAG) paths.
+Determines optimal retrieval mode based on query complexity and intent.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+
+from pydantic_ai.models.openai import OpenAIModel
+
+from config.settings import settings
+
+logger = logging.getLogger("shield-orchestrator.agents.query_router")
+
+
+# Agent response models
+class QueryIntent(BaseModel):
+    """Analyzed query intent"""
+    intent_type: Literal["factual", "analytical", "exploratory", "comparison", "summarization"]
+    complexity: Literal["simple", "moderate", "complex"]
+    requires_reasoning: bool
+    requires_context: bool
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class RoutingDecision(BaseModel):
+    """Query routing decision"""
+    path: Literal["fast", "deep"] = Field(description="fast=Qdrant vector, deep=LightRAG hybrid")
+    mode: Literal["vector", "hybrid", "kg"] = Field(description="Retrieval mode to use")
+    reason: str = Field(description="Reasoning for this routing decision")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in routing decision")
+    estimated_latency_ms: int = Field(description="Estimated query latency in milliseconds")
+    query_intent: QueryIntent
+
+
+# Agent dependencies
+@dataclass
+class QueryRouterDeps:
+    """Dependencies for query router agent"""
+    fast_threshold: float = {{ query_router_fast_threshold | default(0.7) }}
+    deep_threshold: float = {{ query_router_deep_threshold | default(0.3) }}
+
+
+# Initialize model with LiteLLM provider
+# Note: pydantic-ai supports 'litellm' provider out of the box
+# It will use OPENAI_API_BASE and OPENAI_API_KEY environment variables
+model = OpenAIModel(
+    model_name=settings.llm_model,
+    provider='litellm'
+)
+
+# Create agent
+query_router_agent = Agent(
+    model=model,
+    system_prompt=f"""You are an expert query routing agent for the HX-Citadel Shield system.
+Your role is to analyze queries and route them to the optimal retrieval path.
+
+The current date is: {datetime.now().strftime("%Y-%m-%d")}
+
+Routing Guidelines:
+
+**FAST PATH (Qdrant Vector Search):**
+- Simple factual queries
+- Direct information lookup
+- Single-concept questions
+- Low reasoning requirements
+- Latency: ~50-100ms
+
+**DEEP PATH (LightRAG Hybrid):**
+- Complex analytical queries
+- Multi-hop reasoning required
+- Relationship exploration
+- Context-heavy questions
+- Latency: ~500-2000ms
+
+**Retrieval Modes:**
+- `vector`: Pure semantic similarity (fastest)
+- `hybrid`: Vector + keyword + entity matching (balanced)
+- `kg`: Knowledge graph traversal (deepest reasoning)
+
+Optimize for the best balance of speed and accuracy.
+""",
+    deps_type=QueryRouterDeps,
+    retries={{ agent_retry_count | default(2) }}
+)
+
+
+@query_router_agent.tool
+async def analyze_query_complexity(
+    ctx: RunContext[QueryRouterDeps],
+    query: str
+) -> str:
+    """
+    Analyze the complexity of a query.
+
+    Args:
+        ctx: The context with dependencies
+        query: The user's query
+
+    Returns:
+        Complexity analysis string
+    """
+    logger.info(f"Analyzing query complexity: {query[:100]}")
+    
+    # Simple heuristics
+    word_count = len(query.split())
+    has_multiple_questions = query.count('?') > 1
+    has_comparisons = any(word in query.lower() for word in ['compare', 'versus', 'vs', 'difference'])
+    has_reasoning = any(word in query.lower() for word in ['why', 'how', 'explain', 'analyze'])
+    has_temporal = any(word in query.lower() for word in ['when', 'timeline', 'history', 'evolution'])
+    
+    complexity_score = 0
+    complexity_score += min(word_count / 10, 3)  # Max 3 points for length
+    complexity_score += 2 if has_multiple_questions else 0
+    complexity_score += 2 if has_comparisons else 0
+    complexity_score += 2 if has_reasoning else 0
+    complexity_score += 1 if has_temporal else 0
+    
+    if complexity_score <= 3:
+        complexity = "simple"
+    elif complexity_score <= 6:
+        complexity = "moderate"
+    else:
+        complexity = "complex"
+    
+    analysis = f"""Query Complexity Analysis:
+- Word count: {word_count}
+- Complexity score: {complexity_score:.1f}/10
+- Complexity level: {complexity}
+- Multiple questions: {has_multiple_questions}
+- Comparisons required: {has_comparisons}
+- Reasoning required: {has_reasoning}
+- Temporal aspects: {has_temporal}
+"""
+    
+    return analysis
+
+
+@query_router_agent.tool
+async def estimate_query_latency(
+    ctx: RunContext[QueryRouterDeps],
+    path: str,
+    mode: str
+) -> str:
+    """
+    Estimate query latency for a given path and mode.
+
+    Args:
+        ctx: The context with dependencies
+        path: "fast" or "deep"
+        mode: "vector", "hybrid", or "kg"
+
+    Returns:
+        Latency estimate string
+    """
+    logger.info(f"Estimating latency for path={path}, mode={mode}")
+    
+    # Latency estimates in milliseconds
+    latencies = {
+        ("fast", "vector"): (50, 100),
+        ("deep", "vector"): (300, 500),
+        ("deep", "hybrid"): (500, 1000),
+        ("deep", "kg"): (1000, 2000),
+    }
+    
+    min_lat, max_lat = latencies.get((path, mode), (100, 500))
+    avg_lat = (min_lat + max_lat) // 2
+    
+    return f"""Latency Estimate:
+- Path: {path}
+- Mode: {mode}
+- Min: {min_lat}ms
+- Max: {max_lat}ms
+- Average: {avg_lat}ms
+"""
+
+
+@query_router_agent.tool
+async def check_knowledge_graph_benefit(
+    ctx: RunContext[QueryRouterDeps],
+    query: str
+) -> str:
+    """
+    Determine if knowledge graph traversal would benefit this query.
+
+    Args:
+        ctx: The context with dependencies
+        query: The user's query
+
+    Returns:
+        KG benefit analysis string
+    """
+    logger.info(f"Checking KG benefit for query")
+    
+    # Keywords that indicate KG would be beneficial
+    kg_indicators = [
+        'relationship', 'connect', 'related', 'associated',
+        'impact', 'influence', 'cause', 'effect',
+        'between', 'among', 'link', 'network',
+        'dependency', 'hierarchy', 'structure'
+    ]
+    
+    query_lower = query.lower()
+    matches = [indicator for indicator in kg_indicators if indicator in query_lower]
+    
+    benefit_score = len(matches) / len(kg_indicators)
+    
+    if benefit_score > 0.3:
+        benefit = "HIGH"
+        recommendation = "Use KG mode for relationship exploration"
+    elif benefit_score > 0.1:
+        benefit = "MODERATE"
+        recommendation = "Use hybrid mode for balanced retrieval"
+    else:
+        benefit = "LOW"
+        recommendation = "Use vector mode for semantic search"
+    
+    return f"""Knowledge Graph Benefit Analysis:
+- Matched indicators: {', '.join(matches) if matches else 'none'}
+- Benefit score: {benefit_score:.2f}
+- Benefit level: {benefit}
+- Recommendation: {recommendation}
+"""
+
+
+# Convenience functions
+async def route_query(query: str) -> RoutingDecision:
+    """
+    Route a query to the optimal path and mode.
+
+    Args:
+        query: The user's query string
+
+    Returns:
+        RoutingDecision with path, mode, and reasoning
+    """
+    deps = QueryRouterDeps()
+    
+    prompt = f"""Analyze this query and provide a routing decision:
+
+Query: "{query}"
+
+Determine:
+1. Query intent and complexity
+2. Whether to use fast (Qdrant) or deep (LightRAG) path
+3. Which retrieval mode to use (vector/hybrid/kg)
+4. Estimated latency
+
+Provide complete routing decision."""
+
+    result = await query_router_agent.run(
+        prompt,
+        deps=deps,
+        result_type=RoutingDecision
+    )
+    
+    logger.info(
+        f"Routed query to {result.data.path} path with {result.data.mode} mode "
+        f"(confidence: {result.data.confidence:.2f})"
+    )
+    
+    return result.data
