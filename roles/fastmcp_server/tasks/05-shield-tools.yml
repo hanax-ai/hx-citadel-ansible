@@ -4,7 +4,7 @@
 - name: Install Crawl4AI and dependencies
   ansible.builtin.pip:
     name:
-      - "crawl4ai>=0.2.0"
+      - "crawl4ai>=0.3.0"
       - "playwright>=1.49.0"
       - "patchright>=1.49.0"
     virtualenv: "{{ fastmcp_venv_dir }}"
