@@ -19,10 +19,10 @@
 - name: Upgrade pip in virtual environment
   ansible.builtin.pip:
     name:
-      - pip
-      - setuptools
-      - wheel
-    state: latest
+      - pip>=24.0
+      - setuptools>=69.0
+      - wheel>=0.42
+    state: present
     virtualenv: "{{ orchestrator_venv_dir }}"
   become: yes
   become_user: "{{ orchestrator_service_user }}"

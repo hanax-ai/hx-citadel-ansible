@@ -38,7 +38,7 @@ rm -f /tmp/fqdn_hits.txt
 
 if [[ $use_rg -eq 1 ]]; then
   # Build ripgrep args
-  RG_ARGS=("--no-heading" "--hidden" "--follow" "--color=never")
+  RG_ARGS=("--no-heading" "--hidden" "--follow" "--color=never" "-nH")
   for g in "${EXCLUDES[@]}"; do 
     RG_ARGS+=("--glob" "!$g")
   done
@@ -46,7 +46,8 @@ if [[ $use_rg -eq 1 ]]; then
   # Join patterns with |
   REGEX_PATTERN=$(IFS='|'; echo "${PATTERNS[*]}")
   
-  rg "$REGEX_PATTERN" -nH "${RG_ARGS[@]}" "$INCLUDE_ROOT" > /tmp/fqdn_hits.txt 2>&1 || true
+  # Correct ripgrep arg order: rg [OPTIONS] PATTERN [PATHS]
+  rg "${RG_ARGS[@]}" "$REGEX_PATTERN" "$INCLUDE_ROOT" > /tmp/fqdn_hits.txt 2>&1 || true
 else
   # Fallback to grep -R with excludes
   GREP_ARGS=(

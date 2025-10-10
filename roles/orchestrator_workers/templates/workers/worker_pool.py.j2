@@ -102,8 +102,9 @@ class WorkerPool:
         )
         
         tasks_processed = 0
+        restart_requested = False
         
-        while self.running and not self._shutdown_event.is_set():
+        while self.running and not self._shutdown_event.is_set() and not restart_requested:
             try:
                 # Read tasks from queue
                 # XREADGROUP returns: {stream: [(message_id, {fields})]}
@@ -154,6 +155,7 @@ class WorkerPool:
                             # Check max tasks per child
                             if tasks_processed >= {{ worker_max_tasks_per_child }}:
                                 logger.info(f"Worker {worker_id} reached max tasks ({tasks_processed}), restarting...")
+                                restart_requested = True
                                 break
                         
                         except Exception as e:

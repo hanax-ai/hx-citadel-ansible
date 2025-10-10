@@ -37,11 +37,14 @@
 - name: Display detailed health (worker pool)
   ansible.builtin.debug:
     msg:
-      - "Worker Pool Status: {{ detailed_health_check.json.components.worker_pool.status | default('unknown') }}"
-      - "Active Workers: {{ detailed_health_check.json.components.worker_pool.active_workers | default(0) }}"
-      - "Pool Size: {{ detailed_health_check.json.components.worker_pool.pool_size | default(0) }}"
-      - "Event Bus Subscribers: {{ detailed_health_check.json.components.event_bus.active_subscribers | default(0) }}"
-  when: detailed_health_check.status == 200 and detailed_health_check.json.components.worker_pool is defined
+      - "Worker Pool Status: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('status', 'unknown') }}"
+      - "Active Workers: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('active_workers', 0) }}"
+      - "Pool Size: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('pool_size', 0) }}"
+      - "Event Bus Subscribers: {{ (detailed_health_check.json.components | default({})).get('event_bus', {}).get('active_subscribers', 0) }}"
+  when: 
+    - detailed_health_check.status == 200
+    - detailed_health_check.json is defined
+    - detailed_health_check.json.components is defined
   tags: [validation]
 
 - name: Check jobs API endpoint
@@ -75,7 +78,7 @@
 
 - name: Check orchestrator logs for worker pool
   ansible.builtin.shell: >
-    journalctl -u shield-orchestrator.service --since '2 minutes ago' --no-pager | grep -i "worker\|event.bus" | tail -20
+    journalctl -u shield-orchestrator.service --since '2 minutes ago' --no-pager | grep -Ei 'worker|event[._]bus' | tail -20
   register: orchestrator_logs
   changed_when: false
   failed_when: false
