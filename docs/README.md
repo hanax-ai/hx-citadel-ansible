@@ -103,10 +103,10 @@ This documentation suite provides complete guidance for implementing production-
 - Checking metrics
 
 **Quick Links**:
-- [Circuit breaker code](#)
-- [HTTP 202 pattern](#)
-- [Prometheus metrics](#)
-- [Type hints template](#)
+- [Circuit breaker code](./QUICK_REFERENCE.md#circuit-breaker-wrapper)
+- [HTTP 202 pattern](./QUICK_REFERENCE.md#http-202-response-pattern)
+- [Prometheus metrics](./QUICK_REFERENCE.md#prometheus-metrics)
+- [Type hints template](./QUICK_REFERENCE.md#type-hints-template)
 
 ---
 
