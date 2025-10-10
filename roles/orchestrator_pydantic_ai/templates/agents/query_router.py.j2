@@ -110,7 +110,7 @@ async def analyze_query_complexity(
     Returns:
         Complexity analysis string
     """
-    logger.info(f"Analyzing query complexity: {query[:100]}")
+    logger.debug(f"Analyzing query complexity: {query[:100]}")
     
     # Simple heuristics
     word_count = len(query.split())

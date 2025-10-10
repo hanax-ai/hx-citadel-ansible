@@ -88,10 +88,10 @@ class QdrantService:
                 {
                     "id": str(result.id),
                     "score": result.score,
-                    "text": result.payload.get("text", ""),
-                    "source_uri": result.payload.get("source_uri", ""),
-                    "source_type": result.payload.get("source_type", "unknown"),
-                    "metadata": result.payload
+                    "text": (result.payload or {}).get("text", ""),
+                    "source_uri": (result.payload or {}).get("source_uri", ""),
+                    "source_type": (result.payload or {}).get("source_type", "unknown"),
+                    "metadata": result.payload or {}
                 }
                 for result in results
             ]
@@ -175,6 +175,12 @@ async def check_qdrant_health() -> dict:
     import time
     
     try:
+        if qdrant_service.client is None:
+            return {
+                "status": "down",
+                "error": "Qdrant client not initialized"
+            }
+        
         start = time.time()
         collections = await qdrant_service.client.get_collections()
         latency_ms = (time.time() - start) * 1000

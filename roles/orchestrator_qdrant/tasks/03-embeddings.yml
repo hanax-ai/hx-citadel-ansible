@@ -17,6 +17,8 @@
     'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
     from services.embeddings import EmbeddingService; 
     print("✅ Embedding service imported")'
+  become: yes
+  become_user: "{{ orchestrator_service_user }}"
   register: embedding_import_test
   changed_when: false
   tags: [embeddings, validation]

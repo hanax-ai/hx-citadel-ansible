@@ -46,6 +46,9 @@ class AgentManager:
         """Initialize agent manager"""
         self._http_client: Optional[AsyncClient] = None
         self._initialized = False
+        self._last_llm_check: Optional[float] = None
+        self._llm_check_result: Optional[str] = None
+        self._llm_check_ttl: float = 60.0  # Cache for 60 seconds
         logger.info("Agent manager created")
     
     async def initialize(self):
@@ -181,10 +184,14 @@ class AgentManager:
         
         logger.info(f"Coordinating web crawl from {url}")
         
+        # Get deps with brave_api_key if provided
+        deps = self.get_web_crawl_deps(brave_api_key=brave_api_key)
+        
         return await coordinate_web_crawl(
             url=url,
             allowed_domains=allowed_domains,
-            max_pages=max_pages
+            max_pages=max_pages,
+            deps=deps
         )
     
     async def coordinate_document_processing(
@@ -242,6 +249,8 @@ class AgentManager:
         Returns:
             Health status dictionary
         """
+        import time
+        
         status = {
             "initialized": self._initialized,
             "http_client": self._http_client is not None,
@@ -252,12 +261,17 @@ class AgentManager:
             }
         }
         
-        # Verify LLM connectivity
-        try:
-            await self._verify_llm_connection()
-            status["llm_connection"] = "healthy"
-        except Exception as e:
-            status["llm_connection"] = f"error: {str(e)}"
+        # Verify LLM connectivity with caching
+        current_time = time.time()
+        if self._last_llm_check is None or (current_time - self._last_llm_check) > self._llm_check_ttl:
+            try:
+                await self._verify_llm_connection()
+                self._llm_check_result = "healthy"
+            except Exception as e:
+                self._llm_check_result = f"error: {str(e)}"
+            self._last_llm_check = current_time
+        
+        status["llm_connection"] = self._llm_check_result
         
         return status
 
