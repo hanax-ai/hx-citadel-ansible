@@ -32,7 +32,7 @@ echo -e "${YELLOW}Testing authentication...${NC}"
 
 # Test 1: Viewer query (basic auth test)
 RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-    -H "Authorization: Bearer $LINEAR_API_KEY" \
+    -H "Authorization: $LINEAR_API_KEY" \
     -H "Content-Type: application/json" \
     -d '{"query": "{ viewer { id name email admin } }"}')
 USER_NAME=$(echo "$RESPONSE" | jq -r '.data.viewer.name')
@@ -48,7 +48,7 @@ echo
 echo -e "${YELLOW}Fetching Linear teams...${NC}"
 
 TEAMS_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-    -H "Authorization: Bearer $LINEAR_API_KEY" \
+    -H "Authorization: $LINEAR_API_KEY" \
     -H "Content-Type: application/json" \
     -d '{"query": "{ teams { nodes { id key name } } }"}')
 
