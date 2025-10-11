@@ -10,6 +10,7 @@
 
 ## Executive Summary
 
+<!-- [MermaidChart: 02987a1e-bf15-4b74-bcf7-a7359d4b731a] -->
 This document establishes mandatory working standards for Claude Code when performing development tasks on the HX-Citadel Ansible Infrastructure project. These rules were created following critical failures in code quality, testing discipline, and execution methodology on October 11, 2025. Adherence to these standards is non-negotiable.
 
 **Core Principle**: Quality over speed. One task at a time. Test everything. No exceptions.
