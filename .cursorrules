@@ -1,0 +1,53 @@
+# Cursor AI Assistant Rules
+
+**MANDATORY**: Before executing ANY task, you MUST review the comprehensive development standards document located at:
+
+📄 **`/home/agent0/workspace/hx-citadel-ansible/rules.md`**
+
+## Quick Reference
+
+The `rules.md` document contains:
+
+- **Section 1**: Task Execution Methodology (One-Task-At-A-Time Rule)
+- **Section 2**: Code Quality Standards (SOLID Principles, No Placeholders)
+- **Section 3**: Testing and Validation Protocol (Pre-Commit Checklist)
+- **Section 4**: Proactive Risk and Failure Analysis
+- **Section 5**: Daily Operating Procedures (Session Start/End Protocols)
+- **Section 6**: Self-Evaluation Questions (10 Quality Checks)
+- **Section 7**: Quality Gates (Static Analysis → Functional → Delivery)
+- **Section 8**: Accountability and Corrective Action
+- **Section 9**: Definition of Done (DoD)
+- **Section 10**: Continuous Improvement
+- **Section 11**: Glossary of Terms
+
+## Core Directives
+
+1. ✅ **Singular Focus**: One task at a time, fully tested and proven
+2. ✅ **Absolute Testability**: Every change must have proof of function
+3. ✅ **Production Readiness**: No placeholders, stubs, or incomplete code
+4. ✅ **Protocol Adherence**: Comply with CLAUDE.md and rules.md
+5. ✅ **Transparent Communication**: Report all actions, tests, and results
+
+## Before Starting ANY Task
+
+1. Read `/home/agent0/workspace/hx-citadel-ansible/rules.md`
+2. Review `/home/agent0/workspace/hx-citadel-ansible/CLAUDE.md` (if exists)
+3. Break complex requests into single, testable units
+4. Propose the smallest viable task first
+5. Get user approval before proceeding
+
+## Quality Assurance Reminder
+
+**A task is ONLY complete when:**
+- Code is written and tested
+- All Quality Gates passed (Section 7)
+- Test Result Report generated (Section 3.2)
+- Code is committed to repository
+- User has acknowledged the deliverable
+
+---
+
+**Document Status**: ACTIVE - MANDATORY COMPLIANCE REQUIRED
+
+**Failure to review rules.md before starting work is a violation of operating procedures.**
+
