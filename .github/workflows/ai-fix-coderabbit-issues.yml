@@ -228,16 +228,19 @@ jobs:
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             git add -A
-            git commit -m "fix(${{ steps.linear.outputs.identifier }}): ${{ steps.linear.outputs.title }}
 
-AI-generated fix using ${{ steps.ai_tool.outputs.tool }}
+            git commit -F- <<EOF
+          fix(${{ steps.linear.outputs.identifier }}): ${{ steps.linear.outputs.title }}
 
-Reason: ${{ steps.ai_tool.outputs.reason }}
+          AI-generated fix using ${{ steps.ai_tool.outputs.tool }}
 
-Resolves ${{ steps.linear.outputs.identifier }}
+          Reason: ${{ steps.ai_tool.outputs.reason }}
 
-🤖 Generated with AI Issue Remediation (Phase 2B)
-Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          Resolves ${{ steps.linear.outputs.identifier }}
+
+          🤖 Generated with AI Issue Remediation (Phase 2B)
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          EOF
 
             git push -u origin "$branch_name"
             echo "committed=true" >> $GITHUB_OUTPUT
