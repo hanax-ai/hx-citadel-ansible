@@ -161,7 +161,6 @@ ignore:
 # Python rules enforced via standard CodeRabbit analysis
 # For project-specific guidance, use path_instructions (lines 63-73)
 
----
 # Notes for Claude Code:
 #
 # This configuration enables:
