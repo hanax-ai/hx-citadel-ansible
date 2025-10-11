@@ -215,20 +215,12 @@ jobs:
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             git add -A
-
-            git commit -F- <<EOF
-          fix(${{ steps.linear.outputs.identifier }}): ${{ steps.linear.outputs.title }}
-
-          AI-generated fix using ${{ steps.ai_tool.outputs.tool }}
-
-          Reason: ${{ steps.ai_tool.outputs.reason }}
-
-          Resolves ${{ steps.linear.outputs.identifier }}
-
-          🤖 Generated with AI Issue Remediation (Phase 2B)
-          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
-          EOF
-
+            git commit -m "fix(${{ steps.linear.outputs.identifier }}): ${{ steps.linear.outputs.title }}" \
+                       -m "AI-generated fix using ${{ steps.ai_tool.outputs.tool }}" \
+                       -m "Reason: ${{ steps.ai_tool.outputs.reason }}" \
+                       -m "Resolves ${{ steps.linear.outputs.identifier }}" \
+                       -m "🤖 Generated with AI Issue Remediation (Phase 2B)" \
+                       -m "Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
             git push -u origin "$branch_name"
             echo "committed=true" >> $GITHUB_OUTPUT
           else
@@ -255,8 +247,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Build PR body with test results
-          PR_BODY="Resolves ${{ steps.linear.outputs.identifier }}
+          # Build PR body with test results using heredoc
+          PR_BODY=$(cat <<'EOF'
+Resolves ${{ steps.linear.outputs.identifier }}
 
 ## CodeRabbit Finding
 ${{ steps.linear.outputs.title }}
@@ -287,7 +280,9 @@ $(cat /tmp/issue_description.txt)
 ---
 
 🤖 Generated with AI Issue Remediation Script (Phase 2B)
-Resolves ${{ steps.linear.outputs.identifier }}"
+Resolves ${{ steps.linear.outputs.identifier }}
+EOF
+)
 
           # Create PR
           gh pr create \

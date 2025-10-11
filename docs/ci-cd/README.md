@@ -85,7 +85,7 @@ Automated issue tracking and remediation workflow integrating CodeRabbit, Linear
 
 **Questions or Issues**:
 - Check automation docs in this directory
-- Review script help: `./scripts/fix-linear-issue.sh -h`
+- Review script help: `../../scripts/fix-linear-issue.sh -h`
 - Escalate to DevOps Team Lead
 
 **Feedback**:

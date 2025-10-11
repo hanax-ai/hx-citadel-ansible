@@ -258,7 +258,7 @@ All 4 Slack notification steps have been successfully added to the workflow:
 
 **Sprint 3.1 Complete!** ✅ All 4 Slack notifications have been added to the workflow.
 
-**Next Step: Test the Notifications**
+### Next Step: Test the Notifications
 
 ```bash
 # 1. Create Slack incoming webhook in your workspace

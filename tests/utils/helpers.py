@@ -5,6 +5,7 @@ Phase 2 Sprint 2.2: Automated Testing (TASK-031)
 """
 
 import asyncio
+import json
 import time
 from typing import Dict, Any, Callable, Optional
 from pathlib import Path
@@ -78,6 +79,11 @@ def load_test_data(filename: str) -> Dict[str, Any]:
 
     Returns:
         Test data as dictionary
+
+    Raises:
+        FileNotFoundError: If the file does not exist
+        ValueError: If the file extension is not supported
+        json.JSONDecodeError: If JSON parsing fails
     """
     test_data_dir = Path(__file__).parent.parent / "fixtures"
     file_path = test_data_dir / filename
@@ -85,8 +91,17 @@ def load_test_data(filename: str) -> Dict[str, Any]:
     if not file_path.exists():
         raise FileNotFoundError(f"Test data file not found: {file_path}")
 
-    # TODO: Implement JSON/YAML loading based on extension
-    return {}
+    # Detect file extension and load accordingly
+    extension = file_path.suffix.lower()
+    
+    if extension == '.json':
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    else:
+        raise ValueError(
+            f"Unsupported fixture format: {extension}. "
+            f"Supported formats: .json"
+        )
 
 
 def assert_response_structure(
@@ -160,7 +175,16 @@ def get_test_url(service: str, path: str = "") -> str:
     if not base_url:
         raise ValueError(f"Unknown service: {service}")
 
-    return f"{base_url}{path}"
+    # Normalize base_url: strip trailing slashes
+    normalized_base = base_url.rstrip("/")
+    
+    # Normalize path: strip whitespace and ensure single leading slash
+    normalized_path = path.strip()
+    if normalized_path:
+        # Ensure path starts with exactly one slash
+        normalized_path = "/" + normalized_path.lstrip("/")
+    
+    return f"{normalized_base}{normalized_path}"
 
 
 class TestTimer:

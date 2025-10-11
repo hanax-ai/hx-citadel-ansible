@@ -183,7 +183,7 @@ Verify vector storage and search operations:
 ## Integration Flow Test
 
 **Complete Workflow**:
-```
+```text
 1. Store text → Get point_id
 2. Search for text → Find stored vector
 3. Verify score is high (> 0.9)

@@ -44,6 +44,8 @@ Authorization: <api-key>
 1. `.github/workflows/ai-fix-coderabbit-issues.yml` (line 305)
 2. `scripts/fetch-linear-issue.sh` (lines 35, 51)
 
+**Note**: The script `scripts/test-linear-api.sh` already includes the Bearer prefix (lines 35, 51) and did not require modification.
+
 **Changes**:
 ```bash
 # Before (BROKEN):

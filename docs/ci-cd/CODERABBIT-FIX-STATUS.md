@@ -84,7 +84,7 @@ path_filters:
 **Problem**: Linear integration is disabled by default for public repositories
 
 **CodeRabbit Message**:
-```
+```text
 Linear integration is disabled by default for public repositories
 You can enable these sources in your CodeRabbit configuration.
 ```

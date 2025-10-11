@@ -1,3 +1,4 @@
+---
 # CodeRabbit Configuration - HX-Citadel Ansible
 # Documentation: https://docs.coderabbit.ai/guides/configure-coderabbit/
 
@@ -21,7 +22,7 @@ reviews:
       - develop
 
   # Issue categorization
-  level: "coderabbit"  # Options: coderabbit, verbose, quiet
+
 
   # Request changes for critical issues
   request_changes_workflow: true
@@ -33,6 +34,11 @@ reviews:
   review_status: true
   collapse_walkthrough: false
 
+  # Finishing touches for PRs
+  finishing_touches:
+    unit_tests:
+      enabled: true
+
   # Tool integration
   tools:
     # Enable shellcheck for bash scripts
@@ -43,21 +49,9 @@ reviews:
     yamllint:
       enabled: true
 
-    # Enable ansible-lint (critical for this project!)
-    ansible-lint:
-      enabled: true
-
     # Enable markdownlint for documentation
     markdownlint:
       enabled: true
-
-  # Auto-generate unit tests (BETA FEATURE)
-  auto_generate_tests:
-    enabled: true
-    test_framework: "pytest"
-    auto_commit: true  # Auto-commit generated tests to branch
-    create_pr: false   # Don't create separate PR, add to current branch
-    coverage_target: 80  # Target 80% coverage per TASK-032
 
   # Path-specific instructions (nitpick filtering)
   path_instructions:
@@ -76,51 +70,11 @@ reviews:
 # NOTE: CodeRabbit auto-detects file types; explicit path_filters not needed
 # Instead, use path_instructions below for custom guidance per path
 
-# Issue severity thresholds
-severity_thresholds:
-  # Critical issues block PR merge
-  critical:
-    - security_vulnerability
-    - breaking_change
-    - data_loss_risk
-    - authentication_bypass
-    - no_fqcn              # Ansible FQCN violation (project-critical)
-    - plaintext_secrets    # Secrets in code (project-critical)
-
-  # High priority - create Linear issues automatically
-  high:
-    - performance_issue
-    - code_smell
-    - complexity_high
-    - missing_error_handling
-    - implicit_optional   # Missing Optional[] (Phase 2 Sprint 2.1 target)
-    - missing_type_hints  # Missing type hints (Phase 2 Sprint 2.1 target)
-    - no_changed_when     # Ansible command without changed_when
-
-  # Medium priority - batch into weekly cleanup
-  medium:
-    - code_duplication
-    - missing_docstring
-    - long_function
-    - magic_number
-
-  # Low priority - ignore for .md files, flag for .py/.yml
-  low:
-    - formatting          # Code formatting (handled by pre-commit)
-    - naming_convention   # Variable names (unless confusing)
-    - comment_style       # Comment format
-
-  # Ignore completely (noise)
-  ignore:
-    - markdown_formatting # .md file formatting
-    - docs_line_length    # Long lines in docs
-    - trailing_whitespace_md  # Whitespace in .md
-
 # Linear integration (Phase 2A)
 integrations:
   linear:
     enabled: true
-    
+
     # Linear workspace configuration
     # Team: HANA-X Ai (key: HAN)
     # Team ID: 82355734-bc0c-49c6-ba88-6ad2ca50865a
@@ -206,28 +160,6 @@ ignore:
 # Ansible rules enforced via tools.ansible-lint.enabled: true
 # Python rules enforced via standard CodeRabbit analysis
 # For project-specific guidance, use path_instructions (lines 63-73)
-
-# Performance tuning
-performance:
-  # Max files to review per PR
-  max_files: 50
-
-  # Timeout for review (seconds)
-  timeout: 600
-
-  # Parallel processing
-  parallel_reviews: true
-  max_parallel: 4
-
-# Changelog generation
-changelog:
-  enabled: true
-  exclude_labels:
-    - "skip-changelog"
-    - "documentation"
-
-  # Commit message format (Conventional Commits)
-  format: "conventional"
 
 ---
 # Notes for Claude Code:

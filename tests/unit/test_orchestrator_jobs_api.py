@@ -32,9 +32,23 @@ from datetime import datetime
 class MockJobStatusResponse:
     """Mock JobStatusResponse model"""
 
-    def __init__(self, job_id: str, job_type: str, status: str, chunks_total: int,
-                 chunks_processed: int, percent_complete: float, created_at: str,
-                 started_at: str = None, completed_at: str = None, error_message: str = None):
+import pytest
+from datetime import datetime
+from typing import Optional
+
+    def __init__(
+        self,
+        job_id: str,
+        job_type: str,
+        status: str,
+        chunks_total: int,
+        chunks_processed: int,
+        percent_complete: float,
+        created_at: str,
+        started_at: Optional[str] = None,
+        completed_at: Optional[str] = None,
+        error_message: Optional[str] = None,
+    ):
         self.job_id = job_id
         self.job_type = job_type
         self.status = status
@@ -50,9 +64,17 @@ class MockJobStatusResponse:
 class MockJobListItem:
     """Mock JobListItem model"""
 
-    def __init__(self, job_id: str, job_type: str, status: str, chunks_total: int,
-                 chunks_processed: int, percent_complete: float, created_at: str,
-                 duration_seconds: float = None):
+    def __init__(
+        self,
+        job_id: str,
+        job_type: str,
+        status: str,
+        chunks_total: int,
+        chunks_processed: int,
+        percent_complete: float,
+        created_at: str,
+        duration_seconds: Optional[float] = None,
+    ):
         self.job_id = job_id
         self.job_type = job_type
         self.status = status
@@ -84,7 +106,7 @@ class MockJobTracker:
             return {"error": "Job not found"}
         return self.jobs[job_id]
 
-    async def list_jobs(self, status: str = None, limit: int = 50):
+    async def list_jobs(self, status: Optional[str] = None, limit: int = 50):
         """List jobs with optional filter"""
         jobs = list(self.jobs.values())
 

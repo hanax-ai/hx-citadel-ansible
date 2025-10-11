@@ -127,6 +127,9 @@ async def lifespan(app: FastAPI):
     )
     await redis_consumer.start()
     
+    # Store consumer in app state to avoid circular imports
+    app.state.redis_consumer = redis_consumer
+    
     logger.info("redis_consumer_started", consumer_name=settings.REDIS_CONSUMER_NAME)
     
     yield
@@ -259,7 +262,6 @@ import structlog
 import asyncio
 
 from src.services.event_service import EventService
-from src.main import redis_consumer
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -277,6 +279,8 @@ async def event_stream(request: Request):
     
     async def event_generator():
         """Generate SSE events from Redis Streams"""
+        # Get consumer from app state to avoid circular imports
+        redis_consumer = request.app.state.redis_consumer
         event_service = EventService(redis_consumer)
         last_id = request.headers.get("Last-Event-ID", "0-0")
         

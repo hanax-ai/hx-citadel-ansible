@@ -1,0 +1,16 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: pydantic in /home/agent0/.local/lib/python3.12/site-packages (2.11.9)
+Collecting pydantic-settings
+  Downloading pydantic_settings-2.11.0-py3-none-any.whl.metadata (3.4 kB)
+Requirement already satisfied: annotated-types>=0.6.0 in /home/agent0/.local/lib/python3.12/site-packages (from pydantic) (0.7.0)
+Requirement already satisfied: pydantic-core==2.33.2 in /home/agent0/.local/lib/python3.12/site-packages (from pydantic) (2.33.2)
+Requirement already satisfied: typing-extensions>=4.12.2 in /home/agent0/.local/lib/python3.12/site-packages (from pydantic) (4.15.0)
+Requirement already satisfied: typing-inspection>=0.4.0 in /home/agent0/.local/lib/python3.12/site-packages (from pydantic) (0.4.1)
+Collecting python-dotenv>=0.21.0 (from pydantic-settings)
+  Downloading python_dotenv-1.1.1-py3-none-any.whl.metadata (24 kB)
+Downloading pydantic_settings-2.11.0-py3-none-any.whl (48 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.6/48.6 kB 3.9 MB/s eta 0:00:00
+
+Downloading python_dotenv-1.1.1-py3-none-any.whl (20 kB)
+Installing collected packages: python-dotenv, pydantic-settings
+Successfully installed pydantic-settings-2.11.0 python-dotenv-1.1.1

@@ -32,30 +32,9 @@ echo -e "${YELLOW}Testing authentication...${NC}"
 
 # Test 1: Viewer query (basic auth test)
 RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-    -H "Authorization: $LINEAR_API_KEY" \
+    -H "Authorization: Bearer $LINEAR_API_KEY" \
     -H "Content-Type: application/json" \
     -d '{"query": "{ viewer { id name email admin } }"}')
-
-# Check for errors
-if echo "$RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
-    ERROR_MSG=$(echo "$RESPONSE" | jq -r '.errors[0].message')
-    echo -e "${RED}❌ Authentication FAILED${NC}"
-    echo -e "${RED}Error: $ERROR_MSG${NC}"
-    echo
-    echo "Possible causes:"
-    echo "  1. API key is invalid or expired"
-    echo "  2. API key doesn't have required permissions"
-    echo "  3. Workspace access issue"
-    echo
-    echo "Solution:"
-    echo "  1. Go to https://linear.app/settings/api"
-    echo "  2. Delete the old key"
-    echo "  3. Create NEW key with 'Full access' or 'Read/Write' permissions"
-    echo "  4. Export the new key: export LINEAR_API_KEY=\"lin_api_...\""
-    exit 1
-fi
-
-# Success!
 USER_NAME=$(echo "$RESPONSE" | jq -r '.data.viewer.name')
 USER_EMAIL=$(echo "$RESPONSE" | jq -r '.data.viewer.email')
 IS_ADMIN=$(echo "$RESPONSE" | jq -r '.data.viewer.admin')
@@ -69,7 +48,7 @@ echo
 echo -e "${YELLOW}Fetching Linear teams...${NC}"
 
 TEAMS_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-    -H "Authorization: $LINEAR_API_KEY" \
+    -H "Authorization: Bearer $LINEAR_API_KEY" \
     -H "Content-Type: application/json" \
     -d '{"query": "{ teams { nodes { id key name } } }"}')
 
@@ -93,6 +72,8 @@ else
     echo
     echo -e "${BLUE}ℹ️  Use these team keys to fetch issues:${NC}"
     echo "$TEAMS_RESPONSE" | jq -r '.data.teams.nodes[] | "  ./scripts/fetch-linear-issue.sh \"\(.key)-123\""'
+fi
+fi
 fi
 
 echo

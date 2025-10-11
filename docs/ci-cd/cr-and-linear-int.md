@@ -12,9 +12,6 @@ Add Linear’s Team Keys to the knowledge_base.linear.team_keys field in your pr
 Example Usage​
 To link a Linear Issue, you can add the Linear Issue via the team key and issue number into the PR description as shown below.
 
-Copy
-
-Ask AI
 // (Linear Team Key - Issue Number)Closes ENG-123
 You can also create new Linear issues directly through CodeRabbit. Learn more in our Issue Creation guide.
 ​
@@ -24,11 +21,8 @@ GitHub issue integration works automatically without any additional setup requir
 Example Usage​
 To link a GitHub Issue, you can add the issue into the PR description as shown below.
 
-Copy
-
-Ask AI
 // (# GitHub Issue Number)Closes #123
-Was this page helpful?
+Overview
 Overview
 This integration allows CodeRabbit to connect your pull requests seamlessly with Linear, enabling bi-directional issue tracking and automated issue creation in Linear with code context.
 

@@ -66,6 +66,51 @@ class TestCrawlWebResponse:
 
 @pytest.mark.unit
 @pytest.mark.fast
+class TestIngestDocResponse:
+    """Test IngestDocResponse model"""
+
+    def test_success_response(self):
+        """Test creating success response"""
+        resp = IngestDocResponse(
+            status=MCPResponseStatusEnum.SUCCESS,
+            message="Document ingested successfully",
+            job_id="job-abc123",
+            source_name="report.pdf",
+            file_format=".pdf",
+            content_length=15243,
+            page_count=10
+        )
+        assert resp.status == MCPResponseStatusEnum.SUCCESS
+        assert resp.job_id == "job-abc123"
+        assert resp.page_count == 10
+
+
+@pytest.mark.unit
+@pytest.mark.fast
+class TestLightRAGQueryResponse:
+    """Test LightRAGQueryResponse model"""
+
+    def test_success_response(self):
+        """Test creating success response"""
+        resp = LightRAGQueryResponse(
+            status=MCPResponseStatusEnum.SUCCESS,
+            query="What is LightRAG?",
+            mode="hybrid",
+            response="LightRAG is a hybrid retrieval system.",
+            context=[
+                {"source": "doc1", "text": "Context 1"},
+                {"source": "doc2", "text": "Context 2"}
+            ],
+            metadata={"confidence": 0.95, "model": "llama3"}
+        )
+        assert resp.status == MCPResponseStatusEnum.SUCCESS
+        assert resp.query == "What is LightRAG?"
+        assert len(resp.context) == 2
+        assert resp.metadata["confidence"] == 0.95
+
+
+@pytest.mark.unit
+@pytest.mark.fast
 class TestQdrantFindResponse:
     """Test QdrantFindResponse model"""
 

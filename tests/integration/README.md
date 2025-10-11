@@ -9,7 +9,7 @@ Integration tests that validate component interactions across the HX-Citadel Shi
   - Validates circuit breaker metrics
   - Verifies service availability
 
-- **test-mcp-tools.py** - MCP tools integration tests
+- **test_mcp_tools.py** - MCP tools integration tests
   - Tests all 7 MCP tools end-to-end
   - Validates orchestrator integration
   - Tests async job tracking
