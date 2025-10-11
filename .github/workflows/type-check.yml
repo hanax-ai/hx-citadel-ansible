@@ -71,7 +71,8 @@ jobs:
           templates_checked=0
           templates_with_hints=0
 
-          for template in $(find roles -name '*.py.j2'); do
+          # Use process substitution to avoid subshell variable issues
+          while IFS= read -r -d '' template; do
             templates_checked=$((templates_checked + 1))
 
             # Check for common type hint patterns
@@ -85,7 +86,7 @@ jobs:
             else
               echo "⚠️  $template may be missing type hints"
             fi
-          done
+          done < <(find roles -name '*.py.j2' -print0)
 
           echo ""
           echo "════════════════════════════════════════════════════════════"

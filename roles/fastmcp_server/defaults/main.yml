@@ -20,7 +20,8 @@ fastmcp_log_format: json
 # Dependency URLs
 qdrant_url: "https://{{ hostvars[groups['vector_nodes'][0]]['ansible_host'] }}:6333"
 qdrant_api_key: "{{ vault_qdrant_api_key | default('') }}"
-ollama_base_url: "https://{{ hostvars[groups['llm_nodes'][0]]['ansible_host'] }}:11434"
+# FIXED: Point to orchestrator's Ollama instance which has embedding models (nomic-embed-text, mxbai-embed-large, all-minilm)
+ollama_base_url: "http://{{ hostvars[groups['orchestrator_nodes'][0]]['ansible_host'] }}:11434"
 orchestrator_base_url: "http://{{ hostvars[groups['orchestrator_nodes'][0]]['ansible_host'] }}:8000"
 
 # Python version

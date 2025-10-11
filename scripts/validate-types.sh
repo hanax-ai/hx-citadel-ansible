@@ -45,7 +45,7 @@ run_mypy_remote() {
     fi
 
     # Run mypy on the application directory
-    if ssh "$server" "cd ${app_dir} && mypy . --config-file=/home/agent0/workspace/hx-citadel-ansible/mypy.ini 2>&1"; then
+    if ssh "$server" "cd ${app_dir} && mypy . --config-file=${app_dir}/mypy.ini 2>&1"; then
         echo -e "${GREEN}✓ Type validation passed for ${label}${NC}"
         return 0
     else
@@ -92,11 +92,11 @@ generate_coverage_report() {
 
     echo -e "${YELLOW}Generating type coverage report for ${label}...${NC}"
 
-    if ssh "$server" "cd ${app_dir} && mypy . --config-file=/home/agent0/workspace/hx-citadel-ansible/mypy.ini --html-report /tmp/mypy-report 2>&1"; then
+    if ssh "$server" "cd ${app_dir} && mypy . --config-file=${app_dir}/mypy.ini --html-report /tmp/mypy-report 2>&1"; then
         echo -e "${GREEN}✓ Coverage report generated at ${server}:/tmp/mypy-report/index.html${NC}"
 
         # Try to extract coverage percentage
-        if ssh "$server" "cd ${app_dir} && mypy . --config-file=/home/agent0/workspace/hx-citadel-ansible/mypy.ini 2>&1 | grep -oP 'Success.*'" || true; then
+        if ssh "$server" "cd ${app_dir} && mypy . --config-file=${app_dir}/mypy.ini 2>&1 | grep -oP 'Success.*'" || true; then
             :
         fi
 

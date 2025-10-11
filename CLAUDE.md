@@ -8,8 +8,10 @@ HX-Citadel Ansible Infrastructure automates deployment and management of a 17-se
 
 **Current Status** (October 11, 2025):
 - **Phase 1 COMPLETE**: 21/21 critical tasks delivered (100%)
-- **Production Readiness**: 85%
+- **Phase 2 IN PROGRESS**: Quality Improvements (TASK-032 active - 45% complete)
+- **Production Readiness**: 90% (RAG pipeline fully operational)
 - **MCP Server**: Operational with 7 tools at hx-mcp1-server:8081
+- **Open WebUI**: Deployed and operational at hx-webui-server:8080
 - **Overall Progress**: 21/59 tasks (36%)
 
 ## Essential Commands
@@ -92,13 +94,13 @@ ansible hx-mcp1-server -i inventory/prod.ini -m shell -a "journalctl -u shield-m
 
 ### Shield Five-Layer Architecture (Master Design)
 
-The HX-Citadel Shield follows a **five-layer architecture** (see `docs/Delivery-Enhancements/SHIELD-MASTER-ARCHITECTURE.md` for complete design):
+The HX-Citadel Shield follows a **five-layer architecture** (see `docs/Delivery-Enhancements/HX-ARCHITECTURE.md` for complete design):
 
-1. **Layer 1 - Frontend**: Four specialized UIs (Open WebUI, shield-power-ui, shield-ag-ui, shield-dashboard)
-2. **Layer 2 - Gateway**: LiteLLM MCP Gateway (access control, RBAC, tool permissions)
-3. **Layer 3 - Tool Execution**: FastMCP Server at hx-mcp1-server:8081 (MCP tools, circuit breakers)
-4. **Layer 4 - Orchestration**: Orchestrator at hx-orchestrator-server:8000 (LightRAG, LangGraph, workers)
-5. **Layer 5 - Data**: Qdrant, PostgreSQL, Redis, Ollama (storage and compute)
+1. **Layer 1 - Frontend**: Open WebUI (✅ deployed at hx-webui-server:8080), shield-power-ui, shield-ag-ui, shield-dashboard (planned)
+2. **Layer 2 - Gateway**: LiteLLM API Gateway (✅ hx-litellm-server:4000 - routes to Ollama + OpenAI)
+3. **Layer 3 - Tool Execution**: FastMCP Server (✅ hx-mcp1-server:8081 - 7 tools, circuit breakers)
+4. **Layer 4 - Orchestration**: Orchestrator (✅ hx-orchestrator-server:8000 - LightRAG, LangGraph, workers)
+5. **Layer 5 - Data**: Qdrant, PostgreSQL, Redis, Ollama (✅ all operational)
 
 ### Multi-Layered Service Architecture (Current Deployment)
 
@@ -109,13 +111,27 @@ The HX-Citadel Shield follows a **five-layer architecture** (see `docs/Delivery-
 **Vector Database Layer** (hx-vectordb-server - 192.168.10.9)
 - Qdrant: Vector similarity search and storage
 
-**LLM Layer** (2 GPU nodes)
-- hx-ollama1 (192.168.10.50): Primary LLM inference
-- hx-ollama2 (192.168.10.52): Secondary LLM inference
-- Model synchronization across both nodes
+**LLM & Embedding Layer** (3 Ollama instances)
+- **hx-orchestrator-server** (192.168.10.8:11434): **Embedding models** (co-located for low latency)
+  - mxbai-embed-large:latest (1024-dim, 669MB)
+  - nomic-embed-text:latest (768-dim, 274MB)
+  - all-minilm:latest (384-dim, 46MB)
+- **hx-ollama1** (192.168.10.50:11434): Primary LLM inference (3 models: gemma3:27b, gpt-oss:20b, mistral:7b)
+- **hx-ollama2** (192.168.10.52:11434): Secondary LLM inference (6 models: qwen variants, cogito)
+
+**Frontend Layer** (hx-webui-server - 192.168.10.TBD)
+- **Open WebUI** (http://hx-webui-server:8080): ✅ Deployed and operational
+  - Chat interface with LLM access via LiteLLM
+  - Connected to: LiteLLM Gateway (http://hx-litellm-server:4000/v1)
+  - Also connected to: OpenAI API (https://api.openai.com/v1)
+  - MCP tools: Not yet integrated (future enhancement)
 
 **API Gateway Layer**
-- LiteLLM (hx-litellm-server - 192.168.10.46): API gateway
+- **LiteLLM** (hx-litellm-server:4000): ✅ Unified API gateway
+  - Routes embeddings → hx-orchestrator-server (192.168.10.8)
+  - Routes LLMs → hx-ollama1/hx-ollama2 (192.168.10.50/.52)
+  - 12 models total (3 embeddings + 9 LLMs)
+  - OpenAI-compatible /v1 endpoints
 - Prisma ORM (hx-prisma-server - 192.168.10.47): Database middleware
 
 **Orchestration Layer** (hx-orchestrator-server - 192.168.10.8)
@@ -316,10 +332,12 @@ Use specific inventory for Qdrant UI: `ansible-playbook -i inventory/hx-qwui.ini
 **When in doubt, reference tech_kb/ansible-devel - never guess!**
 
 ### Shield Architecture
-- **Master Architecture**: `docs/Delivery-Enhancements/SHIELD-MASTER-ARCHITECTURE.md` - Complete system design (v2.0)
+- **Master Architecture**: `docs/Delivery-Enhancements/HX-ARCHITECTURE.md` - Complete system design (v3.0 - Oct 2025)
   - Five-layer architecture (Frontend → Gateway → Tools → Orchestration → Data)
+  - **Actual deployment topology**: Embeddings on orchestrator, LLMs on dedicated nodes
+  - **LiteLLM routing**: 12 models (3 embeddings + 9 LLMs) with intelligent routing
+  - **Open WebUI integration**: Chat interface with LiteLLM + OpenAI access
   - Production optimizations (async ingestion, circuit breakers, Redis Streams)
-  - Multi-frontend strategy (4 UIs with different personas)
   - Testing strategy (RAG evaluation, HITL workflows, load testing)
   - Monitoring & observability (OpenTelemetry, Prometheus, Grafana)
   - **Critical**: Reference this for understanding the complete Shield vision and architecture decisions
