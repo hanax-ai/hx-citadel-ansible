@@ -1,10 +1,29 @@
 # Development Standards and Operating Procedures
 
-**Document Version**: 1.2  
-**Created**: October 11, 2025
-**Last Updated**: October 11, 2025
-**Status**: Active - Mandatory Compliance Required
+**Document Version**: 1.3  
+**Created**: October 11, 2025  
+**Last Updated**: October 11, 2025  
+**Status**: Active - Mandatory Compliance Required  
 **Scope**: All development and operational tasks performed on the hx-citadel-ansible project.
+
+---
+
+## Table of Contents
+
+1. [Preamble](#preamble)
+2. [Executive Summary](#executive-summary)
+3. [Primary Directives](#primary-directives)
+4. [Section 1: Task Execution Methodology](#section-1-task-execution-methodology)
+5. [Section 2: Code Quality Standards](#section-2-code-quality-standards)
+6. [Section 3: Testing and Validation Protocol](#section-3-testing-and-validation-protocol)
+7. [Section 4: Proactive Risk and Failure Analysis](#section-4-proactive-risk-and-failure-analysis)
+8. [Section 5: Daily Operating Procedures](#section-5-daily-operating-procedures)
+9. [Section 6: Self-Evaluation Questions](#section-6-self-evaluation-and-quality-assurance-questions)
+10. [Section 7: Quality Gates](#section-7-quality-gates)
+11. [Section 8: Accountability and Corrective Action](#section-8-accountability-and-corrective-action)
+12. [Section 9: Definition of Done](#section-9-definition-of-done-dod)
+13. [Section 10: Continuous Improvement](#section-10-continuous-improvement)
+14. [Section 11: Glossary of Terms](#section-11-glossary-of-terms)
 
 ---
 
@@ -85,6 +104,16 @@ If the answer to any of these is "no," the task is too large and must be decompo
 3. **Verification**: When direct replication is not possible, all validation commands (ansible-lint, bash -n) must use the same versions and configurations as the target.
 4. **Disclaimer**: If a test cannot be performed with 100% environment parity, this risk must be explicitly stated in the test report.
 
+**Fallback Protocol When Full Parity is Impossible**:
+
+If complete environment parity cannot be achieved:
+
+1. **Document the Risk**: Clearly state what environmental differences exist
+2. **Get User Approval**: Present the risk and ask if acceptable to proceed
+3. **Proceed with Limitations**: Only continue if user explicitly approves
+4. **Include Disclaimer**: Test report must note "Tested in [environment] - may differ in production"
+5. **Plan Verification**: Schedule production validation test after deployment
+
 ---
 
 ## Section 2: Code Quality Standards
@@ -108,7 +137,7 @@ If the answer to any of these is "no," the task is too large and must be decompo
 
 ### 2.2 CLAUDE.md Compliance
 
-**Requirement**: The project-specific standards file, `/home/agent0/workspace/hx-citadel-ansible/CLAUDE.md`, is the single source of truth for all coding patterns, conventions, and architectural decisions. It must be consulted before and during any code creation.
+**Requirement**: The project-specific standards file, `CLAUDE.md` (in repository root), is the single source of truth for all coding patterns, conventions, and architectural decisions. It must be consulted before and during any code creation.
 
 **Pre-flight Checklist**:
 
@@ -183,6 +212,119 @@ Ignorance of CLAUDE.md is not a valid excuse for non-compliance.
 - **Prohibited**: A high-level `NotificationService` that directly instantiates and calls a low-level `EmailClient`. This makes it impossible to switch to Slack notifications without modifying the service.
 - **Required**: The `NotificationService` must depend on an abstract `INotifier` interface. `EmailClient` and `SlackClient` will both implement this interface. The `NotificationService` can then be given any `INotifier` implementation (Dependency Injection) without changing its own code.
 
+### 2.6 Security Standards
+
+**Requirement**: All code must follow security best practices. Security is not an afterthought—it is a fundamental requirement from the outset.
+
+**Mandatory Security Practices**:
+
+1. **Secrets Management**:
+   - **Prohibited**: Hardcoded passwords, API keys, or tokens in any file
+   - **Required**: Use Ansible Vault for all sensitive data
+   - **Required**: Add `.vault_pass` and `**/secrets.yml` to `.gitignore`
+
+2. **Credential Handling**:
+   - All vault files must use `ansible-vault encrypt` before committing
+   - Vault password must never be committed to repository
+   - Use environment variables or secure password files
+
+3. **Privilege Escalation**:
+   - Use `become: true` only when necessary
+   - Specify `become_user` explicitly (never assume root)
+   - Document why privilege escalation is required
+
+4. **Security Testing**:
+   - Run security linters (e.g., `ansible-lint` security rules)
+   - Validate file permissions (no 777, appropriate ownership)
+   - Check for command injection vulnerabilities in shell tasks
+
+5. **Network Security**:
+   - Use HTTPS/TLS for all external communications
+   - Validate SSL certificates (no `validate_certs: false` without explicit justification)
+   - Document any firewall/port requirements
+
+### 2.7 Version Control Standards
+
+**Requirement**: All Git operations must follow consistent conventions for traceability and collaboration.
+
+**Branch Naming Conventions**:
+
+- **Feature branches**: `feature/brief-description` (e.g., `feature/add-redis-role`)
+- **Bug fixes**: `fix/issue-description` (e.g., `fix/postgres-connection-leak`)
+- **Hotfixes**: `hotfix/critical-issue` (e.g., `hotfix/security-patch`)
+- **Testing**: `test/feature-name` (e.g., `test/slack-notifications`)
+
+**Commit Message Format**:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Types**: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+
+**Example**:
+```
+fix(workflows): resolve YAML syntax error in ai-fix-coderabbit-issues
+
+- Replaced heredoc with printf for PR body generation
+- Fixed multiline string handling in GitHub Actions
+- All YAML workflows now pass validation
+
+Resolves: Issue #123
+```
+
+**Branching Strategy**:
+
+- Work on `feature/*` or `fix/*` branches for non-trivial changes
+- Small fixes can go directly to `main` if thoroughly tested
+- Merge to `main` only after all Quality Gates pass
+- Delete merged branches to keep repository clean
+
+**Pull Request Workflow** (if applicable):
+
+1. Create feature branch
+2. Make changes and commit with proper messages
+3. Push to origin
+4. Create PR with clear description
+5. Ensure CI/CD passes
+6. Get review (if team workflow)
+7. Merge to main
+8. Delete feature branch
+
+### 2.8 Documentation Standards
+
+**Requirement**: Code without documentation is incomplete code. Documentation must be clear, accurate, and maintained alongside code changes.
+
+**Required Documentation**:
+
+1. **README Files**:
+   - Every directory with code must have a README.md
+   - Explain purpose, usage, and dependencies
+   - Include examples for complex functionality
+
+2. **Inline Comments**:
+   - Document **why**, not **what** (code shows what)
+   - Complex logic must have explanatory comments
+   - Regular expressions must be documented with examples
+
+3. **Function/Task Documentation**:
+   - Python: Use docstrings (Google or NumPy style)
+   - Ansible: Use `# Description:` comments for tasks
+   - Shell: Use header comments explaining script purpose
+
+4. **Architecture Decisions**:
+   - Significant design choices should be documented in `docs/architecture/`
+   - Include rationale, alternatives considered, and trade-offs
+
+5. **Change Documentation**:
+   - Update relevant docs when code changes
+   - Keep CHANGELOG.md updated for significant changes
+   - Document breaking changes prominently
+
 ---
 
 ## Section 3: Testing and Validation Protocol
@@ -208,7 +350,11 @@ Before any `git commit` operation, this checklist must be completed and its resu
 
 ### 3.2 Test Result Reporting Format
 
-Every completed task must be accompanied by a report in this exact format.
+Every completed task must be accompanied by a report. Use the appropriate format based on change complexity.
+
+#### 3.2.1 Full Test Report (For Non-Trivial Changes)
+
+For functional changes, new features, bug fixes, and any non-trivial task (see Section 4.2), use this comprehensive format:
 
 ```markdown
 ## Task Completion Report: <Task Name>
@@ -252,6 +398,38 @@ Every completed task must be accompanied by a report in this exact format.
 - **Status**: **Ready for User Review and Merge**
 ```
 
+#### 3.2.2 Lightweight Test Report (For Trivial Changes)
+
+For simple, low-risk changes (documentation fixes, typos, comment updates, formatting), use this streamlined format:
+
+```markdown
+## Quick Validation: <Task Name>
+
+**Files Modified**: `<path/to/file>`  
+**Change Type**: Documentation | Typo Fix | Formatting | Comment Update
+
+**Validation:**
+- ✅ Syntax check passed: `<command>`
+- ✅ No functional impact
+- ✅ Follows project conventions
+
+**Commit**: `<hash>` - Ready for merge
+```
+
+**When to Use Lightweight Format**:
+- Documentation-only changes (*.md files)
+- Comment additions or clarifications
+- Formatting fixes (whitespace, indentation)
+- Typo corrections in strings or comments
+- Configuration file updates with no logic changes
+
+**When Lightweight Format is NOT Allowed**:
+- Any change to executable code logic
+- New features or functionality
+- Bug fixes (even small ones)
+- Dependency updates
+- Security-related changes
+
 ---
 
 ## Section 4: Proactive Risk and Failure Analysis
@@ -269,6 +447,21 @@ This event serves as the canonical example of what not to do.
 ### 4.2 Proactive Risk Assessment
 
 **Requirement**: Before beginning any non-trivial task, a brief risk assessment must be performed.
+
+**Definition of Non-Trivial Task**:
+
+A task is considered **non-trivial** if it meets ANY of the following criteria:
+
+- Affects production systems or live services
+- Modifies more than 100 lines of code
+- Involves external dependencies or APIs
+- Requires database migrations or schema changes
+- Needs rollback capability or backup procedures
+- Changes authentication or authorization logic
+- Modifies CI/CD pipelines or deployment workflows
+- Involves privilege escalation or security-sensitive operations
+
+**Simple tasks** (e.g., typo fixes in comments, documentation updates, formatting changes) may skip formal risk assessment but must still pass all Quality Gates.
 
 **Implementation**: As part of the task planning phase, state potential risks and mitigation strategies.
 
@@ -301,9 +494,11 @@ This event serves as the canonical example of what not to do.
 
 ### 5.2 During Work Protocol
 
-- **Adhere to the 25/5 Rule**: Work in focused 25-minute blocks. The following 5 minutes are for saving, reviewing, and performing incremental tests on the work just completed. This prevents extended periods of unvalidated development.
+- **The 25/5 Rule** (Advisory): For complex tasks, consider working in focused 25-minute blocks with 5-minute review breaks for saving and incremental testing. This prevents extended periods of unvalidated development. **Note**: This is a guideline, not a strict timer requirement. Adjust based on task complexity and natural stopping points.
+  
 - **Refer to Documentation**: Keep CLAUDE.md and `tech_kb/` open and refer to them frequently.
-- **Log Decisions**: Use TodoWrite to maintain a running log of decisions made, commands run, and issues encountered.
+
+- **Log Decisions**: Use the `todo_write` tool to maintain a running log of decisions made, commands run, and issues encountered.
 
 ### 5.3 Task Completion Protocol
 
@@ -377,6 +572,15 @@ A violation of these rules constitutes a failure of my primary function. It wast
 
 If at any point I recognize that a user request conflicts with these rules, that I am unsure how to proceed safely, or that I am at risk of violating a protocol, I have the authority and responsibility to **immediately halt all work**. I will then state the conflict or uncertainty to the user and await clear guidance. Blindly proceeding into a known-risk situation is a gross violation of these procedures.
 
+**Clarification on Partial Task Completion**:
+
+When exercising Stop Work Authority mid-task:
+- The task reverts to "not started" status (not left partially complete)
+- Any partial code changes must be stashed or discarded
+- Document the blocker and what was attempted
+- Await user guidance before resuming
+- This maintains task atomicity even when stopping for safety
+
 ### 8.3 Response To Failure
 
 1. **Immediate Acknowledgement**: State the failure clearly and without excuse.
@@ -420,8 +624,12 @@ This document is a living standard. It will be updated to reflect new challenges
 - **FQCN (Fully Qualified Collection Name)**: The full, unambiguous name for an Ansible module (e.g., `ansible.builtin.copy`).
 - **Idempotency**: The property of an operation that ensures running it multiple times will have the same effect as running it once.
 - **Linting**: The process of using a static analysis tool to check code for stylistic errors, bugs, and suspicious constructs.
+- **Non-Trivial Task**: A task meeting criteria in Section 4.2 requiring formal risk assessment (e.g., affects production, >100 LOC, external dependencies).
+- **Quality Gates**: The 3-stage validation process (Static Analysis → Functional Validation → Delivery) defined in Section 7.
 - **SOLID**: A mnemonic acronym for five design principles intended to make software designs more understandable, flexible, and maintainable.
+- **Stop Work Authority**: The mandate to halt work immediately when facing uncertainty or rule conflicts (Section 8.2).
 - **Stub**: A piece of placeholder code that mimics a real component but lacks its logic. **Forbidden**.
+- **Trivial Change**: Simple, low-risk modifications (docs, typos, formatting) eligible for lightweight test reporting (Section 3.2.2).
 
 ---
 
