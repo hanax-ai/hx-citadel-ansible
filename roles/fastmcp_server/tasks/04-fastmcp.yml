@@ -11,6 +11,7 @@
       - "python-dotenv>=1.0.0"
       - "structlog>=24.1.0"
       - "python-multipart>=0.0.6"
+      - "pybreaker>=1.0.0"
     virtualenv: "{{ fastmcp_venv_dir }}"
   become: yes
   become_user: "{{ fastmcp_service_user }}"
