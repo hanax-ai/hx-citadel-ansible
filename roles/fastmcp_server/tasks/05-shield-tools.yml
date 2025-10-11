@@ -28,6 +28,15 @@
   become_user: "{{ fastmcp_service_user }}"
   failed_when: false  # LightRAG may not be in PyPI
 
+- name: Fix numpy version conflict (LightRAG downgrades, Docling needs 2.x)
+  ansible.builtin.pip:
+    name:
+      - "numpy>=2.0.0"
+    virtualenv: "{{ fastmcp_venv_dir }}"
+    state: latest
+  become: yes
+  become_user: "{{ fastmcp_service_user }}"
+
 - name: Install Qdrant client
   ansible.builtin.pip:
     name:

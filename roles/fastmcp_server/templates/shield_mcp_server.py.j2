@@ -62,17 +62,9 @@ EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "768"))
 # Opens after 5 failures, stays open for 60s, half-open allows 1 test request
 orchestrator_breaker = pybreaker.CircuitBreaker(
     fail_max=5,              # Open after 5 failures
-    timeout_duration=60,     # Stay open for 60 seconds
-    name="orchestrator_api",
-    listeners=[
-        # Log circuit state changes
-        lambda state_change: logger.warning(
-            "circuit_breaker_state_change",
-            circuit="orchestrator_api",
-            old_state=state_change.previous_state.name if hasattr(state_change, 'previous_state') else 'unknown',
-            new_state=state_change.state.name if hasattr(state_change, 'state') else 'unknown'
-        ) if hasattr(state_change, 'state') else None
-    ]
+    reset_timeout=60,        # Stay open for 60 seconds before half-open
+    success_threshold=1,     # 1 success in half-open closes circuit
+    name="orchestrator_api"
 )
 
 
@@ -1073,9 +1065,8 @@ async def health_check() -> dict:
                 "state": orchestrator_breaker.current_state.name,
                 "fail_counter": orchestrator_breaker.fail_counter,
                 "fail_max": orchestrator_breaker.fail_max,
-                "timeout_duration": orchestrator_breaker.timeout_duration,
-                "last_failure": str(orchestrator_breaker.last_failure_time) if orchestrator_breaker.last_failure_time else None,
-                "excluded_exceptions": [e.__name__ for e in orchestrator_breaker.excluded_exceptions] if orchestrator_breaker.excluded_exceptions else []
+                "reset_timeout": orchestrator_breaker.reset_timeout,
+                "success_threshold": orchestrator_breaker.success_threshold
             }
         }
         
