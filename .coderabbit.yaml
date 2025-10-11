@@ -59,54 +59,33 @@ reviews:
     create_pr: false   # Don't create separate PR, add to current branch
     coverage_target: 80  # Target 80% coverage per TASK-032
 
-# Path-based review rules
+  # Path-specific instructions (nitpick filtering)
+  path_instructions:
+    - path: "docs/**/*.md"
+      instructions: |
+        - Focus on critical issues only
+        - Ignore markdown formatting (MD040, MD034, MD036)
+        - Ignore line length and whitespace issues
+    - path: "roles/*/tasks/*.yml"
+      instructions: |
+        - Enforce FQCN (ansible.builtin.*)
+        - Require changed_when for command/shell
+        - Check explicit file permissions
+
+# Path-based review rules (flat list - CodeRabbit schema requirement)
 path_filters:
-  # Critical files - require thorough review
-  critical:
-    - "roles/*/tasks/*.yml"
-    - "roles/*/templates/*.j2"
-    - "playbooks/*.yml"
-    - "site.yml"
-
-  # Documentation - lighter review (SKIP nitpicks like formatting)
-  documentation:
-    - "docs/**/*.md"
-    - "README.md"
-    - "CHANGELOG.md"
-    review_level: "critical_only"  # Only flag critical issues, ignore formatting
-
-  # Tests - focus on coverage and correctness
-  tests:
-    - "tests/**/*.py"
-    - "pytest.ini"
-
-  # Configuration files - check for security issues
-  config:
-    - ".github/workflows/*.yml"
-    - "ansible.cfg"
-    - "inventory/**/*.ini"
-
-# Nitpick filtering (address "70+ nitpicks, some critical, some .md formatting")
-nitpick_filters:
-  # IGNORE these nitpicks (noise)
-  ignore:
-    - "markdown_formatting"        # .md file formatting issues
-    - "line_length_docs"           # Long lines in documentation
-    - "trailing_whitespace_md"     # Whitespace in .md files
-    - "heading_style"              # Markdown heading format
-    - "list_formatting"            # Markdown list style
-    - "link_format"                # Markdown link format
-
-  # KEEP these nitpicks (real issues)
-  keep:
-    - "missing_type_hints"         # Python type hints
-    - "implicit_optional"          # Optional[T] for None defaults
-    - "code_duplication"           # Repeated code
-    - "long_function"              # Functions > 50 lines
-    - "missing_error_handling"     # No try/except
-    - "missing_docstring"          # Missing docs in code
-    - "naming_convention"          # Variable/function names
-    - "complexity_high"            # Cyclomatic complexity
+  - "roles/*/tasks/*.yml"
+  - "roles/*/templates/*.j2"
+  - "playbooks/*.yml"
+  - "site.yml"
+  - "docs/**/*.md"
+  - "README.md"
+  - "CHANGELOG.md"
+  - "tests/**/*.py"
+  - "pytest.ini"
+  - ".github/workflows/*.yml"
+  - "ansible.cfg"
+  - "inventory/**/*.ini"
 
 # Issue severity thresholds
 severity_thresholds:
