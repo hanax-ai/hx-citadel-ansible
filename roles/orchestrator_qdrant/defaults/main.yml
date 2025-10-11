@@ -8,7 +8,8 @@ qdrant_timeout: 30
 qdrant_grpc_port: 6334
 
 # Ollama (for embeddings)
-ollama_url: "http://{{ hx_hosts_fqdn['hx-ollama1'] }}:11434"
+# ✅ FIXED: Use orchestrator itself - embedding models are co-located for low latency
+ollama_url: "http://{{ hx_hosts_fqdn['hx-orchestrator-server'] }}:11434"
 ollama_embedding_model: "mxbai-embed-large"
 ollama_embedding_dim: 1024
 
