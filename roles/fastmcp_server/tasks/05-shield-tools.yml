@@ -22,7 +22,7 @@
 - name: Install LightRAG
   ansible.builtin.pip:
     name:
-      - "lightrag>=0.1.0"
+      - "lightrag>=0.1.0b6"  # Using beta version (latest available)
     virtualenv: "{{ fastmcp_venv_dir }}"
   become: yes
   become_user: "{{ fastmcp_service_user }}"
