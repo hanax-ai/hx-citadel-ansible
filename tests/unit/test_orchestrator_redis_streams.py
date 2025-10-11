@@ -29,6 +29,7 @@ Test Coverage:
 import pytest
 import json
 import uuid
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
@@ -54,7 +55,7 @@ class MockRedisStreamsClient:
         """Close Redis connection"""
         pass
 
-    async def add_task(self, job_id: str, chunk_id: str, content: str, source_uri: str, source_type: str, metadata: dict = None) -> str:
+    async def add_task(self, job_id: str, chunk_id: str, content: str, source_uri: str, source_type: str, metadata: Optional[dict] = None) -> str:
         """Add task to ingestion queue"""
         message_id = f"{int(datetime.utcnow().timestamp() * 1000)}-0"
         task = {
@@ -104,7 +105,7 @@ class MockRedisStreamsClient:
         if group_name not in self.consumer_groups[stream_name]:
             self.consumer_groups[stream_name].append(group_name)
 
-    async def emit_event(self, event_type: str, job_id: str = None, data: dict = None, metadata: dict = None) -> str:
+    async def emit_event(self, event_type: str, job_id: Optional[str] = None, data: Optional[dict] = None, metadata: Optional[dict] = None) -> str:
         """Emit event to event bus"""
         event_id = str(uuid.uuid4())
         message_id = f"{int(datetime.utcnow().timestamp() * 1000)}-0"
