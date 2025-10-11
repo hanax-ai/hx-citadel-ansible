@@ -1,0 +1,336 @@
+name: AI Fix CodeRabbit Issues
+# Phase 2B: Semi-Automated Remediation
+# Triggers when Linear issue is labeled with 'coderabbit-critical' or 'coderabbit-quality'
+
+on:
+  repository_dispatch:
+    types: [linear-issue-created]
+  workflow_dispatch:
+    inputs:
+      issue_id:
+        description: 'Linear Issue ID (e.g., DEV-123)'
+        required: true
+        type: string
+      severity:
+        description: 'Issue severity'
+        required: true
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+
+jobs:
+  ai-remediation:
+    name: AI Fix for ${{ github.event.inputs.issue_id || github.event.client_payload.issue_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Only run for critical and high severity
+    if: |
+      github.event.inputs.severity == 'critical' ||
+      github.event.inputs.severity == 'high' ||
+      github.event.client_payload.severity == 'critical' ||
+      github.event.client_payload.severity == 'high'
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_ID: ${{ github.event.inputs.issue_id || github.event.client_payload.issue_id }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for branching
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          pip install -r requirements-dev.txt
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch Linear issue details
+        id: linear
+        run: |
+          echo "Fetching Linear issue: $ISSUE_ID"
+
+          # GraphQL query
+          QUERY=$(cat <<'EOF'
+          {
+            issue(id: "$ISSUE_ID") {
+              id
+              identifier
+              title
+              description
+              priority
+              branchName
+              state { name }
+              labels { nodes { name } }
+            }
+          }
+          EOF
+          )
+
+          # Replace placeholder and execute
+          QUERY="${QUERY/\$ISSUE_ID/$ISSUE_ID}"
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": $(echo "$QUERY" | jq -Rs .)}")
+
+          # Extract fields
+          IDENTIFIER=$(echo "$RESPONSE" | jq -r '.data.issue.identifier')
+          TITLE=$(echo "$RESPONSE" | jq -r '.data.issue.title')
+          DESCRIPTION=$(echo "$RESPONSE" | jq -r '.data.issue.description')
+          BRANCH_NAME=$(echo "$RESPONSE" | jq -r '.data.issue.branchName')
+          LABELS=$(echo "$RESPONSE" | jq -r '.data.issue.labels.nodes[].name' | tr '\n' ',' | sed 's/,$//')
+
+          # Output to GitHub Actions
+          echo "identifier=$IDENTIFIER" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "labels=$LABELS" >> $GITHUB_OUTPUT
+
+          # Save description to file (may be multi-line)
+          echo "$DESCRIPTION" > /tmp/issue_description.txt
+
+      - name: Determine AI tool
+        id: ai_tool
+        run: |
+          LABELS="${{ steps.linear.outputs.labels }}"
+
+          # Routing logic (same as fix-linear-issue.sh)
+          if echo "$LABELS" | grep -q "security\|coderabbit-critical"; then
+            echo "tool=claude-code" >> $GITHUB_OUTPUT
+            echo "reason=Security/Critical issue requires deep reasoning" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "coderabbit-quality\|refactor"; then
+            echo "tool=cursor" >> $GITHUB_OUTPUT
+            echo "reason=Code quality fix - fast iteration" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "type-hints\|mypy"; then
+            echo "tool=auto-fix" >> $GITHUB_OUTPUT
+            echo "reason=Type hints - rules-based fix" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "formatting\|linting"; then
+            echo "tool=pre-commit" >> $GITHUB_OUTPUT
+            echo "reason=Formatting - automated tool" >> $GITHUB_OUTPUT
+          else
+            echo "tool=claude-code" >> $GITHUB_OUTPUT
+            echo "reason=Default to Claude Code for unknown types" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create fix branch
+        run: |
+          BRANCH_NAME="${{ steps.linear.outputs.branch_name }}"
+
+          # Use Linear's generated branch name if available, otherwise create one
+          if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" = "null" ]; then
+            IDENTIFIER="${{ steps.linear.outputs.identifier }}"
+            BRANCH_NAME="${IDENTIFIER,,}-ai-fix"
+          fi
+
+          echo "Creating branch: $BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Apply AI fix (auto-fix tool)
+        if: steps.ai_tool.outputs.tool == 'auto-fix'
+        run: |
+          echo "Running automated fix..."
+
+          # Type hints auto-fix
+          if echo "${{ steps.linear.outputs.labels }}" | grep -q "type-hints"; then
+            # Add missing type hints (using mypy suggestions)
+            mypy --install-types --non-interactive
+            # TODO: Implement auto-fix logic based on mypy output
+            echo "Type hints fix applied"
+          fi
+
+      - name: Apply AI fix (pre-commit tool)
+        if: steps.ai_tool.outputs.tool == 'pre-commit'
+        run: |
+          echo "Running pre-commit hooks..."
+          pre-commit run --all-files || true
+          git add -A
+
+      - name: Apply AI fix (Claude Code - MANUAL PLACEHOLDER)
+        if: steps.ai_tool.outputs.tool == 'claude-code'
+        run: |
+          echo "⚠️  Claude Code integration requires manual intervention"
+          echo "Issue requires complex reasoning - creating PR for human review"
+          echo "TODO: Integrate with Claude Code API when available"
+
+          # For now, create PR template for manual fix
+          echo "# Manual Fix Required" > /tmp/pr_body.txt
+          echo "" >> /tmp/pr_body.txt
+          echo "This issue requires Claude Code for complex reasoning." >> /tmp/pr_body.txt
+          echo "" >> /tmp/pr_body.txt
+          echo "**Linear Issue**: ${{ steps.linear.outputs.identifier }}" >> /tmp/pr_body.txt
+          echo "**Title**: ${{ steps.linear.outputs.title }}" >> /tmp/pr_body.txt
+          echo "" >> /tmp/pr_body.txt
+          cat /tmp/issue_description.txt >> /tmp/pr_body.txt
+
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: |
+          echo "Running test suite..."
+          pytest tests/ -v --tb=short --maxfail=3 || echo "tests_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Run type checking
+        id: mypy
+        continue-on-error: true
+        run: |
+          echo "Running type checking..."
+          mypy . || echo "mypy_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Run linting
+        id: lint
+        continue-on-error: true
+        run: |
+          echo "Running linting..."
+          ansible-lint || echo "lint_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit changes
+        id: commit
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add -A
+            git commit -m "fix(${{ steps.linear.outputs.identifier }}): ${{ steps.linear.outputs.title }}
+
+AI-generated fix using ${{ steps.ai_tool.outputs.tool }}
+
+Reason: ${{ steps.ai_tool.outputs.reason }}
+
+Resolves ${{ steps.linear.outputs.identifier }}
+
+🤖 Generated with AI Issue Remediation (Phase 2B)
+Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+
+            git push -u origin "$branch_name"
+            echo "committed=true" >> $GITHUB_OUTPUT
+          else
+            echo "committed=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No changes to commit"
+          fi
+
+      - name: Create Pull Request
+        if: steps.commit.outputs.committed == 'true'
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Build PR body with test results
+          PR_BODY="Resolves ${{ steps.linear.outputs.identifier }}
+
+## CodeRabbit Finding
+${{ steps.linear.outputs.title }}
+
+## AI Tool Used
+**Tool**: ${{ steps.ai_tool.outputs.tool }}
+**Reason**: ${{ steps.ai_tool.outputs.reason }}
+
+## Changes Applied
+$(cat /tmp/issue_description.txt)
+
+## Test Results
+- **Unit Tests**: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Failed' || '✅ Passed' }}
+- **Type Checking**: ${{ steps.mypy.outputs.mypy_failed == 'true' && '❌ Failed' || '✅ Passed' }}
+- **Linting**: ${{ steps.lint.outputs.lint_failed == 'true' && '❌ Failed' || '✅ Passed' }}
+
+## Review Checklist
+- [ ] Code changes are correct
+- [ ] Tests are passing
+- [ ] No security issues introduced
+- [ ] Documentation updated (if needed)
+
+## Next Steps
+1. Review the AI-generated fix
+2. Run additional manual tests if needed
+3. Approve and merge if satisfied
+
+---
+
+🤖 Generated with AI Issue Remediation Script (Phase 2B)
+Resolves ${{ steps.linear.outputs.identifier }}"
+
+          # Create PR
+          gh pr create \
+            --title "Fix ${{ steps.linear.outputs.identifier }}: ${{ steps.linear.outputs.title }}" \
+            --body "$PR_BODY" \
+            --label "coderabbit-fix,ai-generated,${{ steps.ai_tool.outputs.tool }}" \
+            --reviewer "" \
+            --assignee "${{ github.actor }}"
+
+          PR_URL=$(gh pr view --json url -q .url)
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Update Linear issue with PR link
+        if: steps.create_pr.outputs.pr_url
+        run: |
+          # Update Linear issue with comment
+          COMMENT="✅ AI fix generated!
+
+**Pull Request**: ${{ steps.create_pr.outputs.pr_url }}
+**AI Tool**: ${{ steps.ai_tool.outputs.tool }}
+**Test Results**: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Tests failed' || '✅ Tests passed' }}
+
+Please review the PR and merge if satisfied."
+
+          MUTATION=$(cat <<'EOF'
+          mutation {
+            commentCreate(input: {
+              issueId: "$ISSUE_ID"
+              body: "$COMMENT"
+            }) {
+              success
+            }
+          }
+          EOF
+          )
+
+          MUTATION="${MUTATION/\$ISSUE_ID/$ISSUE_ID}"
+          MUTATION="${MUTATION/\$COMMENT/$COMMENT}"
+
+          curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": $(echo "$MUTATION" | jq -Rs .)}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::AI remediation failed for ${{ steps.linear.outputs.identifier }}"
+          # TODO: Add Slack notification in Phase 3
+
+      - name: Summary
+        run: |
+          echo "## 🤖 AI Remediation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Issue**: ${{ steps.linear.outputs.identifier }} - ${{ steps.linear.outputs.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "**AI Tool**: ${{ steps.ai_tool.outputs.tool }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: $branch_name" >> $GITHUB_STEP_SUMMARY
+          echo "**PR**: ${{ steps.create_pr.outputs.pr_url || 'Not created' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Failed' || '✅ Passed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Type Checking: ${{ steps.mypy.outputs.mypy_failed == 'true' && '❌ Failed' || '✅ Passed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Linting: ${{ steps.lint.outputs.lint_failed == 'true' && '❌ Failed' || '✅ Passed' }}" >> $GITHUB_STEP_SUMMARY

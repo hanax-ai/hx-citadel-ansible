@@ -1,0 +1,306 @@
+# CodeRabbit Configuration - HX-Citadel Ansible
+# Documentation: https://docs.coderabbit.ai/guides/configure-coderabbit/
+
+# Language and model settings
+language: en
+early_access: true  # Enable beta features (like auto-test generation)
+enable_free_tier: false
+
+# Review settings
+reviews:
+  # Disable poems in walkthrough (per CodeRabbit tip)
+  poem: false
+
+  # Auto-review configuration
+  auto_review:
+    enabled: true
+    drafts: false  # Don't review draft PRs
+    base_branches:
+      - main
+      - master
+      - develop
+
+  # Issue categorization
+  level: "coderabbit"  # Options: coderabbit, verbose, quiet
+
+  # Request changes for critical issues
+  request_changes_workflow: true
+
+  # High-level summary
+  high_level_summary: true
+
+  # Detailed review comment settings
+  review_status: true
+  collapse_walkthrough: false
+
+  # Tool integration
+  tools:
+    # Enable shellcheck for bash scripts
+    shellcheck:
+      enabled: true
+
+    # Enable yamllint for YAML files
+    yamllint:
+      enabled: true
+
+    # Enable ansible-lint (critical for this project!)
+    ansible-lint:
+      enabled: true
+
+    # Enable markdownlint for documentation
+    markdownlint:
+      enabled: true
+
+  # Auto-generate unit tests (BETA FEATURE)
+  auto_generate_tests:
+    enabled: true
+    test_framework: "pytest"
+    auto_commit: true  # Auto-commit generated tests to branch
+    create_pr: false   # Don't create separate PR, add to current branch
+    coverage_target: 80  # Target 80% coverage per TASK-032
+
+# Path-based review rules
+path_filters:
+  # Critical files - require thorough review
+  critical:
+    - "roles/*/tasks/*.yml"
+    - "roles/*/templates/*.j2"
+    - "playbooks/*.yml"
+    - "site.yml"
+
+  # Documentation - lighter review (SKIP nitpicks like formatting)
+  documentation:
+    - "docs/**/*.md"
+    - "README.md"
+    - "CHANGELOG.md"
+    review_level: "critical_only"  # Only flag critical issues, ignore formatting
+
+  # Tests - focus on coverage and correctness
+  tests:
+    - "tests/**/*.py"
+    - "pytest.ini"
+
+  # Configuration files - check for security issues
+  config:
+    - ".github/workflows/*.yml"
+    - "ansible.cfg"
+    - "inventory/**/*.ini"
+
+# Nitpick filtering (address "70+ nitpicks, some critical, some .md formatting")
+nitpick_filters:
+  # IGNORE these nitpicks (noise)
+  ignore:
+    - "markdown_formatting"        # .md file formatting issues
+    - "line_length_docs"           # Long lines in documentation
+    - "trailing_whitespace_md"     # Whitespace in .md files
+    - "heading_style"              # Markdown heading format
+    - "list_formatting"            # Markdown list style
+    - "link_format"                # Markdown link format
+
+  # KEEP these nitpicks (real issues)
+  keep:
+    - "missing_type_hints"         # Python type hints
+    - "implicit_optional"          # Optional[T] for None defaults
+    - "code_duplication"           # Repeated code
+    - "long_function"              # Functions > 50 lines
+    - "missing_error_handling"     # No try/except
+    - "missing_docstring"          # Missing docs in code
+    - "naming_convention"          # Variable/function names
+    - "complexity_high"            # Cyclomatic complexity
+
+# Issue severity thresholds
+severity_thresholds:
+  # Critical issues block PR merge
+  critical:
+    - security_vulnerability
+    - breaking_change
+    - data_loss_risk
+    - authentication_bypass
+    - no_fqcn              # Ansible FQCN violation (project-critical)
+    - plaintext_secrets    # Secrets in code (project-critical)
+
+  # High priority - create Linear issues automatically
+  high:
+    - performance_issue
+    - code_smell
+    - complexity_high
+    - missing_error_handling
+    - implicit_optional   # Missing Optional[] (Phase 2 Sprint 2.1 target)
+    - missing_type_hints  # Missing type hints (Phase 2 Sprint 2.1 target)
+    - no_changed_when     # Ansible command without changed_when
+
+  # Medium priority - batch into weekly cleanup
+  medium:
+    - code_duplication
+    - missing_docstring
+    - long_function
+    - magic_number
+
+  # Low priority - ignore for .md files, flag for .py/.yml
+  low:
+    - formatting          # Code formatting (handled by pre-commit)
+    - naming_convention   # Variable names (unless confusing)
+    - comment_style       # Comment format
+
+  # Ignore completely (noise)
+  ignore:
+    - markdown_formatting # .md file formatting
+    - docs_line_length    # Long lines in docs
+    - trailing_whitespace_md  # Whitespace in .md
+
+# Linear integration (Phase 2A)
+integrations:
+  linear:
+    enabled: true
+
+    # Auto-create Linear issues for specific findings
+    auto_create_issue:
+      enabled: true
+
+      # Only create issues for critical and high severity
+      severity_levels:
+        - critical
+        - high
+
+      # Issue template
+      title_template: "[CodeRabbit] {finding_type}: {file_name}"
+
+      # Labels to apply
+      labels:
+        - "coderabbit-finding"
+        - "auto-generated"
+
+      # Priority mapping (CodeRabbit → Linear)
+      priority_mapping:
+        critical: 1  # Urgent
+        high: 2      # High
+        medium: 3    # Medium
+        low: 4       # Low
+
+    # Link existing Linear issues in PR description
+    issue_linking:
+      enabled: true
+      validate_against_board: true
+
+  # GitHub settings
+  github:
+    # Auto-label PRs based on findings
+    auto_label:
+      enabled: true
+      labels:
+        has_critical: "⚠️ critical-findings"
+        has_security: "🔒 security"
+        needs_tests: "🧪 needs-tests"
+        documentation_only: "📝 documentation"
+
+    # PR check status
+    check_status:
+      enabled: true
+      failure_threshold: "critical"  # Only fail on critical issues
+
+# Notification settings
+notifications:
+  # Slack integration (optional - Phase 3)
+  slack:
+    enabled: false
+    webhook_url: ""  # Add in Phase 3
+
+  # Comment style
+  comment_style: "concise"  # Options: concise, detailed, minimal
+
+# Ignore patterns (performance optimization)
+ignore:
+  # Don't review generated files
+  - "**/*.pyc"
+  - "**/__pycache__/**"
+  - ".pytest_cache/**"
+  - "reports/**"
+  - ".mypy_cache/**"
+
+  # Don't review vendored dependencies
+  - "tech_kb/**"  # Large knowledge base
+  - "roles/*/files/vendor/**"
+
+  # Don't review lock files
+  - "poetry.lock"
+  - "Pipfile.lock"
+
+# Custom rules for this project (Ansible-specific)
+custom_rules:
+  # Ansible Best Practices (per docs/ANSIBLE-BEST-PRACTICES.md)
+  ansible:
+    # Enforce FQCN (Fully Qualified Collection Names)
+    - rule: "fqcn-builtins"
+      severity: "critical"
+      message: "ALWAYS use FQCN (e.g., ansible.builtin.apt, not apt:)"
+
+    # Require changed_when for command/shell tasks
+    - rule: "no-changed-when"
+      severity: "high"
+      message: "Command/shell tasks need changed_when declaration"
+
+    # Explicit file permissions
+    - rule: "risky-file-permissions"
+      severity: "high"
+      message: "Specify explicit file permissions (mode parameter)"
+
+    # No plain text secrets
+    - rule: "no-plaintext-secrets"
+      severity: "critical"
+      message: "Use Ansible Vault for secrets, never plain text"
+
+  # Python Type Hints (Phase 2 Sprint 2.1 complete)
+  python:
+    # Require type hints on public functions
+    - rule: "missing-type-hints"
+      severity: "medium"
+      message: "Add type hints to function signatures (target: 95%+)"
+
+    # Require Optional[] for None defaults
+    - rule: "implicit-optional"
+      severity: "high"
+      message: "Use Optional[T] for parameters with None default"
+
+# Performance tuning
+performance:
+  # Max files to review per PR
+  max_files: 50
+
+  # Timeout for review (seconds)
+  timeout: 600
+
+  # Parallel processing
+  parallel_reviews: true
+  max_parallel: 4
+
+# Changelog generation
+changelog:
+  enabled: true
+  exclude_labels:
+    - "skip-changelog"
+    - "documentation"
+
+  # Commit message format (Conventional Commits)
+  format: "conventional"
+
+---
+# Notes for Claude Code:
+#
+# This configuration enables:
+# 1. Auto-test generation with pytest (addresses TASK-032)
+# 2. Linear issue auto-creation for critical/high findings (Phase 2A)
+# 3. Ansible-specific linting (ansible-lint, FQCN enforcement)
+# 4. Security-focused review (secrets detection, vulnerabilities)
+# 5. Smart path filtering (critical vs documentation vs tests)
+#
+# Usage:
+# - CodeRabbit will automatically apply this config to all PRs
+# - Generated tests will be auto-committed to PR branches
+# - Critical/high findings will create Linear issues automatically
+# - Integration with Linear board validation enabled
+#
+# Next steps:
+# 1. Commit this file to repository root
+# 2. Enable Linear integration in CodeRabbit settings
+# 3. Create Linear labels: coderabbit-finding, auto-generated
+# 4. Test with a small PR to validate configuration
