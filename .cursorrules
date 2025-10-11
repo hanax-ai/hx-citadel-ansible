@@ -31,10 +31,11 @@ The `rules.md` document contains:
 ## Before Starting ANY Task
 
 1. Read `/home/agent0/workspace/hx-citadel-ansible/rules.md`
-2. Review `/home/agent0/workspace/hx-citadel-ansible/CLAUDE.md` (if exists)
-3. Break complex requests into single, testable units
-4. Propose the smallest viable task first
-5. Get user approval before proceeding
+2. **Respond with "Hook'em"** to acknowledge you have read and understood the rules
+3. Review `/home/agent0/workspace/hx-citadel-ansible/CLAUDE.md` (if exists)
+4. Break complex requests into single, testable units
+5. Propose the smallest viable task first
+6. Get user approval before proceeding
 
 ## Quality Assurance Reminder
 
