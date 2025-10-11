@@ -67,7 +67,7 @@ class QueryResponse(BaseModel):
     - Vector-only mode: ~0.3-0.5s
     """
 )
-async def lightrag_query(request: QueryRequest):
+async def lightrag_query(request: QueryRequest) -> QueryResponse:
     """
     LightRAG hybrid query endpoint.
     
@@ -108,7 +108,7 @@ async def lightrag_query(request: QueryRequest):
     summary="LightRAG health check",
     description="Check LightRAG engine health and initialization status"
 )
-async def lightrag_health():
+async def lightrag_health() -> Dict[str, Any]:
     """Check LightRAG engine health"""
     try:
         stats = await lightrag_service.get_stats()
