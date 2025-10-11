@@ -2,8 +2,10 @@
 
 **Feature Branch**: `feature/ag-ui-deployment`  
 **Created**: October 11, 2025  
-**Status**: Draft - Pending Review  
+**Updated**: October 11, 2025 (Stakeholder Decisions Incorporated)  
+**Status**: ✅ **APPROVED - Ready for Development**  
 **Target Users**: Line-of-Business (LoB) Power Users  
+**Decision Maker**: Jarvis Richardson (CAIO)  
 **Input**: User description: "Create advanced web interface for LoB power users to interact with Shield RAG pipeline with real-time event visibility, knowledge graph visualization, and full tool access"
 
 ## Execution Flow (main)
@@ -15,14 +17,14 @@
    → Actions: Execute RAG queries, crawl web, ingest documents, visualize knowledge graph
    → Data: Documents, embeddings, knowledge graph, job status
    → Constraints: Real-time updates, advanced controls, full tool access
-3. Unclear aspects marked with [NEEDS CLARIFICATION]
-   → See requirements section
+3. Stakeholder clarifications received ✅
+   → All 10 questions answered by Jarvis Richardson (CAIO)
 4. User Scenarios & Testing section completed ✅
-5. Functional Requirements generated ✅
-   → 25 testable requirements defined
+5. Functional Requirements updated with decisions ✅
+   → 74 testable requirements defined (50 FR + 24 NFR)
 6. Key Entities identified ✅
-7. Review Checklist status: PENDING
-8. Status: READY FOR STAKEHOLDER REVIEW
+7. Review Checklist status: ✅ APPROVED
+8. Status: ✅ APPROVED - READY FOR DEVELOPMENT (Oct 11, 2025)
 ```
 
 ---
@@ -31,6 +33,86 @@
 - ✅ Focus on WHAT users need and WHY
 - ❌ Avoid HOW to implement (no tech stack, APIs, code structure)
 - 👥 Written for business stakeholders, not developers
+
+---
+
+## ✅ Stakeholder Decisions (Approved Oct 11, 2025)
+
+**Decision Maker**: Jarvis Richardson (CAIO - Sole Decision Maker)  
+**Status**: All critical questions answered and approved  
+
+### Critical Decisions (Development Blockers - RESOLVED)
+
+1. **Authentication Method**: ✅ **App-managed accounts (email/password)**
+   - Enable SSO later via account-linking path
+   - Password policy: minimum length/complexity enforcement
+   - Rate-limiting and brute-force protection required
+   - MFA recommended at GA (general availability)
+
+2. **Authorization Model**: ✅ **RBAC (Admin / Contributor / Viewer)**
+   - Workspace/project scope enforcement
+   - Permissions matrix to be published
+   - Audit-log events for role & scope changes
+
+3. **Data Retention Policy**: ✅ **90 days for logs/artifacts, 30-365 days for user content (configurable)**
+   - Storage lifecycle rules required
+   - Tenant-level override UI
+   - Documented purge workflow
+
+### Important Decisions (Scope & Estimates)
+
+4. **Browser Support**: ✅ **Chrome + Edge (latest 2 versions)**
+   - Safari/Firefox to Phase 2 evaluation gate
+
+5. **Concurrent User Limit**: ✅ **10 concurrent (50 burst target)**
+   - Load test baseline & SLOs: P95 ≤ 800ms @ 10 concurrent, ≤ 1200ms @ 50 burst
+   - Error rate < 0.5%
+   - Graceful degradation under burst load
+
+6. **File Size Limits**: ✅ **100MB+ via chunked/resumable uploads**
+   - Virus scanning required
+   - Retry/resume support
+   - Progress UI with pause/cancel
+   - Storage quotas enforced
+
+7. **Accessibility Requirements**: ✅ **WCAG 2.2 AA + VPAT by GA**
+   - Keyboard navigation, focus states, color contrast, ARIA labels
+   - VPAT authoring scheduled
+
+### Nice-to-Have Decisions (Deferred Options)
+
+8. **Undo Levels**: ✅ **10 actions**
+   - Command history abstraction
+   - Consider session-scoped unlimited later
+
+9. **Keyboard Shortcuts**: ✅ **Core set + in-app cheat-sheet (press `?`)**
+   - Telemetry to identify most-used shortcuts
+   - Expand iteratively
+
+10. **Graph Layout Preference**: ✅ **Auto with user override per view**
+    - Heuristics by node/edge density
+    - Persist per-view preference
+
+### Additional Decisions
+
+**Regions & Data Residency**:
+- **Primary**: US-East (us-east-1)
+- **DR**: us-east-2 (cross-region disaster recovery)
+- **Data Residency**: US-only for all tenant data
+- **Backups**: Encrypted at rest, replicated cross-region
+
+**Burst Handling Pattern** (10 → 50 concurrent):
+1. Queue requests with backpressure; show live status in UI
+2. Reduce non-critical compute (graph auto-layout frequency/animation)
+3. Batch background uploads/processes; prioritize interactive actions
+4. Autoscale workers within safe limits; apply circuit breakers for heavy endpoints
+5. Display service banner when in degraded mode
+
+**Implementation Dates**:
+- Auth/MFA readiness & RBAC matrix: **October 18, 2025**
+- Retention & storage lifecycle: **October 18, 2025**
+- Chunked upload MVP: **November 1, 2025**
+- Accessibility baseline + VPAT plan: **October 25, 2025**
 
 ---
 
@@ -135,20 +217,34 @@
 ### Functional Requirements
 
 #### Core User Interface
-- **FR-001**: System MUST provide web-based interface accessible via standard web browser (Chrome, Firefox, Safari, Edge)
+- **FR-001**: System MUST provide web-based interface accessible via standard web browser (Chrome, Edge latest 2 versions)
 - **FR-002**: System MUST support responsive design for desktop screens (minimum 1366x768 resolution)
 - **FR-003**: System MUST display real-time system status on dashboard (services up/down, active jobs, system load)
-- **FR-004**: System MUST authenticate users before granting access [NEEDS CLARIFICATION: authentication method - LDAP, SSO, API keys?]
-- **FR-005**: System MUST log all user actions for audit trail (who, what, when, result)
+- **FR-004**: System MUST authenticate users via app-managed accounts (email/password) with MFA readiness for GA
+- **FR-004a**: System MUST enforce password policy (minimum length/complexity), rate-limiting, and brute-force protection
+- **FR-004b**: System MUST design SSO linking path for future migration (enable SSO later)
+- **FR-005**: System MUST implement RBAC with three roles: Admin, Contributor, Viewer with workspace/project scope
+- **FR-005a**: System MUST publish permissions matrix defining what each role can do
+- **FR-005b**: System MUST log all role and scope changes to audit log
+- **FR-006**: System MUST log all user actions for comprehensive audit trail with tamper-evident storage (append-only with hash chaining) and 90-day minimum retention
+- **FR-006a**: System MUST capture auth events (login success/failure, password reset/change, MFA enroll/verify/disable, account lockout/unlock)
+- **FR-006b**: System MUST capture access & role events (role grants/revokes, scope changes, permission updates, SSO changes, API key lifecycle)
+- **FR-006c**: System MUST capture data events (CRUD on sensitive objects, exports/downloads, retention/purge actions, file upload/delete)
+- **FR-006d**: System MUST capture system & ops events (chunked uploads, virus-scan results, background jobs, config changes, rate-limit/circuit-breaker triggers)
+- **FR-006e**: System MUST provide audit log export (CSV/JSON) to Admin users
 
 #### Document Ingestion
-- **FR-006**: Users MUST be able to initiate web crawling by providing URL and configuration parameters
-- **FR-007**: Users MUST be able to upload documents for processing (PDF, DOCX, TXT formats minimum)
-- **FR-008**: System MUST return job ID immediately upon submission (within 2 seconds)
-- **FR-009**: System MUST enforce configurable limits on crawl scope (max pages, max depth, allowed domains)
-- **FR-010**: System MUST validate URLs and file formats before accepting jobs
-- **FR-011**: Users MUST be able to configure ingestion parameters (chunk size, overlap, filters)
-- **FR-012**: System MUST support batch operations (multiple URLs or files in one request)
+- **FR-007**: Users MUST be able to initiate web crawling by providing URL and configuration parameters
+- **FR-008**: Users MUST be able to upload documents via chunked/resumable uploads for files 100MB+ with background processing
+- **FR-008a**: System MUST perform virus scanning on all uploaded files before processing
+- **FR-008b**: System MUST support upload retry/resume on connection failure
+- **FR-008c**: System MUST display upload progress UI with pause/cancel options
+- **FR-008d**: System MUST enforce storage quotas per user/workspace
+- **FR-009**: System MUST return job ID immediately upon submission (within 2 seconds)
+- **FR-010**: System MUST enforce configurable limits on crawl scope (max pages, max depth, allowed domains)
+- **FR-011**: System MUST validate URLs and file formats before accepting jobs
+- **FR-012**: Users MUST be able to configure ingestion parameters (chunk size, overlap, filters)
+- **FR-013**: System MUST support batch operations (multiple URLs or files in one request)
 
 #### Real-Time Monitoring
 - **FR-013**: System MUST stream progress updates to user interface with < 100ms latency
