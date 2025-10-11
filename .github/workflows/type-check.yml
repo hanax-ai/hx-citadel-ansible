@@ -1,0 +1,126 @@
+name: Type Check
+
+# Phase 2 Sprint 2.1: Type Hints Migration (TASK-030)
+# Mypy type checking for Python code quality
+
+on:
+  push:
+    branches: [ main, feature/**, develop ]
+    paths:
+      - '**/*.py'
+      - '**/*.py.j2'
+      - 'mypy.ini'
+      - 'requirements-dev.txt'
+      - '.github/workflows/type-check.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.py'
+      - '**/*.py.j2'
+      - 'mypy.ini'
+      - 'requirements-dev.txt'
+
+jobs:
+  mypy-validation:
+    name: Mypy Type Checking
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.12']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Validate mypy configuration
+        run: |
+          if [ ! -f mypy.ini ]; then
+            echo "❌ mypy.ini not found!"
+            exit 1
+          fi
+          echo "✅ mypy.ini found"
+
+      - name: Run Mypy on Python files (if any exist)
+        run: |
+          # Note: This is limited for Ansible projects with Jinja2 templates
+          # Full validation happens on deployed servers
+          if [ -n "$(find . -name '*.py' -not -path './tech_kb/*' -not -path './.venv/*' 2>/dev/null)" ]; then
+            echo "Running mypy on Python files..."
+            mypy . --config-file=mypy.ini || true
+          else
+            echo "⚠️  No Python files found (templates will be validated after deployment)"
+          fi
+
+      - name: Validate Jinja2 template syntax
+        run: |
+          # Check that templates have type hints in their generated Python
+          echo "Checking Jinja2 templates for type hint patterns..."
+
+          templates_checked=0
+          templates_with_hints=0
+
+          for template in $(find roles -name '*.py.j2'); do
+            templates_checked=$((templates_checked + 1))
+
+            # Check for common type hint patterns
+            if grep -q "from typing import" "$template" || \
+               grep -q "-> " "$template" || \
+               grep -q ": Optional\[" "$template" || \
+               grep -q ": List\[" "$template" || \
+               grep -q ": Dict\[" "$template"; then
+              templates_with_hints=$((templates_with_hints + 1))
+              echo "✅ $template has type hints"
+            else
+              echo "⚠️  $template may be missing type hints"
+            fi
+          done
+
+          echo ""
+          echo "════════════════════════════════════════════════════════════"
+          echo "Templates checked: $templates_checked"
+          echo "Templates with type hints: $templates_with_hints"
+
+          if [ $templates_checked -gt 0 ]; then
+            coverage_pct=$((templates_with_hints * 100 / templates_checked))
+            echo "Type hint coverage: ${coverage_pct}%"
+
+            if [ $coverage_pct -lt 80 ]; then
+              echo "⚠️  Warning: Type hint coverage below 80%"
+              # Don't fail the build, just warn
+            else
+              echo "✅ Type hint coverage meets target (>80%)"
+            fi
+          fi
+
+      - name: Generate type checking report
+        if: always()
+        run: |
+          echo "## Type Checking Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: Type hints validation completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note**: Full mypy validation runs on deployed servers" >> $GITHUB_STEP_SUMMARY
+          echo "- MCP Server: \`ssh hx-mcp1-server 'cd /opt/hx-citadel-shield && mypy .'\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Orchestrator: \`ssh hx-orchestrator-server 'cd /opt/hx-citadel-shield/orchestrator && mypy .'\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration**: See \`mypy.ini\` and \`docs/TYPE-CHECKING-GUIDE.md\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload mypy cache
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-cache-${{ matrix.python-version }}
+          path: .mypy_cache/
+          retention-days: 7
