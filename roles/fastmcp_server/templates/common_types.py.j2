@@ -23,7 +23,7 @@ from typing import (
 )
 from enum import Enum
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 # ==========================================
@@ -191,12 +191,13 @@ class CrawlWebRequest(BaseModel):
     allowed_domains: Optional[List[str]] = Field(None, description="Allowed domains list")
     max_depth: int = Field(2, ge=1, le=5, description="Maximum crawl depth")
 
-    @validator("allowed_domains", pre=True, always=True)
-    def set_default_domains(cls, v: Optional[List[str]], values: Dict[str, Any]) -> List[str]:
+    @field_validator("allowed_domains", mode="before")
+    @classmethod
+    def set_default_domains(cls, v: Optional[List[str]], info) -> List[str]:
         """Set allowed_domains to URL's domain if not provided"""
-        if v is None and "url" in values:
+        if v is None and hasattr(info, 'data') and "url" in info.data:
             from urllib.parse import urlparse
-            return [urlparse(str(values["url"])).netloc]
+            return [urlparse(str(info.data["url"])).netloc]
         return v or []
 
 
@@ -205,16 +206,35 @@ class IngestDocRequest(BaseModel):
     file_path: str = Field(..., description="Path to document file")
     source_name: Optional[str] = Field(None, description="Optional document name")
 
-    @validator("file_path")
+    @field_validator("file_path")
+    @classmethod
     def validate_file_path(cls, v: str) -> str:
-        """Validate file path exists and is readable"""
+        """
+        Validate file path exists and is readable.
+
+        Security: Protects against path traversal attacks (e.g., ../../../../etc/passwd)
+        """
         from pathlib import Path
+
+        # Security: Check for path traversal BEFORE resolving
+        if ".." in v:
+            raise ValueError(f"Path traversal detected: {v}")
+
         path = Path(v)
+
+        # Resolve to absolute path to prevent traversal attacks
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as e:
+            raise ValueError(f"Invalid file path: {v}") from e
+
+        # Validate file exists and is actually a file
         if not path.exists():
             raise ValueError(f"File not found: {v}")
         if not path.is_file():
             raise ValueError(f"Path is not a file: {v}")
-        return v
+
+        return str(path)  # Return resolved absolute path
 
 
 class QdrantFindRequest(BaseModel):
