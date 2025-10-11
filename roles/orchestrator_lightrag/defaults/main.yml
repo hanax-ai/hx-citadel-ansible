@@ -15,8 +15,9 @@ llm_embedding_model: "mxbai-embed-large"
 llm_max_tokens: 4096
 llm_temperature: 0.0  # Deterministic for entity extraction
 
-# Ollama Configuration (for embeddings) - FQDN COMPLIANT
-ollama_url: "http://{{ hx_hosts_fqdn['hx-ollama1'] }}:11434"
+# Ollama Configuration (for embeddings)
+# ✅ FIXED: Use orchestrator itself - embedding models are co-located for low latency
+ollama_url: "http://{{ hx_hosts_fqdn['hx-orchestrator-server'] }}:11434"
 ollama_embedding_model: "mxbai-embed-large"
 ollama_embedding_dim: 1024
 

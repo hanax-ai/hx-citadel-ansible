@@ -1,5 +1,8 @@
 """
 Qdrant vector database client
+
+Phase 2 Sprint 2.1: Type Hints Migration (TASK-026)
+Already has comprehensive type hints for all methods
 """
 
 from qdrant_client import AsyncQdrantClient
@@ -26,7 +29,7 @@ class QdrantService:
         self.collection_name = "{{ qdrant_collection }}"
         self.embedding_dim = {{ ollama_embedding_dim }}
     
-    async def connect(self):
+    async def connect(self) -> None:
         """Initialize Qdrant client"""
         self.client = AsyncQdrantClient(
             url="{{ qdrant_url }}",
@@ -40,7 +43,7 @@ class QdrantService:
         collections = await self.client.get_collections()
         logger.info(f"✅ Connected to Qdrant ({len(collections.collections)} collections)")
     
-    async def close(self):
+    async def close(self) -> None:
         """Close Qdrant client"""
         if self.client:
             await self.client.close()
@@ -154,18 +157,18 @@ class QdrantService:
 qdrant_service = QdrantService()
 
 
-async def init_qdrant():
+async def init_qdrant() -> None:
     """Initialize Qdrant service"""
     await qdrant_service.connect()
     await qdrant_service.verify_collection()
 
 
-async def close_qdrant():
+async def close_qdrant() -> None:
     """Close Qdrant service"""
     await qdrant_service.close()
 
 
-async def check_qdrant_health() -> dict:
+async def check_qdrant_health() -> Dict[str, Any]:
     """
     Check Qdrant health for /health/detailed endpoint.
     

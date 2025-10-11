@@ -37,6 +37,15 @@
     mode: '0644'
   notify: restart fastmcp-server
 
+- name: Deploy common types module (TASK-023)
+  ansible.builtin.template:
+    src: common_types.py.j2
+    dest: "{{ fastmcp_app_dir }}/common_types.py"
+    owner: "{{ fastmcp_service_user }}"
+    group: "{{ fastmcp_service_group }}"
+    mode: '0644'
+  notify: restart fastmcp-server
+
 - name: Generate Prometheus scrape configuration
   ansible.builtin.template:
     src: prometheus_scrape_config.yml.j2

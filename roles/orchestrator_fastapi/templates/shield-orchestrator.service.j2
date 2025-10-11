@@ -6,7 +6,7 @@ Wants=network-online.target
 Requires=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 User={{ orchestrator_service_user }}
 Group={{ orchestrator_service_group }}
 WorkingDirectory={{ orchestrator_app_dir }}
@@ -53,10 +53,6 @@ ProtectSystem=strict
 ProtectHome=yes
 ReadWritePaths={{ orchestrator_data_dir }} {{ orchestrator_log_dir }} {{ orchestrator_app_dir }}/logs
 ReadOnlyPaths={{ orchestrator_app_dir }}
-
-# Watchdog (health check for auto-restart)
-WatchdogSec=60
-NotifyAccess=main
 
 [Install]
 WantedBy=multi-user.target

@@ -1,9 +1,12 @@
 """
 Embedding service using Ollama
+
+Phase 2 Sprint 2.1: Type Hints Migration (TASK-026)
+Already has comprehensive type hints for all methods
 """
 
 import httpx
-from typing import List
+from typing import List, Dict, Any
 import logging
 
 logger = logging.getLogger("shield-orchestrator.embeddings")
@@ -82,7 +85,7 @@ class EmbeddingService:
 embedding_service = EmbeddingService()
 
 
-async def check_ollama_health() -> dict:
+async def check_ollama_health() -> Dict[str, Any]:
     """
     Check Ollama health for /health/detailed endpoint.
     """
