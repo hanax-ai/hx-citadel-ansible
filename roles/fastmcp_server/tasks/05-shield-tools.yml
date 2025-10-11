@@ -1,32 +1,105 @@
 ---
 # Shield-specific tools installation
+# TASK-021: Error handling with block/rescue/always pattern
 
-- name: Install Crawl4AI and dependencies
-  ansible.builtin.pip:
-    name:
-      - "crawl4ai>=0.3.0"
-      - "playwright>=1.49.0"
-      - "patchright>=1.49.0"
-    virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
-  become_user: "{{ fastmcp_service_user }}"
+- name: Install Crawl4AI with error handling
+  block:
+    - name: Install Crawl4AI and dependencies
+      ansible.builtin.pip:
+        name:
+          - "crawl4ai>=0.3.0"
+          - "playwright>=1.49.0"
+          - "patchright>=1.49.0"
+        virtualenv: "{{ fastmcp_venv_dir }}"
+      become: yes
+      become_user: "{{ fastmcp_service_user }}"
+      register: crawl4ai_install
 
-- name: Install Docling for document processing
-  ansible.builtin.pip:
-    name:
-      - "docling>=1.0.0"
-    virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
-  become_user: "{{ fastmcp_service_user }}"
+  rescue:
+    - name: Log Crawl4AI installation failure
+      ansible.builtin.debug:
+        msg: "⚠️  Crawl4AI installation failed, retrying..."
 
-- name: Install LightRAG
-  ansible.builtin.pip:
-    name:
-      - "lightrag>=0.1.0"
-    virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
-  become_user: "{{ fastmcp_service_user }}"
-  failed_when: false  # LightRAG may not be in PyPI
+    - name: Retry Crawl4AI installation
+      ansible.builtin.pip:
+        name:
+          - "crawl4ai>=0.3.0"
+          - "playwright>=1.49.0"
+          - "patchright>=1.49.0"
+        virtualenv: "{{ fastmcp_venv_dir }}"
+        state: forcereinstall
+      become: yes
+      become_user: "{{ fastmcp_service_user }}"
+
+  always:
+    - name: Verify Crawl4AI installation
+      ansible.builtin.command:
+        cmd: "{{ fastmcp_venv_dir }}/bin/pip show crawl4ai"
+      changed_when: false
+      failed_when: false
+
+- name: Install Docling and LightRAG with dependency conflict resolution
+  block:
+    - name: Install Docling for document processing
+      ansible.builtin.pip:
+        name:
+          - "docling>=1.0.0"
+        virtualenv: "{{ fastmcp_venv_dir }}"
+      become: yes
+      become_user: "{{ fastmcp_service_user }}"
+      register: docling_install
+
+    - name: Install LightRAG
+      ansible.builtin.pip:
+        name:
+          - "lightrag>=0.1.0b6"  # Using beta version (latest available)
+        virtualenv: "{{ fastmcp_venv_dir }}"
+      become: yes
+      become_user: "{{ fastmcp_service_user }}"
+      register: lightrag_install
+      failed_when: false  # LightRAG may not be in PyPI
+
+    - name: Fix numpy version conflict (LightRAG downgrades, Docling needs 2.x)
+      ansible.builtin.pip:
+        name:
+          - "numpy>=2.0.0"
+        virtualenv: "{{ fastmcp_venv_dir }}"
+        state: latest
+      become: yes
+      become_user: "{{ fastmcp_service_user }}"
+      register: numpy_fix
+
+  rescue:
+    - name: Log dependency conflict
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Docling/LightRAG installation encountered errors
+          Attempting recovery...
+
+    - name: Reinstall with correct numpy version
+      ansible.builtin.pip:
+        name:
+          - "numpy>=2.0.0"
+          - "docling>=1.0.0"
+        virtualenv: "{{ fastmcp_venv_dir }}"
+        state: forcereinstall
+      become: yes
+      become_user: "{{ fastmcp_service_user }}"
+
+  always:
+    - name: Verify final numpy version
+      ansible.builtin.command:
+        cmd: "{{ fastmcp_venv_dir }}/bin/pip show numpy"
+      changed_when: false
+      failed_when: false
+      register: numpy_version
+
+    - name: Display dependency status
+      ansible.builtin.debug:
+        msg: |
+          Docling: {{ 'INSTALLED' if docling_install is succeeded else 'FAILED' }}
+          LightRAG: {{ 'INSTALLED' if lightrag_install is succeeded else 'SKIPPED' }}
+          Numpy: {{ numpy_version.stdout_lines[1] if numpy_version.stdout_lines | length > 1 else 'Unknown' }}
 
 - name: Install Qdrant client
   ansible.builtin.pip:

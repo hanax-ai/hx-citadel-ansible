@@ -24,7 +24,8 @@ StartLimitBurst=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
+# ProtectHome disabled - Crawl4AI needs access to ~/.crawl4ai/ for its database
+ProtectHome=false
 ReadWritePaths={{ fastmcp_app_dir }}/logs
 ReadWritePaths={{ fastmcp_user_home }}/.cache
 

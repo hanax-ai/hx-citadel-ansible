@@ -31,6 +31,7 @@ from enhanced_health_check import comprehensive_health_check
 
 # Third-party imports
 import httpx
+import pybreaker
 from crawl4ai import AsyncWebCrawler
 from crawl4ai.async_crawler_strategy import AsyncCrawlerStrategy
 from docling.document_converter import DocumentConverter
@@ -55,6 +56,104 @@ ORCHESTRATOR_BASE_URL = os.getenv("ORCHESTRATOR_BASE_URL", "{{ orchestrator_base
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "shield_knowledge_base")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "768"))
+
+# Circuit Breaker configuration
+# Protects against cascading failures when orchestrator is down
+# Opens after 5 failures, stays open for 60s, half-open allows 1 test request
+orchestrator_breaker = pybreaker.CircuitBreaker(
+    fail_max=5,              # Open after 5 failures
+    reset_timeout=60,        # Stay open for 60 seconds before half-open
+    success_threshold=1,     # 1 success in half-open closes circuit
+    name="orchestrator_api"
+)
+
+
+# Circuit Breaker Wrapper (TASK-014)
+
+async def call_orchestrator_api(
+    endpoint: str,
+    method: str = "POST",
+    json_data: Optional[dict] = None,
+    timeout: float = 30.0
+) -> dict:
+    """
+    Call orchestrator API with circuit breaker protection
+    
+    This wrapper provides fast-fail behavior when the orchestrator is down,
+    preventing cascading failures and resource exhaustion.
+    
+    Args:
+        endpoint: API endpoint path (e.g., "/lightrag/ingest-async")
+        method: HTTP method (default: POST)
+        json_data: JSON payload for POST requests
+        timeout: Request timeout in seconds
+    
+    Returns:
+        dict: Response JSON from orchestrator
+    
+    Raises:
+        pybreaker.CircuitBreakerError: If circuit is open (orchestrator unavailable)
+        httpx.HTTPStatusError: If orchestrator returns error status
+        httpx.TimeoutException: If request times out
+    """
+    url = f"{ORCHESTRATOR_BASE_URL}{endpoint}"
+    
+    logger.debug(
+        "orchestrator_api_call",
+        url=url,
+        method=method,
+        circuit_state=orchestrator_breaker.current_state.name
+    )
+    
+    def _make_request_sync():
+        """Synchronous HTTP call for circuit breaker compatibility"""
+        with httpx.Client(timeout=timeout) as client:
+            if method == "POST":
+                response = client.post(url, json=json_data)
+            elif method == "GET":
+                response = client.get(url)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            response.raise_for_status()
+            return response.json()
+    
+    try:
+        # Execute sync function through circuit breaker in thread pool
+        result = await asyncio.to_thread(orchestrator_breaker.call, _make_request_sync)
+        logger.info(
+            "orchestrator_api_success",
+            endpoint=endpoint,
+            method=method
+        )
+        return result
+    
+    except pybreaker.CircuitBreakerError as e:
+        # Circuit is open - fast-fail without calling orchestrator
+        logger.error(
+            "circuit_breaker_open",
+            endpoint=endpoint,
+            circuit_state=orchestrator_breaker.current_state.name,
+            failures=orchestrator_breaker.fail_counter
+        )
+        raise
+    
+    except httpx.TimeoutException as e:
+        logger.error(
+            "orchestrator_timeout",
+            endpoint=endpoint,
+            timeout=timeout
+        )
+        raise
+    
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "orchestrator_http_error",
+            endpoint=endpoint,
+            status_code=e.response.status_code,
+            error=str(e)
+        )
+        raise
 
 
 # Helper Functions (Single Responsibility Principle)
@@ -261,63 +360,62 @@ async def crawl_web(
             )
             
             # Send to orchestrator for async ingestion (HTTP 202 pattern)
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                try:
-                    ingest_response = await client.post(
-                        f"{ORCHESTRATOR_BASE_URL}/lightrag/ingest-async",
-                        json={
-                            "source_type": "web_crawl",
-                            "source_url": url,
-                            "content": crawled_pages,
-                            "metadata": {
-                                "max_pages": max_pages,
-                                "allowed_domains": allowed_domains,
-                                "max_depth": max_depth,
-                                "pages_crawled": pages_crawled
-                            }
-                        }
-                    )
-                    
-                    ingest_response.raise_for_status()
-                    ingest_data = ingest_response.json()
-                    
-                    # Return HTTP 202-style response with job_id
-                    logger.info(
-                        "crawl_web_success",
-                        url=url,
-                        pages_crawled=pages_crawled,
-                        job_id=ingest_data.get("job_id")
-                    )
-                    
-                    return {
-                        "status": "accepted",  # HTTP 202 Accepted
-                        "message": f"Web crawl initiated for {url}",
-                        "job_id": ingest_data.get("job_id"),
-                        "pages_crawled": pages_crawled,
+            # Using circuit breaker wrapper for resilience
+            try:
+                ingest_data = await call_orchestrator_api(
+                    endpoint="/lightrag/ingest-async",
+                    method="POST",
+                    json_data={
+                        "source_type": "web_crawl",
                         "source_url": url,
-                        "check_status_endpoint": f"/jobs/{ingest_data.get('job_id')}"
-                    }
+                        "content": crawled_pages,
+                        "metadata": {
+                            "max_pages": max_pages,
+                            "allowed_domains": allowed_domains,
+                            "max_depth": max_depth,
+                            "pages_crawled": pages_crawled
+                        }
+                    },
+                    timeout=30.0
+                )
                 
-                except httpx.HTTPStatusError as e:
-                    logger.error(
-                        "orchestrator_ingest_error",
-                        url=url,
-                        status_code=e.response.status_code,
-                        error=str(e)
-                    )
-                    return {
-                        "status": "error",
-                        "error": f"Orchestrator ingestion failed: {e.response.status_code}",
-                        "error_type": "orchestrator_error"
-                    }
+                # Return HTTP 202-style response with job_id
+                logger.info(
+                    "crawl_web_success",
+                    url=url,
+                    pages_crawled=pages_crawled,
+                    job_id=ingest_data.get("job_id")
+                )
                 
-                except httpx.TimeoutError:
-                    logger.error("orchestrator_timeout", url=url)
-                    return {
-                        "status": "error",
-                        "error": "Orchestrator ingestion timeout",
-                        "error_type": "timeout_error"
-                    }
+                return {
+                    "status": "accepted",  # HTTP 202 Accepted
+                    "message": f"Web crawl initiated for {url}",
+                    "job_id": ingest_data.get("job_id"),
+                    "pages_crawled": pages_crawled,
+                    "source_url": url,
+                    "check_status_endpoint": f"/jobs/{ingest_data.get('job_id')}"
+                }
+            
+            except pybreaker.CircuitBreakerError:
+                # Circuit is open - orchestrator unavailable
+                return {
+                    "status": "error",
+                    "error": "Orchestrator temporarily unavailable (circuit breaker open)",
+                    "pages_crawled": pages_crawled,
+                    "retry_after": 60
+                }
+            
+            except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
+                logger.error(
+                    "orchestrator_ingest_error",
+                    url=url,
+                    error=str(e)
+                )
+                return {
+                    "status": "error",
+                    "error": f"Orchestrator ingestion failed: {str(e)}",
+                    "pages_crawled": pages_crawled
+                }
     
     except httpx.HTTPStatusError as e:
         logger.error(
@@ -482,60 +580,58 @@ async def ingest_doc(
             }
         
         # Send to orchestrator for async ingestion (HTTP 202 pattern)
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                ingest_response = await client.post(
-                    f"{ORCHESTRATOR_BASE_URL}/lightrag/ingest-async",
-                    json={
-                        "source_type": "document",
-                        "source_name": source_name,
-                        "content": content_text,
-                        "metadata": metadata
-                    }
-                )
-                
-                ingest_response.raise_for_status()
-                ingest_data = ingest_response.json()
-                
-                # Return HTTP 202-style response with job_id
-                logger.info(
-                    "ingest_doc_success",
-                    file_path=file_path,
-                    content_length=len(content_text),
-                    job_id=ingest_data.get("job_id")
-                )
-                
-                return {
-                    "status": "accepted",  # HTTP 202 Accepted
-                    "message": f"Document ingestion initiated for {source_name}",
-                    "job_id": ingest_data.get("job_id"),
+        # Using circuit breaker wrapper for resilience
+        try:
+            ingest_data = await call_orchestrator_api(
+                endpoint="/lightrag/ingest-async",
+                method="POST",
+                json_data={
+                    "source_type": "document",
                     "source_name": source_name,
-                    "file_format": file_extension,
-                    "content_length": len(content_text),
-                    "page_count": metadata.get("page_count", 0),
-                    "check_status_endpoint": f"/jobs/{ingest_data.get('job_id')}"
-                }
+                    "content": content_text,
+                    "metadata": metadata
+                },
+                timeout=30.0
+            )
             
-            except httpx.HTTPStatusError as e:
-                logger.error(
-                    "orchestrator_ingest_error",
-                    file_path=file_path,
-                    status_code=e.response.status_code,
-                    error=str(e)
-                )
-                return {
-                    "status": "error",
-                    "error": f"Orchestrator ingestion failed: {e.response.status_code}",
-                    "error_type": "orchestrator_error"
-                }
+            # Return HTTP 202-style response with job_id
+            logger.info(
+                "ingest_doc_success",
+                file_path=file_path,
+                content_length=len(content_text),
+                job_id=ingest_data.get("job_id")
+            )
             
-            except httpx.TimeoutError:
-                logger.error("orchestrator_timeout", file_path=file_path)
-                return {
-                    "status": "error",
-                    "error": "Orchestrator ingestion timeout",
-                    "error_type": "timeout_error"
-                }
+            return {
+                "status": "accepted",  # HTTP 202 Accepted
+                "message": f"Document ingestion initiated for {source_name}",
+                "job_id": ingest_data.get("job_id"),
+                "source_name": source_name,
+                "file_format": file_extension,
+                "content_length": len(content_text),
+                "page_count": metadata.get("page_count", 0),
+                "check_status_endpoint": f"/jobs/{ingest_data.get('job_id')}"
+            }
+        
+        except pybreaker.CircuitBreakerError:
+            # Circuit is open - orchestrator unavailable
+            return {
+                "status": "error",
+                "error": "Orchestrator temporarily unavailable (circuit breaker open)",
+                "retry_after": 60
+            }
+        
+        except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
+            logger.error(
+                "orchestrator_ingest_error",
+                file_path=file_path,
+                error=str(e)
+            )
+            return {
+                "status": "error",
+                "error": f"Orchestrator ingestion failed: {str(e)}",
+                "error_type": "orchestrator_error"
+            }
     
     except Exception as e:
         logger.error("ingest_doc_error", file_path=file_path, error=str(e), exc_info=True)
@@ -878,69 +974,195 @@ async def lightrag_query(
             }
         
         # Forward to orchestrator LightRAG endpoint (Dependency Inversion)
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            try:
-                logger.info(
-                    "lightrag_forwarding",
-                    orchestrator_url=ORCHESTRATOR_BASE_URL,
-                    query_length=len(query),
-                    mode=mode
-                )
-                
-                response = await client.post(
-                    f"{ORCHESTRATOR_BASE_URL}/lightrag/query",
-                    json={
-                        "query": query,
-                        "mode": mode,
-                        "only_need_context": only_need_context
-                    }
-                )
-                
-                response.raise_for_status()
-                result_data = response.json()
-                
-                logger.info(
-                    "lightrag_query_success",
-                    query=query,
-                    mode=mode,
-                    has_response=not only_need_context,
-                    context_count=len(result_data.get("context", []))
-                )
-                
-                # Return orchestrator response (Interface Segregation)
-                return {
-                    "status": "success",
+        # Using circuit breaker wrapper for resilience
+        logger.info(
+            "lightrag_forwarding",
+            orchestrator_url=ORCHESTRATOR_BASE_URL,
+            query_length=len(query),
+            mode=mode
+        )
+        
+        try:
+            result_data = await call_orchestrator_api(
+                endpoint="/lightrag/query",
+                method="POST",
+                json_data={
                     "query": query,
                     "mode": mode,
-                    "response": result_data.get("response"),
-                    "context": result_data.get("context", []),
-                    "metadata": result_data.get("metadata", {})
-                }
+                    "only_need_context": only_need_context
+                },
+                timeout=60.0
+            )
             
-            except httpx.HTTPStatusError as e:
-                logger.error(
-                    "orchestrator_query_error",
-                    query=query,
-                    status_code=e.response.status_code,
-                    error=str(e)
-                )
-                return {
-                    "status": "error",
-                    "error": f"Orchestrator query failed: {e.response.status_code}",
-                    "error_type": "orchestrator_error",
-                    "status_code": e.response.status_code
-                }
+            logger.info(
+                "lightrag_query_success",
+                query=query,
+                mode=mode,
+                has_response=not only_need_context,
+                context_count=len(result_data.get("context", []))
+            )
             
-            except httpx.TimeoutError:
-                logger.error("orchestrator_query_timeout", query=query)
-                return {
-                    "status": "error",
-                    "error": "Orchestrator query timeout (60s)",
-                    "error_type": "timeout_error"
-                }
+            # Return orchestrator response (Interface Segregation)
+            return {
+                "status": "success",
+                "query": query,
+                "mode": mode,
+                "response": result_data.get("response"),
+                "context": result_data.get("context", []),
+                "metadata": result_data.get("metadata", {})
+            }
+        
+        except pybreaker.CircuitBreakerError:
+            # Circuit is open - orchestrator unavailable
+            logger.error(
+                "circuit_breaker_open",
+                query=query,
+                circuit_state=orchestrator_breaker.current_state.name
+            )
+            return {
+                "status": "error",
+                "error": "Orchestrator temporarily unavailable (circuit breaker open)",
+                "retry_after": 60,
+                "error_type": "circuit_breaker_error"
+            }
+        
+        except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
+            logger.error(
+                "orchestrator_query_error",
+                query=query,
+                error=str(e)
+            )
+            return {
+                "status": "error",
+                "error": f"Orchestrator query failed: {str(e)}",
+                "error_type": "orchestrator_error"
+            }
     
     except Exception as e:
         logger.error("lightrag_query_error", query=query, error=str(e), exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": "unknown_error"
+        }
+
+
+@mcp.tool()
+async def get_job_status(job_id: str) -> dict:
+    """
+    Get status of an async job from the orchestrator
+    
+    This tool implements the HTTP 202 async pattern by allowing clients to
+    check the status of long-running jobs initiated by crawl_web() or ingest_doc().
+    
+    Args:
+        job_id: Job identifier returned from crawl_web or ingest_doc
+    
+    Returns:
+        dict: Job status information
+        {
+            "status": "success",
+            "job_id": "abc123",
+            "job_status": "completed|processing|pending|failed",
+            "progress": 0-100,
+            "result": {...},  # Present if completed
+            "error": "...",   # Present if failed
+            "created_at": "ISO timestamp",
+            "updated_at": "ISO timestamp"
+        }
+    
+    Raises:
+        Circuit breaker protection if orchestrator unavailable
+    
+    TASK-020: HTTP 202 Async Pattern - Job Status Endpoint
+    """
+    logger.info("get_job_status_requested", job_id=job_id)
+    
+    # Validation
+    if not job_id or not job_id.strip():
+        logger.warning("get_job_status_validation_error", error="empty_job_id")
+        return {
+            "status": "error",
+            "error": "job_id is required and cannot be empty",
+            "error_type": "validation_error"
+        }
+    
+    try:
+        # Query orchestrator for job status using circuit breaker
+        job_data = await call_orchestrator_api(
+            endpoint=f"/jobs/{job_id}",
+            method="GET",
+            timeout=10.0
+        )
+        
+        logger.info(
+            "get_job_status_success",
+            job_id=job_id,
+            job_status=job_data.get("status")
+        )
+        
+        # Return standardized job status response
+        return {
+            "status": "success",
+            "job_id": job_id,
+            "job_status": job_data.get("status", "unknown"),
+            "progress": job_data.get("progress", 0),
+            "result": job_data.get("result"),
+            "error": job_data.get("error"),
+            "created_at": job_data.get("created_at"),
+            "updated_at": job_data.get("updated_at"),
+            "metadata": job_data.get("metadata", {})
+        }
+    
+    except pybreaker.CircuitBreakerError:
+        # Circuit is open - orchestrator unavailable
+        logger.error(
+            "circuit_breaker_open",
+            job_id=job_id,
+            circuit_state=orchestrator_breaker.current_state.name
+        )
+        return {
+            "status": "error",
+            "error": "Orchestrator temporarily unavailable (circuit breaker open)",
+            "retry_after": 60,
+            "error_type": "circuit_breaker_error"
+        }
+    
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            # Job not found
+            logger.warning("job_not_found", job_id=job_id)
+            return {
+                "status": "error",
+                "error": f"Job {job_id} not found",
+                "error_type": "not_found",
+                "status_code": 404
+            }
+        else:
+            # Other HTTP errors
+            logger.error(
+                "get_job_status_http_error",
+                job_id=job_id,
+                status_code=e.response.status_code,
+                error=str(e)
+            )
+            return {
+                "status": "error",
+                "error": f"Failed to get job status: {e.response.status_code}",
+                "error_type": "http_error",
+                "status_code": e.response.status_code
+            }
+    
+    except httpx.TimeoutException:
+        logger.error("get_job_status_timeout", job_id=job_id)
+        return {
+            "status": "error",
+            "error": "Timeout querying job status",
+            "error_type": "timeout_error"
+        }
+    
+    except Exception as e:
+        logger.error("get_job_status_error", job_id=job_id, error=str(e), exc_info=True)
         return {
             "status": "error",
             "error": str(e),
@@ -954,13 +1176,29 @@ async def health_check() -> dict:
     Comprehensive health check of MCP server and dependencies
     
     Returns:
-        dict: Health status of server and all dependencies
+        dict: Health status of server and all dependencies, including circuit breaker state
     """
     logger.info("health_check_requested")
     
     try:
         health_status = await comprehensive_health_check()
-        logger.info("health_check_complete", status=health_status.get("overall_status"))
+        
+        # Add circuit breaker state metrics (TASK-016)
+        health_status["circuit_breakers"] = {
+            "orchestrator": {
+                "state": orchestrator_breaker.current_state.name,
+                "fail_counter": orchestrator_breaker.fail_counter,
+                "fail_max": orchestrator_breaker.fail_max,
+                "reset_timeout": orchestrator_breaker.reset_timeout,
+                "success_threshold": orchestrator_breaker.success_threshold
+            }
+        }
+        
+        logger.info(
+            "health_check_complete",
+            status=health_status.get("overall_status"),
+            circuit_state=orchestrator_breaker.current_state.name
+        )
         return health_status
     
     except Exception as e:

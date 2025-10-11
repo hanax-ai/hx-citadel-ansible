@@ -50,7 +50,7 @@
       ║        Shield MCP Server Deployment Complete               ║
       ╠════════════════════════════════════════════════════════════╣
       ║  Service: shield-mcp-server
-      ║  Status: {{ 'Running' if ansible_facts.services['shield-mcp-server.service'].state == 'running' else 'Check service' }}
+      ║  Status: Check with systemctl status shield-mcp-server
       ║  Health Check: http://{{ ansible_host }}:{{ fastmcp_port }}/health
       ║  
       ║  Next Steps:

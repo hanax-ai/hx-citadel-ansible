@@ -70,10 +70,10 @@ After deployment succeeds:
 **TASK-004: Test Web Crawling**
 ```bash
 # SSH to MCP server
-ssh agent0@hx-mcp1-server
+ssh agent0@192.168.10.59
 
 # Test crawl_web
-curl -X POST http://hx-mcp1-server:8080/crawl_web \
+curl -X POST http://hx-mcp1-server:8081/crawl_web \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com", "max_pages": 5}'
 ```
@@ -84,7 +84,7 @@ curl -X POST http://hx-mcp1-server:8080/crawl_web \
 echo "Test content" > /tmp/test.txt
 
 # Test ingest_doc
-curl -X POST http://hx-mcp1-server:8080/ingest_doc \
+curl -X POST http://hx-mcp1-server:8081/ingest_doc \
   -H "Content-Type: application/json" \
   -d '{"file_path": "/tmp/test.txt"}'
 ```
@@ -92,12 +92,12 @@ curl -X POST http://hx-mcp1-server:8080/ingest_doc \
 **TASK-009: Test Qdrant Operations**
 ```bash
 # Test qdrant_store
-curl -X POST http://hx-mcp1-server:8080/qdrant_store \
+curl -X POST http://hx-mcp1-server:8081/qdrant_store \
   -H "Content-Type: application/json" \
   -d '{"text": "Test vector storage", "metadata": {"test": true}}'
 
 # Test qdrant_find
-curl -X POST http://hx-mcp1-server:8080/qdrant_find \
+curl -X POST http://hx-mcp1-server:8081/qdrant_find \
   -H "Content-Type: application/json" \
   -d '{"query": "test", "limit": 5}'
 ```
@@ -105,7 +105,7 @@ curl -X POST http://hx-mcp1-server:8080/qdrant_find \
 **TASK-011: Test LightRAG E2E**
 ```bash
 # Test lightrag_query
-curl -X POST http://hx-mcp1-server:8080/lightrag_query \
+curl -X POST http://hx-mcp1-server:8081/lightrag_query \
   -H "Content-Type: application/json" \
   -d '{"query": "What is machine learning?", "mode": "hybrid"}'
 ```
