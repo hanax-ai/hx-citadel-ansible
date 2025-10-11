@@ -65,6 +65,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
           pip install -r requirements-dev.txt
+          # Verify test dependencies are available
+          pip show pytest mypy ansible-lint || echo "⚠️ Some test tools may not be in requirements-dev.txt"
 
       - name: Configure git
         run: |
@@ -76,13 +78,13 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          if [ -n "$SLACK_WEBHOOK" ]; then
+          if [ -n "$SLACK_WEBHOOK" ] && [ -x "./scripts/slack-notify.sh" ]; then
             ./scripts/slack-notify.sh "$SLACK_WEBHOOK" \
               "🤖 *AI Remediation Started*" \
               "#36a64f" \
               "Issue" "${{ github.event.inputs.issue_id || github.event.client_payload.issue_id }}" "true" \
               "Severity" "${{ github.event.inputs.severity || github.event.client_payload.severity }}" "true" \
-              "Triggered By" "${{ github.actor }}" "true"
+              "Triggered By" "${{ github.actor }}" "true" || echo "Slack notification failed (non-blocking)"
           fi
 
       - name: Fetch Linear issue details
@@ -247,49 +249,46 @@ jobs:
         id: create_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IDENTIFIER: ${{ steps.linear.outputs.identifier }}
+          TITLE: ${{ steps.linear.outputs.title }}
+          AI_TOOL: ${{ steps.ai_tool.outputs.tool }}
+          AI_REASON: ${{ steps.ai_tool.outputs.reason }}
+          TEST_STATUS: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Failed' || '✅ Passed' }}
+          MYPY_STATUS: ${{ steps.mypy.outputs.mypy_failed == 'true' && '❌ Failed' || '✅ Passed' }}
+          LINT_STATUS: ${{ steps.lint.outputs.lint_failed == 'true' && '❌ Failed' || '✅ Passed' }}
         run: |
-          # Build PR body with test results using heredoc
-          PR_BODY=$(cat <<'EOF'
-Resolves ${{ steps.linear.outputs.identifier }}
+          # Read issue description
+          DESCRIPTION=$(cat /tmp/issue_description.txt)
 
-## CodeRabbit Finding
-${{ steps.linear.outputs.title }}
-
-## AI Tool Used
-**Tool**: ${{ steps.ai_tool.outputs.tool }}
-**Reason**: ${{ steps.ai_tool.outputs.reason }}
-
-## Changes Applied
-$(cat /tmp/issue_description.txt)
-
-## Test Results
-- **Unit Tests**: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Failed' || '✅ Passed' }}
-- **Type Checking**: ${{ steps.mypy.outputs.mypy_failed == 'true' && '❌ Failed' || '✅ Passed' }}
-- **Linting**: ${{ steps.lint.outputs.lint_failed == 'true' && '❌ Failed' || '✅ Passed' }}
-
-## Review Checklist
-- [ ] Code changes are correct
-- [ ] Tests are passing
-- [ ] No security issues introduced
-- [ ] Documentation updated (if needed)
-
-## Next Steps
-1. Review the AI-generated fix
-2. Run additional manual tests if needed
-3. Approve and merge if satisfied
-
----
-
-🤖 Generated with AI Issue Remediation Script (Phase 2B)
-Resolves ${{ steps.linear.outputs.identifier }}
-EOF
-)
+          # Build PR body using printf (avoid heredoc YAML issues)
+          {
+            printf "Resolves %s\n\n" "${IDENTIFIER}"
+            printf "## CodeRabbit Finding\n%s\n\n" "${TITLE}"
+            printf "## AI Tool Used\n**Tool**: %s\n**Reason**: %s\n\n" "${AI_TOOL}" "${AI_REASON}"
+            printf "## Changes Applied\n%s\n\n" "${DESCRIPTION}"
+            printf "## Test Results\n"
+            printf -- "- **Unit Tests**: %s\n" "${TEST_STATUS}"
+            printf -- "- **Type Checking**: %s\n" "${MYPY_STATUS}"
+            printf -- "- **Linting**: %s\n\n" "${LINT_STATUS}"
+            printf "## Review Checklist\n"
+            printf -- "- [ ] Code changes are correct\n"
+            printf -- "- [ ] Tests are passing\n"
+            printf -- "- [ ] No security issues introduced\n"
+            printf -- "- [ ] Documentation updated (if needed)\n\n"
+            printf "## Next Steps\n"
+            printf "1. Review the AI-generated fix\n"
+            printf "2. Run additional manual tests if needed\n"
+            printf "3. Approve and merge if satisfied\n\n"
+            printf -- "---\n\n"
+            printf "🤖 Generated with AI Issue Remediation Script (Phase 2B)\n"
+            printf "Resolves %s\n" "${IDENTIFIER}"
+          } > /tmp/pr_body.txt
 
           # Create PR
           gh pr create \
-            --title "Fix ${{ steps.linear.outputs.identifier }}: ${{ steps.linear.outputs.title }}" \
-            --body "$PR_BODY" \
-            --label "coderabbit-fix,ai-generated,${{ steps.ai_tool.outputs.tool }}" \
+            --title "Fix ${IDENTIFIER}: ${TITLE}" \
+            --body-file /tmp/pr_body.txt \
+            --label "coderabbit-fix,ai-generated,${AI_TOOL}" \
             --reviewer "" \
             --assignee "${{ github.actor }}"
 
@@ -301,9 +300,9 @@ EOF
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          if [ -n "$SLACK_WEBHOOK" ]; then
+          if [ -n "$SLACK_WEBHOOK" ] && [ -x "./scripts/slack-notify.sh" ]; then
             ./scripts/slack-notify.sh "$SLACK_WEBHOOK" \
-              "✅ *AI Fix PR Created*" \
+              "✅ AI Fix PR Created" \
               "#36a64f" \
               "Issue" "${{ steps.linear.outputs.identifier }}" "true" \
               "PR" "${{ steps.create_pr.outputs.pr_url }}" "false" \
@@ -315,13 +314,12 @@ EOF
         if: steps.create_pr.outputs.pr_url
         run: |
           # Update Linear issue with comment using jq for safe JSON
-          COMMENT="✅ AI fix generated!
-
-**Pull Request**: ${{ steps.create_pr.outputs.pr_url }}
-**AI Tool**: ${{ steps.ai_tool.outputs.tool }}
-**Test Results**: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Tests failed' || '✅ Tests passed' }}
-
-Please review the PR and merge if satisfied."
+          PR_URL="${{ steps.create_pr.outputs.pr_url }}"
+          AI_TOOL="${{ steps.ai_tool.outputs.tool }}"
+          TEST_RESULT="${{ steps.tests.outputs.tests_failed == 'true' && '❌ Tests failed' || '✅ Tests passed' }}"
+          
+          # Build comment with printf
+          COMMENT=$(printf "✅ AI fix generated!\n\nPull Request: %s\nAI Tool: %s\nTest Results: %s\n\nPlease review the PR and merge if satisfied." "${PR_URL}" "${AI_TOOL}" "${TEST_RESULT}")
 
           curl -s -X POST https://api.linear.app/graphql \
             -H "Authorization: $LINEAR_API_KEY" \

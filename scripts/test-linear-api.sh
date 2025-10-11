@@ -73,8 +73,6 @@ else
     echo -e "${BLUE}ℹ️  Use these team keys to fetch issues:${NC}"
     echo "$TEAMS_RESPONSE" | jq -r '.data.teams.nodes[] | "  ./scripts/fetch-linear-issue.sh \"\(.key)-123\""'
 fi
-fi
-fi
 
 echo
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
