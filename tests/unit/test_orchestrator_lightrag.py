@@ -26,6 +26,7 @@ Test Coverage:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 import asyncio
+from typing import Optional
 
 
 # Mock LightRAG service class
@@ -47,7 +48,7 @@ class MockLightRAGService:
         self.rag = MagicMock()
         self.initialized = True
 
-    async def insert_text(self, text: str, metadata: dict = None):
+    async def insert_text(self, text: str, metadata: Optional[dict] = None):
         """Insert text into LightRAG"""
         if not self.initialized:
             await self.initialize()
