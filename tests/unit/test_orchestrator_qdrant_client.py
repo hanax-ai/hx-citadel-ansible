@@ -89,7 +89,7 @@ class MockQdrantService:
             return False
 
         try:
-            collection_info = await self.client.get_collection(self.collection_name)
+            await self.client.get_collection(self.collection_name)
             return True
         except Exception:
             return False
