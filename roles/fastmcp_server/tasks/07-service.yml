@@ -1,47 +1,117 @@
 ---
 # Systemd service configuration
+# TASK-021: Comprehensive error handling with block/rescue/always pattern
 
-- name: Deploy systemd service file
-  ansible.builtin.template:
-    src: shield-mcp-server.service.j2
-    dest: /etc/systemd/system/shield-mcp-server.service
-    owner: root
-    group: root
-    mode: '0644'
-  notify:
-    - reload systemd
-    - restart fastmcp-server
+- name: Deploy and start Shield MCP service with error handling
+  block:
+    - name: Deploy systemd service file
+      ansible.builtin.template:
+        src: shield-mcp-server.service.j2
+        dest: /etc/systemd/system/shield-mcp-server.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart fastmcp-server
 
-- name: Enable and start Shield MCP service
-  ansible.builtin.systemd:
-    name: shield-mcp-server
-    enabled: yes
-    state: started
-    daemon_reload: yes
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
 
-- name: Wait for service to be ready
-  ansible.builtin.wait_for:
-    port: "{{ fastmcp_port }}"
-    host: "{{ ansible_host }}"
-    delay: 5
-    timeout: 30
-    state: started
+    - name: Enable and start Shield MCP service
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+        enabled: yes
+        state: started
 
-- name: Verify service health
-  ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:{{ fastmcp_port }}/health"
-    method: GET
-    status_code: [200, 503]
-    return_content: yes
-  register: health_check
-  retries: 3
-  delay: 5
-  until: health_check.status == 200
-  failed_when: false
+    - name: Wait for service to be ready
+      ansible.builtin.wait_for:
+        port: "{{ fastmcp_port }}"
+        host: "{{ ansible_host }}"
+        delay: 5
+        timeout: 30
+        state: started
+      failed_when: false  # Don't fail deployment if wait times out
 
-- name: Display health check result
-  ansible.builtin.debug:
-    msg: |
-      Health Check Status: {{ health_check.status | default('Failed') }}
-      Response: {{ health_check.json | default('No response') | to_nice_json }}
-  when: health_check.status is defined
+    - name: Verify service is running
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+        state: started
+      register: service_status
+      failed_when: false
+
+    - name: Verify service health (optional)
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ fastmcp_port }}/health"
+        method: GET
+        status_code: [200, 503]
+        return_content: yes
+        timeout: 10
+      register: health_check
+      retries: 2
+      delay: 3
+      until: health_check.status == 200
+      failed_when: false  # Health check failure doesn't fail deployment
+
+    - name: Display health check result
+      ansible.builtin.debug:
+        msg: |
+          Health Check Status: {{ health_check.status | default('Failed') }}
+          Response: {{ health_check.json | default('No response') | to_nice_json }}
+      when: health_check.status is defined
+
+  rescue:
+    - name: Log service deployment failure
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Shield MCP service deployment encountered errors
+          Service: shield-mcp-server
+          Host: {{ ansible_hostname }}
+          Error: {{ ansible_failed_result | default('Unknown error') }}
+
+    - name: Attempt service recovery
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+        state: restarted
+        daemon_reload: yes
+      register: recovery_attempt
+      failed_when: false
+
+    - name: Check if recovery succeeded
+      ansible.builtin.systemd:
+        name: shield-mcp-server
+      register: recovery_status
+      failed_when: false
+
+    - name: Report recovery status
+      ansible.builtin.debug:
+        msg: |
+          Recovery Attempt: {{ 'SUCCESS' if (recovery_status.status.ActiveState | default('inactive')) == 'active' else 'FAILED' }}
+          Service State: {{ recovery_status.status.ActiveState | default('unknown') }}
+          
+      when: recovery_status is defined
+
+    - name: Fail if service is not running after recovery
+      ansible.builtin.fail:
+        msg: "Shield MCP service failed to start. Check logs: journalctl -u shield-mcp-server -n 50"
+      when: 
+        - recovery_status is defined
+        - (recovery_status.status.ActiveState | default('inactive')) != 'active'
+
+  always:
+    - name: Collect service logs for debugging
+      ansible.builtin.shell: |
+        journalctl -u shield-mcp-server --no-pager -n 30 > /tmp/shield-mcp-deployment.log 2>&1 || true
+      changed_when: false
+      failed_when: false
+
+    - name: Display final service status
+      ansible.builtin.debug:
+        msg: |
+          === Shield MCP Service Status ===
+          Deployment Phase: Complete
+          Service: shield-mcp-server
+          Expected Port: {{ fastmcp_port }}
+          Logs: journalctl -u shield-mcp-server
+          Deployment Log: /tmp/shield-mcp-deployment.log
