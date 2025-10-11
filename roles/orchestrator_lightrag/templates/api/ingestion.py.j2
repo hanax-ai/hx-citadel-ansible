@@ -80,7 +80,7 @@ class IngestResponse(BaseModel):
     - Listen to events: GET /events/stream
     """
 )
-async def ingest_async(request: IngestRequest):
+async def ingest_async(request: IngestRequest) -> IngestResponse:
     """
     Asynchronous ingestion endpoint (HTTP 202 Accepted).
     
@@ -163,7 +163,7 @@ async def ingest_async(request: IngestRequest):
     summary="LightRAG statistics",
     description="Get current LightRAG engine statistics (KG entities, relationships, vectors)"
 )
-async def get_lightrag_stats():
+async def get_lightrag_stats() -> Dict[str, Any]:
     """Get LightRAG engine statistics"""
     try:
         from services.lightrag_service import lightrag_service
