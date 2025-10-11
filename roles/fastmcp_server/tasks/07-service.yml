@@ -39,7 +39,7 @@
         name: shield-mcp-server
         state: started
       register: service_status
-      failed_when: false
+      failed_when: service_status.status.ActiveState != "active"
 
     - name: Verify service health (optional)
       ansible.builtin.uri:

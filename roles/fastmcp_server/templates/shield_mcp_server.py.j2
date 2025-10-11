@@ -105,13 +105,13 @@ async def call_orchestrator_api(
         circuit_state=orchestrator_breaker.current_state.name
     )
     
-    @orchestrator_breaker
-    async def _make_request():
-        async with httpx.AsyncClient(timeout=timeout) as client:
+    def _make_request_sync():
+        """Synchronous HTTP call for circuit breaker compatibility"""
+        with httpx.Client(timeout=timeout) as client:
             if method == "POST":
-                response = await client.post(url, json=json_data)
+                response = client.post(url, json=json_data)
             elif method == "GET":
-                response = await client.get(url)
+                response = client.get(url)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
             
@@ -119,7 +119,8 @@ async def call_orchestrator_api(
             return response.json()
     
     try:
-        result = await _make_request()
+        # Execute sync function through circuit breaker in thread pool
+        result = await asyncio.to_thread(orchestrator_breaker.call, _make_request_sync)
         logger.info(
             "orchestrator_api_success",
             endpoint=endpoint,
