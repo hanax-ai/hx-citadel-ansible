@@ -10,7 +10,7 @@ Comprehensive test suite for the HX-Citadel Shield production readiness project,
 
 ## Directory Structure
 
-```
+```text
 tests/
 ├── README.md                    # This file
 ├── __init__.py                  # Test package init
@@ -401,11 +401,11 @@ pytest --cov=roles --cov-report=html
 
 ## Resources
 
-- **Pytest Documentation**: https://docs.pytest.org/
-- **pytest-asyncio**: https://pytest-asyncio.readthedocs.io/
-- **pytest-cov**: https://pytest-cov.readthedocs.io/
-- **respx**: https://lundberg.github.io/respx/
-- **Locust**: https://docs.locust.io/
+- **Pytest Documentation**: [https://docs.pytest.org/](https://docs.pytest.org/)
+- **pytest-asyncio**: [https://pytest-asyncio.readthedocs.io/](https://pytest-asyncio.readthedocs.io/)
+- **pytest-cov**: [https://pytest-cov.readthedocs.io/](https://pytest-cov.readthedocs.io/)
+- **respx**: [https://lundberg.github.io/respx/](https://lundberg.github.io/respx/)
+- **Locust**: [https://docs.locust.io/](https://docs.locust.io/)
 
 ---
 
