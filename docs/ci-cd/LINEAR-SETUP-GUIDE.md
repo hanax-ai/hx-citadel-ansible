@@ -10,7 +10,7 @@
 
 | Step | Status | Details |
 |------|--------|---------|
-| **Generate Linear API Key** | ✅ Complete | `lin_api_yRumHPpiFUsdPbbng56xSVwX97HCtyTdFvI2OzlH` |
+| **Generate Linear API Key** | ✅ Complete | `lin_api_YOUR_KEY_HERE` (stored in GitHub Secrets) |
 | **Validate API Key** | ✅ Complete | User: jarvisr@hana-x.ai (Admin) |
 | **Find Team ID** | ✅ Complete | Team: HANA-X Ai, Key: HAN, ID: 82355734-bc0c-49c6-ba88-6ad2ca50865a |
 | **Update CodeRabbit Config** | ✅ Complete | `.coderabbit.yaml` updated with team_key |
@@ -28,7 +28,7 @@ Team Key: HAN
 Team ID: 82355734-bc0c-49c6-ba88-6ad2ca50865a
 API User: jarvisr@hana-x.ai
 API Role: Admin
-API Key: lin_api_yRumHPpiFUsdPbbng56xSVwX97HCtyTdFvI2OzlH
+API Key: lin_api_YOUR_KEY_HERE
 ```
 
 **⚠️ SECURITY**: API key stored in:
@@ -42,7 +42,7 @@ API Key: lin_api_yRumHPpiFUsdPbbng56xSVwX97HCtyTdFvI2OzlH
 ```bash
 # Test 1: Verify user authentication
 $ curl -X POST https://api.linear.app/graphql \
-  -H "Authorization: lin_api_yRumHPpiFUsdPbbng56xSVwX97HCtyTdFvI2OzlH" \
+  -H "Authorization: $LINEAR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "{ viewer { name email admin } }"}'
 
@@ -93,8 +93,8 @@ https://github.com/YOUR_ORG/hx-citadel-ansible/settings/secrets/actions
 ```
 
 **Add new repository secret:**
-- Name: `LINEAR_API_KEY`
-- Value: `lin_api_yRumHPpiFUsdPbbng56xSVwX97HCtyTdFvI2OzlH`
+- Name: `LINEAR_API_KEY` (or `LINEAR_SECRET` as configured)
+- Value: `<your_linear_api_key>` (starts with `lin_api_`)
 
 ### 2. Configure CodeRabbit Web Interface
 
@@ -102,7 +102,7 @@ https://github.com/YOUR_ORG/hx-citadel-ansible/settings/secrets/actions
 2. Navigate to your repository settings
 3. Under "Integrations" → "Linear":
    - Enable Linear integration
-   - Enter API key: `lin_api_yRumHPpiFUsdPbbng56xSVwX97HCtyTdFvI2OzlH`
+   - Enter API key: `<your_linear_api_key>`
    - Select team: **HANA-X Ai (HAN)**
    - Test connection
 
