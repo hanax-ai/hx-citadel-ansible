@@ -1,5 +1,5 @@
 # HX-Citadel Shield - Development Dependencies
-# Phase 2 - Type Hints Migration (TASK-022)
+# Phase 2 - Quality Improvements (TASK-022, TASK-031)
 
 # Type Checking
 mypy>=1.8.0
@@ -18,17 +18,28 @@ black>=23.12.0
 isort>=5.13.0
 flake8>=7.0.0
 
-# Testing (for future Phase 2 Sprint 2.2)
+# Testing Framework (TASK-031)
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=4.1.0
 pytest-xdist>=3.5.0  # Parallel test execution
 pytest-timeout>=2.2.0
+pytest-mock>=3.12.0
+pytest-env>=1.1.0
 
-# Test Coverage
+# API Testing
+httpx>=0.27.0  # For async HTTP testing
+respx>=0.21.0  # Mock httpx requests
+
+# Load Testing (TASK-034)
+locust>=2.20.0
+faker>=22.0.0  # Generate test data
+
+# Test Coverage (TASK-036)
 coverage[toml]>=7.4.0
+pytest-html>=4.1.0  # HTML test reports
 
-# Pre-commit hooks
+# Pre-commit hooks (TASK-037)
 pre-commit>=3.6.0
 
 # Documentation
