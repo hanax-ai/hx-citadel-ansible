@@ -53,38 +53,18 @@ fetch_linear_issue() {
 
     echo -e "${BLUE}📥 Fetching Linear issue: $issue_id${NC}"
 
-    # GraphQL query to fetch issue details
-    local query=$(cat <<'EOF'
-{
-  issue(id: "$ISSUE_ID") {
-    id
-    identifier
-    title
-    description
-    priority
-    labels {
-      nodes {
-        name
-      }
-    }
-    state {
-      name
-    }
-  }
-}
-EOF
-)
+    # Use the fetch-linear-issue.sh helper script
+    local script_dir="$(dirname "$(readlink -f "$0")")"
+    local issue_json=$("$script_dir/fetch-linear-issue.sh" "$issue_id")
 
-    # Replace placeholder
-    query="${query/\$ISSUE_ID/$issue_id}"
+    # Check for errors
+    if echo "$issue_json" | jq -e '.error' >/dev/null 2>&1; then
+        echo -e "${RED}Error: $(echo "$issue_json" | jq -r '.error')${NC}"
+        exit 1
+    fi
 
-    # Execute GraphQL query
-    local response=$(curl -s -X POST https://api.linear.app/graphql \
-        -H "Authorization: $LINEAR_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d "{\"query\": $(echo "$query" | jq -Rs .)}")
-
-    echo "$response"
+    # Wrap in GraphQL response format for compatibility with existing code
+    echo "{\"data\": {\"issue\": $issue_json}}"
 }
 
 ###############################################################################

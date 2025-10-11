@@ -36,7 +36,50 @@ path_filters:
 
 ---
 
-### Issue #2: Linear Integration Disabled for Public Repos ⏸️ **PENDING**
+### Issue #2: Missing "Bearer" Prefix in Linear Auth ✅ **FIXED**
+
+**Problem**: Linear API requires "Bearer" prefix in Authorization header
+
+**Details**:
+```bash
+# BROKEN (before):
+-H "Authorization: $LINEAR_API_KEY"
+
+# FIXED (after):
+-H "Authorization: Bearer $LINEAR_API_KEY"
+```
+
+**Impact**: All Linear API requests were failing with 401 Unauthorized
+
+**Fix Applied** (October 11, 2025):
+1. Added "Bearer" prefix to workflow mutation call
+2. Created `scripts/fetch-linear-issue.sh` with proper auth
+3. Updated `scripts/fix-linear-issue.sh` to use helper script
+
+**Status**: ✅ Fixed and ready for testing
+
+---
+
+### Issue #3: Incorrect GraphQL Query for Human-Friendly IDs ✅ **FIXED**
+
+**Problem**: Workflow was using `issue(id:)` query but passing human-friendly identifiers like "DEV-123"
+
+**Details**:
+- `issue(id:)` expects opaque global IDs (e.g., "f45d...")
+- We were passing human-friendly IDs ("DEV-123")
+- Result: Query always returned `{"data":{"issue":null}}`
+
+**Fix Applied** (October 11, 2025):
+1. Created smart helper script `fetch-linear-issue.sh`
+2. Parses "DEV-123" into team key and number
+3. Queries for team ID first, then fetches issue
+4. Falls back to global ID query for backward compatibility
+
+**Status**: ✅ Fixed and ready for testing
+
+---
+
+### Issue #4: Linear Integration Disabled for Public Repos ⏸️ **PENDING**
 
 **Problem**: Linear integration is disabled by default for public repositories
 
