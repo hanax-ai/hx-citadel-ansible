@@ -46,7 +46,7 @@ class AvailableAction(BaseModel):
 # Endpoints
 
 @router.get("/stream/{job_id}")
-async def copilotkit_stream(job_id: str):
+async def copilotkit_stream(job_id: str) -> StreamingResponse:
     """
     Server-Sent Events (SSE) endpoint for real-time job state streaming.
     
@@ -81,7 +81,7 @@ async def copilotkit_stream(job_id: str):
 
 
 @router.post("/actions", response_model=CopilotKitResponse)
-async def copilotkit_action(action_request: CopilotKitAction):
+async def copilotkit_action(action_request: CopilotKitAction) -> CopilotKitResponse:
     """
     Action execution endpoint for useCopilotAction hook.
     
@@ -130,7 +130,7 @@ async def copilotkit_action(action_request: CopilotKitAction):
 
 
 @router.get("/actions", response_model=List[AvailableAction])
-async def list_available_actions():
+async def list_available_actions() -> List[AvailableAction]:
     """
     List available CopilotKit actions.
     
@@ -165,7 +165,7 @@ async def list_available_actions():
 
 
 @router.get("/health")
-async def copilotkit_health():
+async def copilotkit_health() -> Dict[str, Any]:
     """
     CopilotKit adapter health check.
     
@@ -183,7 +183,7 @@ async def copilotkit_health():
 
 @router.options("/stream/{job_id}")
 @router.options("/actions")
-async def copilotkit_options():
+async def copilotkit_options() -> Dict[str, str]:
     """
     Handle OPTIONS requests for CORS preflight.
     
