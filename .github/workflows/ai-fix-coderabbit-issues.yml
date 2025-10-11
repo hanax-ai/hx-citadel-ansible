@@ -389,3 +389,4 @@ Please review the PR and merge if satisfied."
           echo "- Unit Tests: ${{ steps.tests.outputs.tests_failed == 'true' && '❌ Failed' || '✅ Passed' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Type Checking: ${{ steps.mypy.outputs.mypy_failed == 'true' && '❌ Failed' || '✅ Passed' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Linting: ${{ steps.lint.outputs.lint_failed == 'true' && '❌ Failed' || '✅ Passed' }}" >> $GITHUB_STEP_SUMMARY
+# Refresh workflow registry
