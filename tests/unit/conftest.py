@@ -10,7 +10,9 @@ import tempfile
 import os
 
 # Add common_types module to path (deployed location)
-sys.path.insert(0, "/tmp/common_types_test")
+# Configurable via COMMON_TYPES_PATH environment variable for testing flexibility
+COMMON_TYPES_PATH = os.getenv("COMMON_TYPES_PATH", "/tmp/common_types_test")
+sys.path.insert(0, COMMON_TYPES_PATH)
 
 # Try to import common_types module
 try:
