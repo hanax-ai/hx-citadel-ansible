@@ -1,7 +1,10 @@
 """
 Health check endpoints
+
+Phase 2 Sprint 2.1: Type Hints Migration (TASK-025)
 """
 
+from typing import Dict, Any
 from fastapi import APIRouter, status
 from pydantic import BaseModel
 from datetime import datetime
@@ -26,14 +29,14 @@ class ComponentHealth(BaseModel):
     """Individual component health"""
     status: str
     latency_ms: float = 0
-    details: dict = {}
+    details: Dict[str, Any] = {}
 
 
 class DetailedHealthResponse(BaseModel):
     """Detailed health with all dependencies"""
     status: str
     timestamp: datetime
-    components: dict
+    components: Dict[str, Any]
     overall_status: str
 
 
@@ -43,7 +46,7 @@ class DetailedHealthResponse(BaseModel):
     status_code=status.HTTP_200_OK,
     tags=["health"]
 )
-async def health_check():
+async def health_check() -> HealthResponse:
     """
     Basic health check (liveness probe).
     
@@ -64,7 +67,7 @@ async def health_check():
     response_model=DetailedHealthResponse,
     tags=["health"]
 )
-async def health_detailed():
+async def health_detailed() -> DetailedHealthResponse:
     """
     Detailed health check with dependency status.
     
@@ -113,7 +116,7 @@ async def health_detailed():
     status_code=status.HTTP_200_OK,
     tags=["health"]
 )
-async def health_readiness():
+async def health_readiness() -> Dict[str, Any]:
     """
     Readiness probe (is service ready to accept traffic?).
     
@@ -136,7 +139,7 @@ async def health_readiness():
     status_code=status.HTTP_200_OK,
     tags=["health"]
 )
-async def health_liveness():
+async def health_liveness() -> Dict[str, Any]:
     """
     Liveness probe (is process alive?).
     
