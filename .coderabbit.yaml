@@ -131,6 +131,12 @@ severity_thresholds:
 integrations:
   linear:
     enabled: true
+    
+    # Linear workspace configuration
+    # Team: HANA-X Ai (key: HAN)
+    # Team ID: 82355734-bc0c-49c6-ba88-6ad2ca50865a
+    # API Key: Configured in CodeRabbit web interface (GitHub secret)
+    team_key: "HAN"
 
     # Auto-create Linear issues for specific findings
     auto_create_issue:
