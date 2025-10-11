@@ -1,11 +1,12 @@
-# Shield Master Architecture
-## HX-Citadel: Complete System Integration and Design
+# HX-Citadel Master Architecture
+## Complete System Integration and Deployment
 
-**Version:** 2.0  
-**Date:** October 8, 2025  
-**Status:** Design Phase - Production Readiness Focus  
-**Architect:** Agent 99 + Agent C  
+**Version:** 3.0
+**Date:** October 11, 2025
+**Status:** Production Deployment - RAG Pipeline Operational
+**Architect:** Agent 99 + Agent C
 **Review:** Expert RAG Pipeline Architect
+**Latest Update:** Actual deployment topology verified and documented
 
 ---
 
@@ -81,10 +82,10 @@
 ```
 ┌───────────────────────────────────────────────────────────┐
 │                   LAYER 1: FRONTEND                       │
-│  • Open WebUI (casual users)                             │
-│  • shield-power-ui (HITL users - CopilotKit)            │
-│  • shield-ag-ui (LoB power users - AG-UI)               │
-│  • shield-dashboard (admins/DevOps)                      │
+│  • Open WebUI (hx-webui-server:8080) ✅ DEPLOYED         │
+│  • shield-power-ui (HITL users - CopilotKit) - PLANNED   │
+│  • shield-ag-ui (LoB power users - AG-UI) - PLANNED      │
+│  • shield-dashboard (admins/DevOps) - PLANNED            │
 └────────────────────────┬──────────────────────────────────┘
                          │ (HTTP API + WebSocket/SSE)
                          ▼
@@ -170,11 +171,17 @@
                          │
                          ▼
 ┌───────────────────────────────────────────────────────────┐
-│                LAYER 5: DATA (Storage)                    │
-│  • Qdrant (192.168.10.9) - Vectors + KG metadata         │
-│  • PostgreSQL (192.168.10.48) - KG store + audit logs    │
-│  • Redis (192.168.10.48) - Streams + cache + session     │
-│  • Ollama (192.168.10.50/52) - Embeddings + LLM          │
+│                LAYER 5: DATA (Storage & Compute)          │
+│  • Qdrant (hx-vectordb-server:6333) - Vectors + KG       │
+│  • PostgreSQL (hx-sqldb-server:5432) - KG + audit logs   │
+│  • Redis (hx-sqldb-server:6379) - Streams + cache        │
+│  • Ollama Embeddings (hx-orchestrator-server:11434)      │
+│    - mxbai-embed-large (1024-dim, 669MB)                 │
+│    - nomic-embed-text (768-dim, 274MB)                   │
+│    - all-minilm (384-dim, 46MB)                          │
+│  • Ollama LLMs (hx-ollama1:11434, hx-ollama2:11434)      │
+│    - hx-ollama1: gemma3:27b, gpt-oss:20b, mistral:7b     │
+│    - hx-ollama2: qwen variants, cogito                   │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -377,8 +384,10 @@ app = FastAPI(title="Shield Orchestrator")
 
 # LightRAG initialization
 lightrag = LightRAG(
-    vector_store=AsyncQdrantClient(url="https://192.168.10.9:6333", api_key=QDRANT_API_KEY),
-    embedding_func=lambda text: ollama_embed(text, url="http://hx-ollama1:11434"),
+    vector_store=AsyncQdrantClient(url="https://hx-vectordb-server:6333", api_key=QDRANT_API_KEY),
+    # Embeddings: Use LOCAL Ollama instance on orchestrator (low latency)
+    embedding_func=lambda text: ollama_embed(text, url="http://localhost:11434"),  # or hx-orchestrator-server:11434
+    # LLMs: Use dedicated GPU nodes for inference
     llm_func=lambda prompt: ollama_llm(prompt, url="http://hx-ollama1:11434"),
     knowledge_graph_store=f"postgresql://{DB_USER}:{DB_PASS}@hx-sqldb-server:5432/lightrag_kg"
 )
@@ -683,24 +692,33 @@ FastMCP crawl_web → HTTP POST → Orchestrator (queue) → HTTP 202 + Job ID �
 
 ## 4. Multi-Frontend Strategy
 
-### **4.1 Four-Frontend Architecture**
+### **4.1 Multi-Frontend Architecture (Five UIs)**
 
 **Q3 from Agent 99:** *How do Open WebUI and AG-UI (LoB) users both access MCP? Don't forget broader use cases.*
 
 **Answer:** **Unified backend, differentiated frontends** via API keys and event subscriptions.
 
+**Status Update (October 11, 2025):**
+- ✅ **Open WebUI**: Deployed and operational at hx-webui-server:8080
+- ⏭️ **shield-power-ui, shield-ag-ui, shield-dashboard**: Planned for Phase 4
+
 ```yaml
-Frontend 1: Open WebUI (hx-webui-server:80)
+Frontend 1: Open WebUI (hx-webui-server:8080) ✅ DEPLOYED
   Technology: Open WebUI (existing)
   Users: General/casual users
-  Tools: qdrant_find, qdrant_store (limited), lightrag_query
+  Status: ✅ Operational (http://hx-webui-server.dev-test.hana-x.ai:8080/)
+  Backend: LiteLLM Gateway (http://hx-litellm-server:4000/v1) + OpenAI API
+  Models: Access via LiteLLM to Ollama (hx-ollama1, hx-ollama2) and OpenAI
+  Tools: MCP tools NOT yet integrated (future enhancement)
   Events: NO subscription (simple chat UX)
   API Key: sk-shield-openwebui-*
   Quotas: 100 queries/hour
+  Note: Currently chat-only, will add qdrant_find, lightrag_query in Phase 3
 
-Frontend 2: shield-power-ui (hx-dev-server:3000)
+Frontend 2: shield-power-ui (hx-dev-server:3000) - PLANNED
   Technology: CopilotKit + React
   Users: HITL users (interactive AI assistance)
+  Status: ⏭️ Phase 4 implementation
   Tools: crawl_web (with approval), ingest_doc (with approval), all query tools
   Events: CopilotKit state sync (via Orchestrator adapter)
   API Key: sk-shield-copilot-*
@@ -712,9 +730,10 @@ Frontend 2: shield-power-ui (hx-dev-server:3000)
     • Progress tracking
   Quotas: 500 queries/hour
 
-Frontend 3: shield-ag-ui (hx-dev-server:3001)
+Frontend 3: shield-ag-ui (hx-dev-server:3001) - PLANNED
   Technology: AG-UI Protocol + React
   Users: LoB power users (advanced operations)
+  Status: ⏭️ Phase 4 implementation
   Tools: ALL tools (full access)
   Events: Full event stream (Redis Streams consumer)
   API Key: sk-shield-lob-*
@@ -727,9 +746,10 @@ Frontend 3: shield-ag-ui (hx-dev-server:3001)
     • KG curation interface (NEW - per review)
   Quotas: 1000 queries/hour
 
-Frontend 4: shield-dashboard (hx-dev-server:3002)
+Frontend 4: shield-dashboard (hx-dev-server:3002) - PLANNED
   Technology: React + Grafana integration
   Users: Admins/DevOps
+  Status: ⏭️ Phase 4 implementation
   Tools: Monitoring tools only (health, metrics, fleet status)
   Events: System-level events (health, performance, alerts)
   API Key: sk-shield-admin-*
@@ -849,15 +869,29 @@ Software Stack:
   • Redis (Streams + cache)
   • PostgreSQL client (KG store)
   • Qdrant client (vector ops)
+  • Ollama (LOCAL - embedding models co-located) ✨ KEY OPTIMIZATION
   • OpenTelemetry (tracing)
+
+Ollama Deployment (Co-located on Orchestrator):
+  Purpose: Low-latency embedding generation for RAG pipeline
+  Port: 11434 (localhost or hx-orchestrator-server)
+  Models:
+    • mxbai-embed-large:latest (1024-dim, 669MB, F16)
+    • nomic-embed-text:latest (768-dim, 274MB, F16)
+    • all-minilm:latest (384-dim, 46MB, F16)
+  Rationale:
+    • Embeddings called 100s of times per ingestion job
+    • Network latency to remote Ollama would bottleneck pipeline
+    • Co-location reduces embedding latency from ~100ms → <10ms
 
 Services:
   • Main API: :8000/api
   • WebSocket: :8000/ws
   • SSE: :8000/events
-  • CopilotKit: :8000/copilotkit
-  • Health: :8000/health
+  • CopilotKit: :8000/copilotkit (planned)
+  • Health: :8000/health (multiple endpoints - /health, /health/detailed, /ready, /live)
   • Metrics: :8000/metrics
+  • Ollama Embeddings: :11434/api (localhost)
 
 Deployment:
   • Systemd service
@@ -1698,12 +1732,33 @@ hx-litellm-server (192.168.10.46):
     - Ansible role: roles/litellm
     - Health checks
 
-hx-dev-server (192.168.10.12):
-  Role: App Server (Frontends)
+hx-webui-server (192.168.10.TBD):
+  Role: Frontend (Open WebUI) ✅ DEPLOYED
   Services:
-    - shield-power-ui (:3000) - CopilotKit
-    - shield-ag-ui (:3001) - AG-UI
-    - shield-dashboard (:3002) - Monitoring
+    - Open WebUI (:8080) - Chat interface
+  Components:
+    - Open WebUI application
+    - LiteLLM client integration
+    - OpenAI API integration
+  Status:
+    - ✅ Operational: http://hx-webui-server.dev-test.hana-x.ai:8080/
+    - Connected to LiteLLM: http://hx-litellm-server:4000/v1
+    - Also connected to OpenAI API: https://api.openai.com/v1
+    - MCP tools: Not yet integrated (Phase 3)
+  Hardware:
+    - 4-8 CPU cores
+    - 8-16GB RAM
+    - 200GB SSD
+  Deployment:
+    - Ansible role: TBD
+    - Health checks
+
+hx-dev-server (192.168.10.12):
+  Role: App Server (Additional Frontends) - PLANNED
+  Services:
+    - shield-power-ui (:3000) - CopilotKit (Phase 4)
+    - shield-ag-ui (:3001) - AG-UI (Phase 4)
+    - shield-dashboard (:3002) - Monitoring (Phase 4)
   Components:
     - Docker containers (3)
     - Nginx reverse proxy
@@ -1714,7 +1769,7 @@ hx-dev-server (192.168.10.12):
     - 500GB SSD
   Deployment:
     - Docker Compose
-    - Ansible role: roles/shield_ui
+    - Ansible role: roles/shield_ui (TBD)
     - Blue-green deployments (like Qdrant UI)
     - Health checks
 
@@ -1722,17 +1777,32 @@ Data Layer Servers:
   hx-vectordb-server (192.168.10.9):
     - Qdrant Vector DB (NATIVE - per principle)
     - Port: 6333 (HTTPS)
-  
+
   hx-sqldb-server (192.168.10.48):
     - PostgreSQL (KG store, audit logs)
     - Redis (Streams, cache, sessions)
     - Ports: 5432 (PostgreSQL), 6379 (Redis)
-  
-  hx-ollama1, hx-ollama2 (192.168.10.50, .52):
-    - Ollama LLM nodes
-    - Embeddings: mxbai-embed-large (1024-dim)
-    - LLM: llama3.1:8b (entity extraction)
+
+  hx-orchestrator-server (192.168.10.8):
+    - Ollama (EMBEDDING MODELS - co-located for low latency) ✨
     - Port: 11434
+    - Models:
+      • mxbai-embed-large:latest (1024-dim, 669MB)
+      • nomic-embed-text:latest (768-dim, 274MB)
+      • all-minilm:latest (384-dim, 46MB)
+    - Purpose: Low-latency embedding generation for orchestrator
+
+  hx-ollama1, hx-ollama2 (192.168.10.50, .52):
+    - Ollama LLM nodes (INFERENCE MODELS - dedicated GPU servers)
+    - hx-ollama1 Models:
+      • gemma3:27b (LLM inference)
+      • gpt-oss:20b (LLM inference)
+      • mistral:7b (LLM inference)
+    - hx-ollama2 Models:
+      • qwen2:7b, qwen2.5:latest, qwen2.5-coder:7b
+      • cogito:latest, plus 2 more variants
+    - Port: 11434
+    - Purpose: High-performance LLM inference on dedicated GPU hardware
 ```
 
 ---
