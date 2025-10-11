@@ -17,22 +17,27 @@ async def wait_for_service(
     interval: float = 1.0
 ) -> bool:
     """
-    Wait for a service to become available
+    Wait for a service to become available (healthy and responding with 2xx)
 
     Args:
-        url: Service URL to check
+        url: Service URL to check (typically a health endpoint)
         timeout: Maximum time to wait in seconds
         interval: Check interval in seconds
 
     Returns:
-        True if service is available, False otherwise
+        True if service is healthy (2xx response), False otherwise
+
+    Notes:
+        Only accepts 2xx status codes as "healthy". Client errors (4xx) and
+        server errors (5xx) indicate the service is not operational.
     """
     start_time = time.time()
     async with httpx.AsyncClient() as client:
         while time.time() - start_time < timeout:
             try:
                 response = await client.get(url, timeout=5.0)
-                if response.status_code < 500:
+                # Only accept 2xx status codes as healthy
+                if 200 <= response.status_code < 300:
                     return True
             except (httpx.RequestError, httpx.TimeoutException):
                 pass
