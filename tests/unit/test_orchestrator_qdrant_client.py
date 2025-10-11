@@ -27,6 +27,7 @@ Test Coverage:
 """
 
 import pytest
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
@@ -95,7 +96,7 @@ class MockQdrantService:
             return False
 
     async def search(
-        self, query_vector: list, limit: int = 5, score_threshold: float = 0.5, filters: dict = None
+        self, query_vector: list, limit: int = 5, score_threshold: float = 0.5, filters: Optional[dict] = None
     ):
         """Search vectors"""
         if not self.client:
