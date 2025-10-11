@@ -25,6 +25,7 @@ Test Coverage:
 
 import pytest
 from datetime import datetime
+from typing import Optional
 from unittest.mock import MagicMock, patch, AsyncMock
 import time
 
@@ -51,7 +52,7 @@ class MockHealthResponse:
 class MockComponentHealth:
     """Mock ComponentHealth for testing"""
 
-    def __init__(self, status: str, latency_ms: float = 0, details: dict = None):
+    def __init__(self, status: str, latency_ms: float = 0, details: Optional[dict] = None):
         self.status = status
         self.latency_ms = latency_ms
         self.details = details or {}
