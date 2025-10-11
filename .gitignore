@@ -218,3 +218,5 @@ archive_*/
 # Technology Knowledge Base
 tech_kb/
 .env.linear
+*.pdf
+# Ignore generated PDF reports
