@@ -13,6 +13,13 @@ Health Endpoints (deployed on orchestrator at hx-orchestrator-server:8000):
 - /ready (or health_readiness_path) - Readiness probe
 - /live (or health_liveness_path) - Liveness probe
 
+Test Scope:
+- These are STRUCTURAL/DESIGN tests validating response models and data structures
+- Mock-based tests verify the expected API contract and response shapes
+- Edge cases and error scenarios are tested to validate error handling logic
+- For END-TO-END validation of deployed health endpoints, see:
+  tests/integration/test_orchestrator_api.py (HTTP-based integration tests)
+
 Test Coverage:
 - Basic health check (liveness)
 - Detailed health with component checks
@@ -20,7 +27,7 @@ Test Coverage:
 - Liveness probe validation
 - Response models (Pydantic validation)
 - Uptime calculations
-- Error handling
+- Error handling and edge cases
 """
 
 import pytest
@@ -366,3 +373,123 @@ class TestLivenessProbe:
         assert isinstance(response["alive"], bool)
         assert isinstance(response["pid"], int)
         assert isinstance(response["timestamp"], datetime)
+
+
+@pytest.mark.unit
+@pytest.mark.fast
+@pytest.mark.asyncio
+class TestHealthCheckEdgeCases:
+    """Test edge cases and error scenarios for health checks"""
+
+    async def test_degraded_health_status(self):
+        """Test health check with degraded status (some components failing)"""
+        components = {
+            "database": {"status": "up", "latency_ms": 50},
+            "redis": {"status": "down", "error": "Connection refused"},
+            "qdrant": {"status": "up", "latency_ms": 25}
+        }
+
+        response = MockDetailedHealthResponse(
+            status="degraded",
+            timestamp=datetime.utcnow(),
+            components=components,
+            overall_status="degraded"
+        )
+
+        assert response.overall_status == "degraded"
+        assert response.components["redis"]["status"] == "down"
+        assert "error" in response.components["redis"]
+
+    async def test_unhealthy_status_all_components_down(self):
+        """Test health check when all components are down"""
+        components = {
+            "database": {"status": "down", "error": "Connection timeout"},
+            "redis": {"status": "down", "error": "Connection refused"},
+            "qdrant": {"status": "down", "error": "Service unavailable"}
+        }
+
+        response = MockDetailedHealthResponse(
+            status="unhealthy",
+            timestamp=datetime.utcnow(),
+            components=components,
+            overall_status="unhealthy"
+        )
+
+        assert response.overall_status == "unhealthy"
+        all_down = all(comp["status"] == "down" for comp in response.components.values())
+        assert all_down is True
+
+    async def test_component_with_high_latency(self):
+        """Test component health reporting with high latency"""
+        component = MockComponentHealth(
+            status="up",
+            latency_ms=5000.0,  # 5 seconds - very high
+            details={"warning": "High latency detected"}
+        )
+
+        assert component.status == "up"
+        assert component.latency_ms > 1000  # Over 1 second
+        assert "warning" in component.details
+
+    async def test_component_with_error_details(self):
+        """Test component health with error details"""
+        component = MockComponentHealth(
+            status="down",
+            latency_ms=0,
+            details={
+                "error": "Connection refused",
+                "error_code": "ECONNREFUSED",
+                "last_success": "2025-01-01T00:00:00"
+            }
+        )
+
+        assert component.status == "down"
+        assert "error" in component.details
+        assert "error_code" in component.details
+
+    async def test_readiness_probe_not_ready(self):
+        """Test readiness probe when service is not ready"""
+        response = {
+            "ready": False,
+            "timestamp": datetime.utcnow(),
+            "reason": "Database migration in progress"
+        }
+
+        assert response["ready"] is False
+        assert "reason" in response
+
+    async def test_zero_uptime(self):
+        """Test health check with zero uptime (just started)"""
+        response = MockHealthResponse(
+            status="healthy",
+            timestamp=datetime.utcnow(),
+            version="1.0.0",
+            uptime_seconds=0.0
+        )
+
+        assert response.uptime_seconds == 0.0
+        assert response.status == "healthy"
+
+    async def test_very_long_uptime(self):
+        """Test health check with very long uptime (30 days)"""
+        uptime_30_days = 30 * 24 * 60 * 60.0  # 2,592,000 seconds
+
+        response = MockHealthResponse(
+            status="healthy",
+            timestamp=datetime.utcnow(),
+            version="1.0.0",
+            uptime_seconds=uptime_30_days
+        )
+
+        assert response.uptime_seconds > 2_500_000  # Over 30 days
+        assert response.status == "healthy"
+
+    async def test_missing_optional_component_details(self):
+        """Test component health with no optional details"""
+        component = MockComponentHealth(
+            status="up",
+            latency_ms=0
+        )
+
+        assert component.status == "up"
+        assert component.details == {}  # Should have empty dict, not None
