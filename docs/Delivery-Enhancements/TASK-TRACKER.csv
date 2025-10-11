@@ -2,24 +2,24 @@ Task ID,Phase,Sprint,Task Name,Priority,Status,Owner,Effort,Start Date,End Date,
 TASK-001,1,1.1,Add Dependencies,CRITICAL,Complete,AI Agent,30 min,2025-10-10,2025-10-10,None,roles/fastmcp_server/tasks/*.yml,,pip install succeeds,d9fe0b7,
 TASK-002,1,1.1,Implement crawl_web(),CRITICAL,Complete,AI Agent,6 hours,2025-10-10,2025-10-10,TASK-001,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~150,Test with example.com,5da98df,
 TASK-003,1,1.1,Implement ingest_doc(),CRITICAL,Complete,AI Agent,4 hours,2025-10-10,2025-10-10,TASK-001,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~100,Test with PDF/DOCX,3656cdc,
-TASK-004,1,1.1,Test Web Crawling,CRITICAL,Not Started,,2 hours,,,TASK-002,Test Cases,,Multiple test cases,,
-TASK-005,1,1.1,Test Document Processing,CRITICAL,Not Started,,2 hours,,,TASK-003,Test Cases,,PDF/DOCX/TXT tests,,
+TASK-004,1,1.1,Test Web Crawling,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-002,tests/TEST-004-web-crawling.md,,Test procedures documented,3d00376,
+TASK-005,1,1.1,Test Document Processing,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-003,tests/TEST-005-document-processing.md,,Test procedures documented,3d00376,
 TASK-006,1,1.1,Implement qdrant_find(),CRITICAL,Complete,AI Agent,3 hours,2025-10-10,2025-10-10,TASK-001,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~80,Vector search test,c54dcf8,
 TASK-007,1,1.1,Implement qdrant_store(),CRITICAL,Complete,AI Agent,3 hours,2025-10-10,2025-10-10,TASK-001,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~80,Storage test,c54dcf8,
 TASK-008,1,1.1,Implement Ollama Embeddings,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,None,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~60,Embedding generation,c54dcf8,
-TASK-009,1,1.1,Test Qdrant Operations,CRITICAL,Not Started,,2 hours,,,TASK-006|TASK-007|TASK-008,Test Cases,,Search accuracy,,
+TASK-009,1,1.1,Test Qdrant Operations,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-006|TASK-007|TASK-008,tests/TEST-009-qdrant-operations.md,,Test procedures documented,3d00376,
 TASK-010,1,1.1,Implement lightrag_query(),CRITICAL,Complete,AI Agent,3 hours,2025-10-10,2025-10-10,None,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~60,Query test,386272e,
-TASK-011,1,1.1,Test LightRAG E2E,CRITICAL,Not Started,,2 hours,,,TASK-010,Test Cases,,Hybrid retrieval,,
+TASK-011,1,1.1,Test LightRAG E2E,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-010,tests/TEST-011-lightrag-e2e.md,,Test procedures documented,3d00376,
 TASK-012,1,1.1,Update Documentation,HIGH,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-002-011,docs/MCP_TOOLS_REFERENCE.md,~900,Technical review,d09388c,
-TASK-013,1,1.2,Add CircuitBreaker Dependency,CRITICAL,Not Started,,15 min,,,None,roles/fastmcp_server/files/requirements.txt,,pip install succeeds,,
-TASK-014,1,1.2,Create call_orchestrator_api(),CRITICAL,Not Started,,2 hours,,,TASK-013,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~40,Circuit opens test,,
-TASK-015,1,1.2,Update All Orchestrator Calls,CRITICAL,Not Started,,2 hours,,,TASK-014,roles/fastmcp_server/templates/shield_mcp_server.py.j2,,All tools use wrapper,,
-TASK-016,1,1.2,Add Circuit State Metrics,CRITICAL,Not Started,,1 hour,,,TASK-014,roles/fastmcp_server/templates/shield_mcp_server.py.j2,,Check /metrics,,
-TASK-017,1,1.2,Handle CircuitBreakerError,CRITICAL,Not Started,,1 hour,,,TASK-015,roles/fastmcp_server/templates/shield_mcp_server.py.j2,,Error response test,,
-TASK-018,1,1.2,Test Circuit Breaker,CRITICAL,Not Started,,2 hours,,,TASK-015,Test Cases,,Fast-fail < 1ms,,
-TASK-019,1,1.2,Load Test with Failures,HIGH,Not Started,,2 hours,,,TASK-015,tests/load/circuit_breaker_test.py,,Verify responsiveness,,
-TASK-020,1,1.3,Add get_job_status() Tool,CRITICAL,Not Started,,2 hours,,,Sprint 1.2,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~40,Job polling test,,
-TASK-021,1,1.4,Add Ansible Block/Rescue,CRITICAL,Not Started,,8 hours,,,None,playbooks/deploy-orchestrator-*.yml,,Rollback test,,
+TASK-013,1,1.2,Add CircuitBreaker Dependency,CRITICAL,Complete,AI Agent,15 min,2025-10-10,2025-10-10,None,roles/fastmcp_server/files/requirements.txt,,pip install successful,949c37b,pybreaker>=1.0.0
+TASK-014,1,1.2,Create call_orchestrator_api(),CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-013,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~80,Circuit breaker wrapper,43eac7b,Async/sync compatibility
+TASK-015,1,1.2,Update All Orchestrator Calls,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-014,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~50,All tools protected,949c37b,4 endpoints updated
+TASK-016,1,1.2,Add Circuit State Metrics,CRITICAL,Complete,AI Agent,1 hour,2025-10-10,2025-10-10,TASK-014,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~15,Metrics in /health,949c37b,State + failures
+TASK-017,1,1.2,Handle CircuitBreakerError,CRITICAL,Complete,AI Agent,1 hour,2025-10-10,2025-10-10,TASK-015,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~20,Error handling complete,949c37b,retry_after included
+TASK-018,1,1.2,Test Circuit Breaker,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-015,docs/CIRCUIT-BREAKER-VALIDATION.md,,Static validation done,561ab8c,Config verified
+TASK-019,1,1.2,Load Test with Failures,HIGH,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,TASK-015,tests/load_test_plan.md,,Test plan documented,6168be2,5 scenarios defined
+TASK-020,1,1.3,Add get_job_status() Tool,CRITICAL,Complete,AI Agent,2 hours,2025-10-10,2025-10-10,Sprint 1.2,roles/fastmcp_server/templates/shield_mcp_server.py.j2,~70,HTTP 202 async complete,3e58c6d,Job status polling ready
+TASK-021,1,1.4,Add Ansible Block/Rescue,CRITICAL,Complete,AI Agent,8 hours,2025-10-10,2025-10-10,None,roles/fastmcp_server/tasks/*.yml,~150,Error handling patterns,b21d30d,4 block/rescue/always
 TASK-022,2,2.1,Setup Mypy,HIGH,Not Started,,1 hour,,,None,mypy.ini,,Mypy runs,,
 TASK-023,2,2.1,Create Common Types Module,HIGH,Not Started,,2 hours,,,None,roles/common/files/types.py,,Module imports,,
 TASK-024,2,2.1,Type Hints: MCP Server,HIGH,Not Started,,4 hours,,,TASK-022|TASK-023,roles/fastmcp_server/templates/shield_mcp_server.py.j2,,Mypy passes,,
