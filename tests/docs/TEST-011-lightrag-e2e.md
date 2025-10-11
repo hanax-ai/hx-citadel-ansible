@@ -198,7 +198,7 @@ Verify the complete RAG pipeline:
 
 **Complete RAG Pipeline**:
 
-```
+```text
 1. Ingest documents (TASK-005)
    └─> crawl_web("https://example.com")
    └─> ingest_doc("/tmp/test.pdf")
