@@ -2,6 +2,7 @@
 Event streaming endpoints (SSE and WebSocket)
 """
 
+from typing import Dict, Any
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
@@ -17,7 +18,7 @@ logger = logging.getLogger("shield-orchestrator.events")
 
 
 @router.get("/stream")
-async def event_stream(request: Request, last_id: str = "0"):
+async def event_stream(request: Request, last_id: str = "0") -> EventSourceResponse:
     """
     Server-Sent Events (SSE) endpoint for real-time event streaming.
     
@@ -89,7 +90,7 @@ async def event_stream(request: Request, last_id: str = "0"):
 
 
 @router.get("/ws")
-async def event_websocket():
+async def event_websocket() -> Dict[str, str]:
     """
     WebSocket endpoint for event streaming (AG-UI).
     
@@ -99,7 +100,7 @@ async def event_websocket():
 
 
 @router.get("/stats")
-async def event_stats():
+async def event_stats() -> Dict[str, Any]:
     """
     Get event stream statistics.
     
