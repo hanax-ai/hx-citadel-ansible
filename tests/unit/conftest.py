@@ -8,10 +8,15 @@ import pytest
 import sys
 import tempfile
 import os
+from pathlib import Path
 
 # Add common_types module to path (deployed location)
 # Configurable via COMMON_TYPES_PATH environment variable for testing flexibility
-COMMON_TYPES_PATH = os.getenv("COMMON_TYPES_PATH", "/tmp/common_types_test")
+# Default uses user-specific temp directory for security (avoids shared /tmp issues)
+COMMON_TYPES_PATH = os.getenv(
+    "COMMON_TYPES_PATH",
+    str(Path(tempfile.gettempdir()) / "hx_citadel_common_types_test")
+)
 sys.path.insert(0, COMMON_TYPES_PATH)
 
 # Try to import common_types module
