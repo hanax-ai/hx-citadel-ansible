@@ -34,13 +34,14 @@ from unittest.mock import MagicMock
 from datetime import datetime
 from collections import deque
 from dataclasses import asdict
+from typing import Optional
 
 
 # Mock Event class
 class MockEvent:
     """Mock Event for testing"""
 
-    def __init__(self, event_type: str, timestamp: str, job_id: str = None, data: dict = None, metadata: dict = None):
+    def __init__(self, event_type: str, timestamp: str, job_id: Optional[str] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
         self.event_type = event_type
         self.timestamp = timestamp
         self.job_id = job_id
@@ -73,7 +74,7 @@ class MockEventBus:
         self.events_emitted = 0
         self.events_dropped = 0
 
-    async def subscribe(self, event_types: list = None, include_history: bool = False):
+    async def subscribe(self, event_types: Optional[list] = None, include_history: bool = False):
         """Subscribe to events"""
         if len(self.subscribers) >= self.max_clients:
             raise RuntimeError("Max event bus clients reached")
@@ -97,7 +98,7 @@ class MockEventBus:
         if queue in self.subscribers:
             self.subscribers.remove(queue)
 
-    async def emit_event(self, event_type: str, job_id: str = None, data: dict = None, metadata: dict = None):
+    async def emit_event(self, event_type: str, job_id: Optional[str] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
         """Emit event to all subscribers"""
         event = MockEvent(
             event_type=event_type,
