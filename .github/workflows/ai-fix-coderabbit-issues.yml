@@ -27,12 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # Circuit breaker: Skip AI-generated fix branches to prevent infinite loops
     # Only run for critical and high severity
     if: |
-      github.event.inputs.severity == 'critical' ||
-      github.event.inputs.severity == 'high' ||
-      github.event.client_payload.severity == 'critical' ||
-      github.event.client_payload.severity == 'high'
+      !startsWith(github.ref, 'refs/heads/fix/') &&
+      !endsWith(github.ref, '-ai-fix') &&
+      (
+        (github.event_name == 'workflow_dispatch' && (github.event.inputs.severity == 'critical' || github.event.inputs.severity == 'high')) ||
+        (github.event_name == 'repository_dispatch' && (github.event.client_payload.severity == 'critical' || github.event.client_payload.severity == 'high'))
+      )
 
     permissions:
       contents: write
@@ -86,30 +89,14 @@ jobs:
         run: |
           echo "Fetching Linear issue: $ISSUE_ID"
 
-          # GraphQL query
-          QUERY=$(cat <<'EOF'
-          {
-            issue(id: "$ISSUE_ID") {
-              id
-              identifier
-              title
-              description
-              priority
-              branchName
-              state { name }
-              labels { nodes { name } }
-            }
-          }
-          EOF
-          )
-
-          # Replace placeholder and execute
-          QUERY="${QUERY/\$ISSUE_ID/$ISSUE_ID}"
-
+          # Build GraphQL query using jq for safe JSON construction
           RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
             -H "Authorization: $LINEAR_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"query\": $(echo "$QUERY" | jq -Rs .)}")
+            -d "$(jq -n --arg id "$ISSUE_ID" '{
+              query: "query($id: String!) { issue(id: $id) { id identifier title description priority branchName state { name } labels { nodes { name } } } }",
+              variables: { id: $id }
+            }')")
 
           # Extract fields
           IDENTIFIER=$(echo "$RESPONSE" | jq -r '.data.issue.identifier')
@@ -331,7 +318,7 @@ Resolves ${{ steps.linear.outputs.identifier }}"
       - name: Update Linear issue with PR link
         if: steps.create_pr.outputs.pr_url
         run: |
-          # Update Linear issue with comment
+          # Update Linear issue with comment using jq for safe JSON
           COMMENT="✅ AI fix generated!
 
 **Pull Request**: ${{ steps.create_pr.outputs.pr_url }}
@@ -340,25 +327,13 @@ Resolves ${{ steps.linear.outputs.identifier }}"
 
 Please review the PR and merge if satisfied."
 
-          MUTATION=$(cat <<'EOF'
-          mutation {
-            commentCreate(input: {
-              issueId: "$ISSUE_ID"
-              body: "$COMMENT"
-            }) {
-              success
-            }
-          }
-          EOF
-          )
-
-          MUTATION="${MUTATION/\$ISSUE_ID/$ISSUE_ID}"
-          MUTATION="${MUTATION/\$COMMENT/$COMMENT}"
-
           curl -s -X POST https://api.linear.app/graphql \
             -H "Authorization: $LINEAR_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "{\"query\": $(echo "$MUTATION" | jq -Rs .)}"
+            -d "$(jq -n --arg issueId "$ISSUE_ID" --arg body "$COMMENT" '{
+              query: "mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }",
+              variables: { issueId: $issueId, body: $body }
+            }')"
 
       - name: Notify Slack - Workflow Failed
         if: failure()

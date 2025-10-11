@@ -72,20 +72,9 @@ reviews:
         - Require changed_when for command/shell
         - Check explicit file permissions
 
-# Path-based review rules (flat list - CodeRabbit schema requirement)
-path_filters:
-  - "roles/*/tasks/*.yml"
-  - "roles/*/templates/*.j2"
-  - "playbooks/*.yml"
-  - "site.yml"
-  - "docs/**/*.md"
-  - "README.md"
-  - "CHANGELOG.md"
-  - "tests/**/*.py"
-  - "pytest.ini"
-  - ".github/workflows/*.yml"
-  - "ansible.cfg"
-  - "inventory/**/*.ini"
+# Path-based review rules
+# NOTE: CodeRabbit auto-detects file types; explicit path_filters not needed
+# Instead, use path_instructions below for custom guidance per path
 
 # Issue severity thresholds
 severity_thresholds:
@@ -210,41 +199,13 @@ ignore:
   - "poetry.lock"
   - "Pipfile.lock"
 
-# Custom rules for this project (Ansible-specific)
-custom_rules:
-  # Ansible Best Practices (per docs/ANSIBLE-BEST-PRACTICES.md)
-  ansible:
-    # Enforce FQCN (Fully Qualified Collection Names)
-    - rule: "fqcn-builtins"
-      severity: "critical"
-      message: "ALWAYS use FQCN (e.g., ansible.builtin.apt, not apt:)"
-
-    # Require changed_when for command/shell tasks
-    - rule: "no-changed-when"
-      severity: "high"
-      message: "Command/shell tasks need changed_when declaration"
-
-    # Explicit file permissions
-    - rule: "risky-file-permissions"
-      severity: "high"
-      message: "Specify explicit file permissions (mode parameter)"
-
-    # No plain text secrets
-    - rule: "no-plaintext-secrets"
-      severity: "critical"
-      message: "Use Ansible Vault for secrets, never plain text"
-
-  # Python Type Hints (Phase 2 Sprint 2.1 complete)
-  python:
-    # Require type hints on public functions
-    - rule: "missing-type-hints"
-      severity: "medium"
-      message: "Add type hints to function signatures (target: 95%+)"
-
-    # Require Optional[] for None defaults
-    - rule: "implicit-optional"
-      severity: "high"
-      message: "Use Optional[T] for parameters with None default"
+# Custom project rules
+# NOTE: CodeRabbit uses tools.ansible-lint and tools.shellcheck for enforcement
+# Custom severity rules defined in severity_thresholds section above
+#
+# Ansible rules enforced via tools.ansible-lint.enabled: true
+# Python rules enforced via standard CodeRabbit analysis
+# For project-specific guidance, use path_instructions (lines 63-73)
 
 # Performance tuning
 performance:
