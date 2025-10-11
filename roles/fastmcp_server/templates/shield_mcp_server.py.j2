@@ -1047,6 +1047,129 @@ async def lightrag_query(
 
 
 @mcp.tool()
+async def get_job_status(job_id: str) -> dict:
+    """
+    Get status of an async job from the orchestrator
+    
+    This tool implements the HTTP 202 async pattern by allowing clients to
+    check the status of long-running jobs initiated by crawl_web() or ingest_doc().
+    
+    Args:
+        job_id: Job identifier returned from crawl_web or ingest_doc
+    
+    Returns:
+        dict: Job status information
+        {
+            "status": "success",
+            "job_id": "abc123",
+            "job_status": "completed|processing|pending|failed",
+            "progress": 0-100,
+            "result": {...},  # Present if completed
+            "error": "...",   # Present if failed
+            "created_at": "ISO timestamp",
+            "updated_at": "ISO timestamp"
+        }
+    
+    Raises:
+        Circuit breaker protection if orchestrator unavailable
+    
+    TASK-020: HTTP 202 Async Pattern - Job Status Endpoint
+    """
+    logger.info("get_job_status_requested", job_id=job_id)
+    
+    # Validation
+    if not job_id or not job_id.strip():
+        logger.warning("get_job_status_validation_error", error="empty_job_id")
+        return {
+            "status": "error",
+            "error": "job_id is required and cannot be empty",
+            "error_type": "validation_error"
+        }
+    
+    try:
+        # Query orchestrator for job status using circuit breaker
+        job_data = await call_orchestrator_api(
+            endpoint=f"/jobs/{job_id}",
+            method="GET",
+            timeout=10.0
+        )
+        
+        logger.info(
+            "get_job_status_success",
+            job_id=job_id,
+            job_status=job_data.get("status")
+        )
+        
+        # Return standardized job status response
+        return {
+            "status": "success",
+            "job_id": job_id,
+            "job_status": job_data.get("status", "unknown"),
+            "progress": job_data.get("progress", 0),
+            "result": job_data.get("result"),
+            "error": job_data.get("error"),
+            "created_at": job_data.get("created_at"),
+            "updated_at": job_data.get("updated_at"),
+            "metadata": job_data.get("metadata", {})
+        }
+    
+    except pybreaker.CircuitBreakerError:
+        # Circuit is open - orchestrator unavailable
+        logger.error(
+            "circuit_breaker_open",
+            job_id=job_id,
+            circuit_state=orchestrator_breaker.current_state.name
+        )
+        return {
+            "status": "error",
+            "error": "Orchestrator temporarily unavailable (circuit breaker open)",
+            "retry_after": 60,
+            "error_type": "circuit_breaker_error"
+        }
+    
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            # Job not found
+            logger.warning("job_not_found", job_id=job_id)
+            return {
+                "status": "error",
+                "error": f"Job {job_id} not found",
+                "error_type": "not_found",
+                "status_code": 404
+            }
+        else:
+            # Other HTTP errors
+            logger.error(
+                "get_job_status_http_error",
+                job_id=job_id,
+                status_code=e.response.status_code,
+                error=str(e)
+            )
+            return {
+                "status": "error",
+                "error": f"Failed to get job status: {e.response.status_code}",
+                "error_type": "http_error",
+                "status_code": e.response.status_code
+            }
+    
+    except httpx.TimeoutException:
+        logger.error("get_job_status_timeout", job_id=job_id)
+        return {
+            "status": "error",
+            "error": "Timeout querying job status",
+            "error_type": "timeout_error"
+        }
+    
+    except Exception as e:
+        logger.error("get_job_status_error", job_id=job_id, error=str(e), exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": "unknown_error"
+        }
+
+
+@mcp.tool()
 async def health_check() -> dict:
     """
     Comprehensive health check of MCP server and dependencies
