@@ -48,7 +48,7 @@ python3 /tmp/proper_type_analysis.py
 **Expected Outcome**: All functions have return type hints (≥95% coverage)
 
 **Actual Outcome**:
-```
+```text
 ================================================================================
 CORRECTED TYPE COVERAGE ANALYSIS (Multi-line aware)
 ================================================================================
