@@ -23,7 +23,7 @@ from typing import (
 )
 from enum import Enum
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict, ValidationInfo
 
 
 # ==========================================
@@ -193,9 +193,9 @@ class CrawlWebRequest(BaseModel):
 
     @field_validator("allowed_domains", mode="before")
     @classmethod
-    def set_default_domains(cls, v: Optional[List[str]], info) -> List[str]:
+    def set_default_domains(cls, v: Optional[List[str]], info: ValidationInfo) -> List[str]:
         """Set allowed_domains to URL's domain if not provided"""
-        if v is None and hasattr(info, 'data') and "url" in info.data:
+        if v is None and "url" in info.data:
             from urllib.parse import urlparse
             return [urlparse(str(info.data["url"])).netloc]
         return v or []
