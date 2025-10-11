@@ -23,6 +23,8 @@ import pytest
 import sys
 import os
 from pathlib import Path
+from typing import AsyncGenerator
+import httpx
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -48,6 +50,24 @@ def mcp_server_url():
     Default: http://hx-mcp1-server:8081
     """
     return os.getenv("MCP_SERVER_URL", "http://hx-mcp1-server:8081")
+
+
+@pytest.fixture
+async def mcp_client(mcp_server_url: str, test_timeout: int) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """
+    Shared HTTP client for MCP server integration tests.
+
+    Configured with:
+    - base_url: mcp_server_url fixture (configurable via env var)
+    - timeout: test_timeout fixture (default: 30s)
+
+    Usage:
+        async def test_example(mcp_client: httpx.AsyncClient):
+            response = await mcp_client.get("/health")
+            assert response.status_code == 200
+    """
+    async with httpx.AsyncClient(base_url=mcp_server_url, timeout=test_timeout) as client:
+        yield client
 
 
 @pytest.fixture(scope="session")
