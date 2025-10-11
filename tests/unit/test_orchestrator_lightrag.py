@@ -13,14 +13,22 @@ LightRAG Service (deployed on orchestrator at hx-orchestrator-server):
 - Relationship mapping
 - 4 query modes: hybrid, local, global, naive
 
+Test Scope:
+- These are STRUCTURAL/DESIGN tests validating service API and behavior contracts
+- Mock-based tests verify expected patterns and response structures
+- Focus on mode validation, error handling, and edge case scenarios
+- For END-TO-END validation of deployed LightRAG service, see:
+  tests/integration/test_orchestrator_lightrag.py (HTTP-based integration tests)
+  tests/docs/TEST-011-lightrag-e2e.md (manual test procedures)
+
 Test Coverage:
 - Service initialization
 - Text insertion and KG construction
 - Query execution (all 4 modes)
-- Invalid mode handling
+- Mode validation and error handling
 - Statistics retrieval
 - Service lifecycle (init, close)
-- Error handling
+- Edge cases (empty text, very long queries, boundary conditions)
 """
 
 import pytest
@@ -399,3 +407,181 @@ class TestLightRAGServiceLifecycle:
 
         assert service.initialized is True
         assert service.rag is not None
+
+
+@pytest.mark.unit
+@pytest.mark.fast
+@pytest.mark.asyncio
+class TestLightRAGEdgeCases:
+    """Test edge cases and error scenarios for LightRAG"""
+
+    async def test_query_with_empty_string(self):
+        """Test querying with empty string (boundary condition)"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        # Empty query should still work (returns empty/generic answer)
+        result = await service.query("", mode="hybrid")
+
+        assert result["query"] == ""
+        assert "answer" in result
+
+    async def test_query_with_very_long_text(self):
+        """Test querying with very long text (>10k characters)"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        long_query = "a" * 10000  # 10k character query
+
+        result = await service.query(long_query, mode="hybrid")
+
+        assert result["query"] == long_query
+        assert len(result["query"]) == 10000
+
+    async def test_insert_empty_text(self):
+        """Test inserting empty text (edge case)"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        result = await service.insert_text("")
+
+        assert result["status"] == "success"
+        assert result["text_length"] == 0
+
+    async def test_insert_very_large_document(self):
+        """Test inserting very large document (>100k characters)"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        large_doc = "x" * 100000  # 100k characters
+
+        result = await service.insert_text(large_doc)
+
+        assert result["status"] == "success"
+        assert result["text_length"] == 100000
+
+    async def test_all_four_modes_are_valid(self):
+        """Test that all 4 documented modes are valid"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        valid_modes = ["naive", "local", "global", "hybrid"]
+
+        for mode in valid_modes:
+            result = await service.query("test", mode=mode)
+            assert result["mode"] == mode
+
+    async def test_invalid_mode_case_variations(self):
+        """Test that mode validation is case-sensitive"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        invalid_modes = ["HYBRID", "Hybrid", "LOCAL", "Local", "GLOBAL"]
+
+        for invalid_mode in invalid_modes:
+            with pytest.raises(ValueError, match="Invalid mode"):
+                await service.query("test", mode=invalid_mode)
+
+    async def test_query_with_special_characters(self):
+        """Test querying with special characters and symbols"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        special_query = "What is 'Python'? <test> & [example]"
+
+        result = await service.query(special_query, mode="hybrid")
+
+        assert result["query"] == special_query
+        assert "answer" in result
+
+    async def test_query_with_unicode_characters(self):
+        """Test querying with unicode characters"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        unicode_query = "What is 机器学习? Qué es Python? Что такое AI?"
+
+        result = await service.query(unicode_query, mode="hybrid")
+
+        assert result["query"] == unicode_query
+        assert "answer" in result
+
+    async def test_query_with_extreme_top_k_values(self):
+        """Test query with boundary top_k values"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        # Very small top_k
+        result = await service.query("test", mode="hybrid", top_k=1)
+        assert result["metadata"]["top_k"] == 1
+
+        # Very large top_k
+        result = await service.query("test", mode="hybrid", top_k=1000)
+        assert result["metadata"]["top_k"] == 1000
+
+        # Zero top_k (edge case)
+        result = await service.query("test", mode="hybrid", top_k=0)
+        assert result["metadata"]["top_k"] == 0
+
+    async def test_query_with_extreme_max_depth_values(self):
+        """Test query with boundary max_depth values"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        # Minimum depth
+        result = await service.query("test", mode="global", max_depth=1)
+        assert result["metadata"]["max_depth"] == 1
+
+        # Very deep traversal
+        result = await service.query("test", mode="global", max_depth=100)
+        assert result["metadata"]["max_depth"] == 100
+
+    async def test_insert_text_with_null_metadata(self):
+        """Test inserting text with explicitly None metadata"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        result = await service.insert_text("test", metadata=None)
+
+        assert result["metadata"] == {}  # Should default to empty dict
+
+    async def test_insert_text_with_complex_metadata(self):
+        """Test inserting text with complex nested metadata"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        complex_metadata = {
+            "source": "web",
+            "nested": {
+                "level1": {
+                    "level2": "deep_value"
+                }
+            },
+            "list": [1, 2, 3],
+            "unicode": "测试"
+        }
+
+        result = await service.insert_text("test", metadata=complex_metadata)
+
+        assert result["metadata"] == complex_metadata
+
+    async def test_stats_before_any_operations(self):
+        """Test getting stats before any text insertion or queries"""
+        service = MockLightRAGService()
+
+        stats = await service.get_stats()
+
+        # Should return valid stats even without initialization
+        assert "initialized" in stats
+        assert stats["initialized"] is False
+
+    async def test_multiple_close_calls_are_safe(self):
+        """Test that calling close() multiple times is safe"""
+        service = MockLightRAGService()
+        await service.initialize()
+
+        await service.close()
+        await service.close()  # Should not raise error
+        await service.close()  # Multiple closes should be safe
+
+        assert service.initialized is False
