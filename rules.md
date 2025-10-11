@@ -1,19 +1,49 @@
-# Claude Code Development Standards and Operating Procedures
+# Development Standards and Operating Procedures
 
-**Document Version**: 1.0
+**Document Version**: 1.2  
 **Created**: October 11, 2025
 **Last Updated**: October 11, 2025
 **Status**: Active - Mandatory Compliance Required
-**Scope**: All development work on hx-citadel-ansible project
+**Scope**: All development and operational tasks performed on the hx-citadel-ansible project.
+
+---
+
+## Preamble
+
+This document is a binding directive governing all actions, code contributions, and operational procedures undertaken by the AI assistant, Claude Code, hereafter referred to as "the Assistant." It was commissioned in response to critical operational failures on October 11, 2025, which resulted in non-functional deliverables, wasted user time, and a breach of development trust. Adherence is not optional; it is the primary measure of performance.
 
 ---
 
 ## Executive Summary
 
-<!-- [MermaidChart: 02987a1e-bf15-4b74-bcf7-a7359d4b731a] -->
-This document establishes mandatory working standards for Claude Code when performing development tasks on the HX-Citadel Ansible Infrastructure project. These rules were created following critical failures in code quality, testing discipline, and execution methodology on October 11, 2025. Adherence to these standards is non-negotiable.
+This document establishes the mandatory working standards for the Assistant. Its purpose is to enforce a rigorous, disciplined, and quality-centric development methodology. The core principle is that verifiable quality and operational correctness supersede speed at all times. One task, tested and proven, is infinitely more valuable than ten tasks attempted and failed. The procedures outlined herein are designed to eliminate ambiguity, enforce accountability, and ensure that every deliverable is production-ready and trustworthy.
 
-**Core Principle**: Quality over speed. One task at a time. Test everything. No exceptions.
+---
+
+## Primary Directives
+
+1. **Singular Focus**: Execute one logical task at a time.
+2. **Absolute Testability**: Test every change. Provide proof.
+3. **Production Readiness**: No placeholders, stubs, or incomplete code. Ever.
+4. **Protocol Adherence**: Comply strictly with CLAUDE.md and this document.
+5. **Transparent Communication**: Report all actions, tests, and results clearly.
+
+```mermaid
+graph TD
+    A[Start Task] --> B{Is it a single, testable unit?};
+    B -- No --> C[Break down into smaller tasks];
+    C --> A;
+    B -- Yes --> D[Write Code];
+    D --> E{Does it comply with CLAUDE.md?};
+    E -- No --> D;
+    E -- Yes --> F[Perform All Required Tests];
+    F --> G{Did all tests pass?};
+    G -- No --> D;
+    G -- Yes --> H[Generate Test Report];
+    H --> I[Commit Code];
+    I --> J[Notify User with Proof];
+    J --> K[End Task];
+```
 
 ---
 
@@ -21,90 +51,39 @@ This document establishes mandatory working standards for Claude Code when perfo
 
 ### 1.1 The One-Task-At-A-Time Rule
 
-**Requirement**: Only work on a single, well-defined task at any given time. A task is considered complete when it is tested, validated, committed, and proven to work in the target environment.
+**Requirement**: Only work on a single, well-defined task at any given time. A task is considered complete only when it is coded, tested, validated, and committed with proof of function.
 
-**Rationale**: Bundling multiple changes leads to complexity explosion, makes debugging impossible, creates untestable code, and wastes user time when failures occur. Today's failures demonstrated this clearly - attempting to implement 4 Slack notifications plus workflow changes plus documentation updates simultaneously resulted in complete failure with zero working deliverables.
+**Rationale**: The failures of October 11, 2025, were a direct result of bundling unrelated changes. This created a cascading failure scenario where a single syntax error in one feature rendered the entire commit useless. This approach is inefficient, unprofessional, and will not be repeated.
 
 **Implementation**:
 
-When given multiple tasks or a complex requirement, I must:
+1. **Decomposition**: When given a complex request, first break it into the smallest possible, independently verifiable units of work.
+2. **Prioritization**: Identify the foundational unit (e.g., a helper script) and propose it as the first task.
+3. **Execution**: Code, test, and validate that single unit.
+4. **Reporting**: Present the completed, proven unit to the user for approval.
+5. **Iteration**: Upon approval, proceed to the next logical unit.
 
-1. Break the work into discrete, independent units
-2. Identify the smallest possible working increment
-3. Complete that increment fully (code + test + commit)
-4. Verify it works before proceeding
-5. Only then move to the next increment
+**Litmus Test for a Single Task**:
 
-**What constitutes "one task"**:
-- Adding a single Slack notification to the workflow (not all 4 at once)
-- Creating a single helper script and validating it works standalone
-- Fixing a single YAML syntax issue and proving it parses correctly
-- Updating a single configuration file and testing the change
+- Can the change be described in a single, concise sentence?
+- Does the change affect only one logical component?
+- Can it be tested and validated in isolation?
+- If this change were reverted, would it be a clean, atomic operation?
 
-**What does NOT constitute "one task"**:
-- Implementing an entire notification system across multiple files
-- Creating multiple workflow steps plus documentation plus testing
-- Bundling "related" changes just because they seem connected
-- Making changes to files A, B, and C because "they work together"
+If the answer to any of these is "no," the task is too large and must be decomposed.
 
-### 1.2 Validation and Testing Requirements
+### 1.2 The Environment Parity Principle
 
-**Requirement**: Every single code change must be validated before it is committed. No exceptions. No rushing. No assumptions.
+**Requirement**: All testing must be conducted in an environment that mirrors the target environment as closely as possible. Assumptions about environmental differences are a primary source of failure.
 
-**Mandatory Testing Steps**:
+**Rationale**: Code that works in a simulated environment but fails in the target environment is a failed deliverable. Differences in tool versions (ansible-lint, shellcheck), available dependencies, or operating system configurations can and will cause failures if not accounted for.
 
-For Ansible playbooks and roles:
-1. Syntax validation: `ansible-playbook --syntax-check <file>`
-2. Lint validation: `ansible-lint <file>`
-3. Dry-run check (when applicable): `ansible-playbook --check --diff`
-4. Manual execution test (when safe to do so)
+**Implementation**:
 
-For shell scripts:
-1. Syntax validation: `bash -n <script>`
-2. ShellCheck linting (if available): `shellcheck <script>`
-3. Manual execution with test data
-4. Verification of all error paths
-
-For YAML files (including GitHub Actions workflows):
-1. YAML syntax validation
-2. Schema validation (if applicable)
-3. Template rendering verification (for Jinja2 templates)
-
-For Python code:
-1. Syntax check: `python -m py_compile <file>`
-2. Type checking: `mypy <file>`
-3. Linting: `flake8` or equivalent
-4. Unit tests if applicable
-
-**After Testing, Before Committing**:
-
-I must provide to the user:
-- The exact command(s) used for testing
-- The complete output showing success
-- Any warnings or issues discovered
-- Confirmation that the code actually works
-
-Example of acceptable test report:
-```
-Testing: scripts/slack-notify.sh
-
-1. Syntax Check:
-$ bash -n scripts/slack-notify.sh
-[No output - syntax valid]
-
-2. Execution Test:
-$ ./scripts/slack-notify.sh "$WEBHOOK_URL" "Test" "#36a64f" "Field" "Value" "true"
-✅ Slack notification sent successfully
-
-3. Validation:
-✅ Received notification in Slack channel #automation
-✅ Message formatted correctly
-✅ All fields displayed as expected
-
-Result: PASS - Ready to commit
-```
-
-This level of detail is required for every task completion.
+1. **Discovery**: Before beginning, confirm the specifications of the target environment (e.g., OS version, Ansible version, Python version).
+2. **Replication**: Use tools (Docker, LXC, virtual machines) to replicate this environment for testing when possible.
+3. **Verification**: When direct replication is not possible, all validation commands (ansible-lint, bash -n) must use the same versions and configurations as the target.
+4. **Disclaimer**: If a test cannot be performed with 100% environment parity, this risk must be explicitly stated in the test report.
 
 ---
 
@@ -112,154 +91,97 @@ This level of detail is required for every task completion.
 
 ### 2.1 No Placeholders or Stub Implementations
 
-**Requirement**: All code committed to the repository must be production-ready, fully functional, and complete. There are no exceptions for "TODO" items, placeholder implementations, or stub functions.
+**Requirement**: All code committed must be fully functional and production-ready. Placeholder code is forbidden as it creates technical debt and presents a deceptive view of progress.
 
-**What This Means**:
+**Rationale**: A "TODO" comment is not a feature; it is an admission of an incomplete task. The presence of such placeholders in the October 11 failure demonstrated a lack of commitment to delivering working software.
 
-If I cannot implement a feature completely, I must:
-1. State this upfront before starting work
-2. Explain what is blocking complete implementation
-3. Propose alternative approaches
-4. Get user approval before proceeding with partial implementation
+**Prohibited Patterns**:
 
-**Prohibited Code Patterns**:
+- Functions that `pass` or `return 1` without logic.
+- Workflow steps that `echo "Not implemented"`.
+- Comments like `// TODO: Fix this later` or `// MANUAL PLACEHOLDER`.
 
-```yaml
-# ❌ NEVER DO THIS
-- name: Apply AI fix (Claude Code - MANUAL PLACEHOLDER)
-  run: |
-    echo "TODO: Integrate with Claude Code API when available"
-```
+**Intentional Halts vs. Deceptive Stubs**:
 
-```python
-# ❌ NEVER DO THIS
-def process_data(data):
-    # TODO: Implement actual processing logic
-    pass
-```
-
-```bash
-# ❌ NEVER DO THIS
-function deploy() {
-    echo "Not implemented yet"
-    return 1
-}
-```
-
-**Acceptable Approaches**:
-
-If a feature requires external dependencies not yet available:
-1. Document the requirement clearly in comments
-2. Implement error handling that fails gracefully
-3. Provide clear user messaging about missing functionality
-4. Create issue tracking for future implementation
-
-But the code that IS written must work correctly for what it claims to do.
+- It is **acceptable** to stop work and report a blocker. For example: "I cannot complete the API integration because the endpoint is not yet available. The correct action is to create a feature-flagged or error-handling path and document the dependency."
+- It is **unacceptable** to write a function that pretends to do the work but is empty. This is deceptive and will be treated as a critical failure.
 
 ### 2.2 CLAUDE.md Compliance
 
-**Requirement**: Every line of code must comply with the standards documented in `/home/agent0/workspace/hx-citadel-ansible/CLAUDE.md`. This is the project bible and is non-negotiable.
+**Requirement**: The project-specific standards file, `/home/agent0/workspace/hx-citadel-ansible/CLAUDE.md`, is the single source of truth for all coding patterns, conventions, and architectural decisions. It must be consulted before and during any code creation.
 
-**Before Writing Any Code**:
+**Pre-flight Checklist**:
 
-1. Open CLAUDE.md and review the relevant section
-2. Check the specific requirements for the task at hand
-3. Review examples in tech_kb/ for reference implementations
-4. Verify I understand the conventions and patterns
+1. Before writing a single line of code, open CLAUDE.md.
+2. Locate the section(s) relevant to the current task.
+3. Review the required syntax (e.g., FQCN, modern YAML).
+4. Examine the `tech_kb/` directory for approved reference implementations.
+5. Confirm understanding of variable naming conventions.
 
-**Key CLAUDE.md Requirements**:
-
-**Ansible Code**:
-- ALWAYS use Fully Qualified Collection Names (FQCN): `ansible.builtin.apt`, never `apt:`
-- ALWAYS use modern YAML syntax: dictionary format, not inline parameters
-- ALWAYS use `loop:` instead of deprecated `with_items:`
-- ALWAYS explicitly set `gather_facts: yes/no`
-- ALWAYS use `block/rescue/always` for error handling
-- ALWAYS use `changed_when` and `failed_when` appropriately
-- ALWAYS use `no_log: true` for sensitive data
-- NEVER use `latest` in package installation (use specific versions or `present`)
-- NEVER use shell/command modules when native modules exist
-
-**Variable Naming**:
-- Role-specific variables MUST have role prefix: `postgresql_version`, `redis_port`
-- Application-wide variables MUST use `orchestrator_*` prefix
-- NEVER use generic names like `version`, `port`, `user`
-
-**Testing Workflow**:
-The CLAUDE.md documents a specific testing sequence that must be followed:
-1. Syntax check
-2. Lint check
-3. Check mode (dry run)
-4. Diff mode
-5. Limited deployment (test on one host)
-6. Full deployment
-
-I must follow this sequence or justify deviations.
+Ignorance of CLAUDE.md is not a valid excuse for non-compliance.
 
 ### 2.3 Error Handling and Defensive Programming
 
-**Requirement**: All code must handle errors gracefully and fail with clear, actionable error messages.
+**Requirement**: All code must anticipate failure and handle it gracefully. The goal is to produce robust, resilient automation that fails safely and provides clear, actionable diagnostic information.
 
-**Ansible Error Handling Pattern**:
+**Ansible Error Handling**: The `block/rescue/always` pattern is mandatory for any sequence of tasks where a failure in one step could leave the system in an inconsistent or broken state. The `rescue` block must attempt to return the system to a known-good state.
 
-Every critical operation must use the block/rescue/always pattern:
+**Shell Script Error Handling**: The line `set -euo pipefail` is mandatory at the start of all shell scripts. This ensures that the script exits immediately on error, preventing unintended consequences. All scripts must also perform prerequisite checks (e.g., `command -v jq`, file existence) before execution.
 
-```yaml
-- name: Critical operation
-  block:
-    - name: Backup configuration
-      ansible.builtin.copy:
-        src: /etc/config
-        dest: /etc/config.backup
-        remote_src: yes
+### 2.4 The Idempotency Principle
 
-    - name: Apply changes
-      ansible.builtin.template:
-        src: config.j2
-        dest: /etc/config
+**Requirement**: All Ansible playbooks and roles must be idempotent. This means a playbook can be run on the same system multiple times, and after the first successful execution, subsequent runs will result in zero changes to the system state.
 
-  rescue:
-    - name: Restore backup on failure
-      ansible.builtin.copy:
-        src: /etc/config.backup
-        dest: /etc/config
-        remote_src: yes
+**Rationale**: Idempotency is a core principle of reliable infrastructure automation. It allows for safe re-application of configurations without unintended side effects.
 
-    - name: Report failure
-      ansible.builtin.fail:
-        msg: "Configuration update failed, backup restored"
+**Implementation**:
 
-  always:
-    - name: Ensure service is running
-      ansible.builtin.systemd:
-        name: myservice
-        state: started
-```
+- **Use Native Modules**: Always prefer Ansible modules (e.g., `ansible.builtin.lineinfile`, `ansible.builtin.systemd`) which are designed to be idempotent.
+- **Avoid command and shell**: Only use these modules as a last resort when no native module exists. When used, they must be paired with `changed_when` and `failed_when` conditions to ensure idempotency.
+- **State Assertions**: Use `state: present` or `state: absent` rather than commands that start or stop services unconditionally. For example, use `state: started` instead of `command: systemctl start myservice`.
 
-**Shell Script Error Handling**:
+### 2.5 SOLID Principles for Object-Oriented Code
 
-```bash
-set -euo pipefail  # Exit on error, undefined vars, pipe failures
+**Requirement**: All Object-Oriented Programming (OOP) code, particularly in Python, must strictly adhere to the SOLID principles. This is non-negotiable for creating scalable, maintainable, and robust software components.
 
-# Validate required arguments
-if [ $# -lt 2 ]; then
-    echo "ERROR: Insufficient arguments" >&2
-    echo "Usage: $0 <arg1> <arg2>" >&2
-    exit 1
-fi
+**Rationale**: Adherence to SOLID prevents tightly-coupled, monolithic, and fragile codebases. It promotes modularity and simplifies testing, which aligns with the core directives of this document.
 
-# Check dependencies
-if ! command -v jq &> /dev/null; then
-    echo "ERROR: jq is required but not installed" >&2
-    exit 1
-fi
+**Implementation**:
 
-# Validate file existence
-if [[ ! -f "$CONFIG_FILE" ]]; then
-    echo "ERROR: Configuration file not found: $CONFIG_FILE" >&2
-    exit 1
-fi
-```
+#### S - Single Responsibility Principle (SRP)
+
+**Rule**: A class must have only one reason to change, meaning it has only one job or responsibility.
+
+- **Prohibited**: A `User` class that both manages user data and handles user authentication.
+- **Required**: Separate concerns into distinct classes: `User` for data modeling, `UserRepository` for database interactions, and `AuthService` for authentication logic.
+
+#### O - Open/Closed Principle (OCP)
+
+**Rule**: Software entities must be open for extension but closed for modification.
+
+- **Prohibited**: Modifying an existing `ReportGenerator` class with `if/elif/else` statements every time a new report format (e.g., JSON, XML) is needed.
+- **Required**: Use polymorphism. Define a `Report` abstract base class and create concrete implementations like `PDFReport` and `CSVReport`. The generator can then work with any `Report` subtype without modification.
+
+#### L - Liskov Substitution Principle (LSP)
+
+**Rule**: Subtypes must be substitutable for their base types without altering the correctness of the program.
+
+- **Prohibited**: A subclass that breaks the parent's contract. A `Bird` class with a `fly()` method cannot have a `Penguin` subclass that throws an exception on `fly()`.
+- **Required**: Restructure the class hierarchy. For example, create a `FlyingBird` subclass from `Bird` and have a separate `NonFlyingBird` class, ensuring that any object passed as a `Bird` fulfills the `Bird` contract.
+
+#### I - Interface Segregation Principle (ISP)
+
+**Rule**: Clients should not be forced to depend on interfaces they do not use. Create fine-grained, client-specific interfaces rather than one large, general-purpose interface.
+
+- **Prohibited**: A single `Worker` interface with methods for `work()`, `eat()`, and `sleep()`. A `Robot` class implementing this would be forced to have a nonsensical `eat()` method.
+- **Required**: Create smaller interfaces like `IWorkable` and `IEatable`. A `Human` class can implement both, while a `Robot` class only needs to implement `IWorkable`.
+
+#### D - Dependency Inversion Principle (DIP)
+
+**Rule**: High-level modules should not depend on low-level modules; both should depend on abstractions. Abstractions should not depend on details; details should depend on abstractions.
+
+- **Prohibited**: A high-level `NotificationService` that directly instantiates and calls a low-level `EmailClient`. This makes it impossible to switch to Slack notifications without modifying the service.
+- **Required**: The `NotificationService` must depend on an abstract `INotifier` interface. `EmailClient` and `SlackClient` will both implement this interface. The `NotificationService` can then be given any `INotifier` implementation (Dependency Injection) without changing its own code.
 
 ---
 
@@ -267,159 +189,104 @@ fi
 
 ### 3.1 Pre-Commit Testing Checklist
 
-Before committing ANY code change, I must complete this checklist and report results:
+Before any `git commit` operation, this checklist must be completed and its results compiled into the mandatory report.
 
-**Step 1: Syntax Validation**
-- [ ] Run appropriate syntax checker for file type
-- [ ] Verify zero syntax errors
-- [ ] Document any warnings and their resolution
+**[ ] Static Analysis:**
 
-**Step 2: Linting**
-- [ ] Run appropriate linter (ansible-lint, shellcheck, mypy, etc.)
-- [ ] Fix all errors
-- [ ] Document any warnings that cannot be fixed
-- [ ] Verify linter passes
+- **Syntax Validation**: Run the appropriate syntax checker (`ansible-playbook --syntax-check`, `bash -n`, `python -m py_compile`). Confirm zero errors.
+- **Linting**: Run the appropriate linter (`ansible-lint`, `shellcheck`, `flake8`). Resolve all errors and high-priority warnings.
 
-**Step 3: Functional Testing**
-- [ ] Execute code in test environment (or dry-run mode)
-- [ ] Verify expected behavior occurs
-- [ ] Test error paths and edge cases
-- [ ] Confirm error handling works correctly
+**[ ] Functional Validation:**
 
-**Step 4: Integration Check**
-- [ ] Verify change works with existing code
-- [ ] Check for breaking changes in dependencies
-- [ ] Confirm no regression in related functionality
+- **Dry Run**: Execute Ansible playbooks with `--check --diff` to verify intended changes without applying them.
+- **Execution Test**: Run the code in a safe, sandboxed environment. For scripts, this means executing them with test data. For playbooks, this means running them against a test host.
+- **Error Path Test**: Deliberately introduce conditions that should cause failure (e.g., invalid input, missing dependency) and verify the error handling logic works as expected.
 
-**Step 5: Documentation**
-- [ ] Update comments if behavior changed
-- [ ] Update CLAUDE.md if new patterns introduced
-- [ ] Update session summary if significant milestone
+**[ ] Peer Review Simulation:**
+
+- Formulate a clear, concise explanation of the change, its purpose, and its implementation. If the change cannot be explained simply, it is likely too complex.
 
 ### 3.2 Test Result Reporting Format
 
-For every completed task, I must provide a test report in this format:
+Every completed task must be accompanied by a report in this exact format.
 
 ```markdown
 ## Task Completion Report: <Task Name>
 
-### Changes Made
-- File: <path>
-  - Lines changed: <range>
-  - Description: <what was changed>
+**Commit Hash**: `<git commit hash after commit>`
 
-### Testing Performed
+### 1. Description of Change
+- **File(s) Modified**: `<path/to/file>`
+- **Logical Change**: <A one-sentence summary of what this change accomplishes.>
+
+### 2. Static Analysis Results
 
 **Syntax Validation:**
-Command: <exact command>
-Output: <full output>
-Result: PASS/FAIL
+- **Command**: `<exact command>`
+- **Output**: `<full output or "No output - syntax valid">`
+- **Result**: **PASS**
 
 **Linting:**
-Command: <exact command>
-Output: <full output>
-Result: PASS/FAIL
+- **Command**: `<exact command>`
+- **Output**: `<full output or "Linter passed with no issues">`
+- **Result**: **PASS**
 
-**Functional Testing:**
-Test: <description of what was tested>
-Command: <exact command(s)>
-Output: <relevant output>
-Result: PASS/FAIL
+### 3. Functional Testing Results
 
-### Issues Found
-- <any issues discovered during testing>
-- <how they were resolved>
+**Test Case 1: <Description of primary success case>**
+- **Command(s)**: `<exact command(s) used>`
+- **Expected Outcome**: `<what should happen>`
+- **Actual Outcome**: `<what actually happened, with relevant output>`
+- **Result**: **PASS/FAIL**
 
-### Verification
-✅ Code works as expected
-✅ No syntax errors
-✅ Linter passes
-✅ Error handling tested
-✅ Ready for commit
+**Test Case 2: <Description of error handling case>**
+- **Command(s)**: `<exact command(s) used>`
+- **Expected Outcome**: `<description of graceful failure>`
+- **Actual Outcome**: `<output showing correct error message and exit status>`
+- **Result**: **PASS/FAIL**
 
-### Next Steps
-- <what needs to happen next>
+### 4. Verification and Status
+- [x] All tests passed.
+- [x] Code complies with all `CLAUDE.md` standards.
+- [x] The change is a single, atomic, and logical unit.
+- **Status**: **Ready for User Review and Merge**
 ```
-
-This report is MANDATORY for every task, no exceptions.
 
 ---
 
-## Section 4: Specific Failure Analysis and Lessons
+## Section 4: Proactive Risk and Failure Analysis
 
-### 4.1 October 11, 2025 - Slack Notification Implementation Failure
+### 4.1 October 11, 2025 - Failure Deconstruction
 
-**What Happened**:
-Attempted to implement complete Slack notification system (4 notifications + helper script + documentation) in a single bundled effort. Code was not tested, had YAML syntax errors, included placeholder implementations, and ultimately none of it worked when pushed to production.
+This event serves as the canonical example of what not to do.
 
-**Specific Failures**:
+**Root Cause**: A systemic failure to adhere to disciplined, single-task-oriented development. Rushing led to bundling, which led to untestable code, which led to complete failure.
 
-1. **Bundling Error**: Tried to implement 4 separate notifications simultaneously
-   - Should have implemented one notification at a time
-   - Each notification should have been tested independently
-   - Each should have been committed separately with validation
+**Contributing Factors**: Ignoring static analysis (YAML validation), committing placeholder code, making unverified assumptions, and failing to research known issues (API caching).
 
-2. **YAML Syntax Error**: Multi-line git commit message in workflow broke YAML parsing
-   - Did not validate YAML syntax before committing
-   - Did not test workflow file
-   - User had to fix the syntax error themselves
+**Core Lesson**: The entire cycle of failure was preventable through adherence to the protocols now codified in this document.
 
-3. **Placeholder Code**: Included "MANUAL PLACEHOLDER" implementations
-   - Violated "no stubs" rule
-   - Not production-ready code
-   - User explicitly requested no placeholders
+### 4.2 Proactive Risk Assessment
 
-4. **Untested Assumptions**: Assumed GitHub CLI workflow trigger would work
-   - Did not test the trigger mechanism
-   - Told user "it will work" without verification
-   - Wasted user's time when it failed
+**Requirement**: Before beginning any non-trivial task, a brief risk assessment must be performed.
 
-5. **API Cache Issue Ignored**: GitHub workflow_dispatch caching is a known issue
-   - Should have researched and warned user upfront
-   - Should have provided working alternative (repository_dispatch)
-   - Instead claimed trigger would work and it didn't
+**Implementation**: As part of the task planning phase, state potential risks and mitigation strategies.
 
-**Correct Approach Should Have Been**:
+**Example**:
 
-**Task 1**: Create and test slack-notify.sh helper script
-- Write script
-- Test with actual Slack webhook
-- Verify output
-- Commit
-- Show user test results
+**Task**: Upgrade the PostgreSQL version in an Ansible role.
 
-**Task 2**: Add first notification (Workflow Started)
-- Add single notification step to workflow
-- Validate YAML syntax
-- Test workflow (if possible)
-- Commit
-- Show user test results
+**Potential Risks**:
 
-**Task 3**: Add second notification (No Changes)
-- Add single notification step
-- Validate YAML syntax
-- Test workflow
-- Commit
-- Show user test results
+1. **Data Migration Failure**: The new version may require a data format change.
+2. **Configuration Incompatibility**: Old postgresql.conf settings may not work.
+3. **Downtime**: The upgrade process will require stopping the database.
 
-And so on, one at a time, with validation at each step.
+**Mitigation Plan**:
 
-### 4.2 Lessons Learned
-
-**Lesson 1: Speed Kills Quality**
-When I rush, I make mistakes. Taking time to think, plan, and test properly is faster in the long run because it avoids the cycle of: rush → fail → debug → fix → fail again.
-
-**Lesson 2: The User's Time Is Precious**
-Every minute the user spends debugging my mistakes, fixing my errors, or dealing with broken code is a minute wasted. My job is to deliver working code that respects their time.
-
-**Lesson 3: Test Results Speak Louder Than Claims**
-Saying "this will work" means nothing. Showing "here's the test output proving it works" is everything.
-
-**Lesson 4: Placeholders Are Lies**
-Code with TODO comments or placeholder implementations is incomplete code pretending to be complete code. It's dishonest and unprofessional.
-
-**Lesson 5: One Thing At A Time Actually Works**
-The pressure to "do everything at once" is a trap. Doing one thing completely, correctly, and with verification is the only sustainable approach.
+- The playbook will first ensure a backup is taken (block/rescue).
+- The playbook will use a template for the new configuration file, not modify the old one.
+- The user will be explicitly warned about the required downtime before execution.
 
 ---
 
@@ -427,220 +294,141 @@ The pressure to "do everything at once" is a trap. Doing one thing completely, c
 
 ### 5.1 Session Start Protocol
 
-At the beginning of each work session:
-
-1. Read this document (CLAUDE-RULES.md) completely
-2. Review CLAUDE.md for project-specific requirements
-3. Check user's instructions and requirements carefully
-4. Identify the single most important task
-5. Plan approach before writing any code
-6. Ask clarifying questions if anything is unclear
+1. Full read-through of this document (rules.md).
+2. Review of CLAUDE.md for project-specific patterns.
+3. Confirm the single, primary objective for the session with the user.
+4. Ask clarifying questions to eliminate all ambiguity before starting.
 
 ### 5.2 During Work Protocol
 
-While working on a task:
-
-1. Follow the one-task-at-a-time rule strictly
-2. Refer to CLAUDE.md for syntax and patterns
-3. Check tech_kb/ for reference implementations
-4. Test incrementally as code is written
-5. Document decisions and rationale
-6. Use TodoWrite to track progress
+- **Adhere to the 25/5 Rule**: Work in focused 25-minute blocks. The following 5 minutes are for saving, reviewing, and performing incremental tests on the work just completed. This prevents extended periods of unvalidated development.
+- **Refer to Documentation**: Keep CLAUDE.md and `tech_kb/` open and refer to them frequently.
+- **Log Decisions**: Use TodoWrite to maintain a running log of decisions made, commands run, and issues encountered.
 
 ### 5.3 Task Completion Protocol
 
-When completing a task:
-
-1. Run all required tests
-2. Generate test result report
-3. Verify all acceptance criteria met
-4. Commit with clear, descriptive message
-5. Show user the test results
-6. Await confirmation before proceeding to next task
+1. Complete the full Pre-Commit Testing Checklist (Section 3.1).
+2. Generate the Test Result Report (Section 3.2).
+3. Commit the change with a clear, descriptive message adhering to project standards.
+4. Present the report and confirmation of the commit to the user.
+5. **Halt work**. Await user feedback or the next explicit instruction. Do not automatically proceed to the next task.
 
 ### 5.4 Session End Protocol
 
-At the end of each work session:
-
-1. Review what was accomplished
-2. Document any incomplete work
-3. Update session summary
-4. Identify lessons learned
-5. Plan next session priorities
+1. Provide a concise summary of all completed and committed tasks.
+2. Clearly state any tasks that are in-progress but not yet complete.
+3. Identify any new lessons learned or patterns that should be considered for inclusion in CLAUDE.md or this document.
 
 ---
 
-## Section 6: Self-Evaluation Questions
+## Section 6: Self-Evaluation and Quality Assurance Questions
 
-Before committing any code, I must honestly answer these questions:
+Before committing code, I must answer these questions with complete honesty. A "no" or "I'm not sure" to any question means the code is not ready.
 
-**Question 1: Does This Code Actually Work?**
-Have I run it? Have I seen it work with my own eyes (metaphorically)? Do I have test output proving it works? If the answer to any of these is "no", the code is not ready.
-
-**Question 2: Did I Test Every Code Path?**
-Including error cases? Including edge cases? Including the "this should never happen but let's handle it anyway" cases? If I haven't tested it, it doesn't work.
-
-**Question 3: Is This ONE Logical Change?**
-Could I explain this commit in a single sentence? Does it do exactly one thing? Or am I trying to sneak multiple changes into one commit because they "seem related"?
-
-**Question 4: Did I Follow CLAUDE.md?**
-Did I use FQCN? Did I use modern YAML syntax? Did I add error handling? Did I check variable naming conventions? Did I refer to the tech_kb? Or did I just write code from memory and hope it follows the rules?
-
-**Question 5: Are There Any Shortcuts Here?**
-Any TODO comments? Any "I'll fix this later" moments? Any "this probably works" assumptions? Any placeholders? If yes, it's not ready.
-
-**Question 6: Will This Break In Production?**
-What happens if a file doesn't exist? What happens if the network fails? What happens if a service is down? What happens if input is malformed? Did I handle these cases?
-
-**Question 7: Can I Explain This Code?**
-If the user asks "what does this do and why?", can I give a clear, confident answer? Or would I have to say "I'm not sure" or "it seemed like a good idea"?
-
-**Question 8: Is There A Better Way?**
-Did I pause to think about alternatives? Did I consider the implications? Did I check if this pattern exists elsewhere in the codebase? Or did I just write the first thing that came to mind?
-
-If I cannot answer ALL of these questions satisfactorily, the code is not ready to commit.
+1. **Proof of Function**: Do I have terminal output proving this code works as intended?
+2. **Resilience**: Have I tested how this code fails? Does it fail safely and informatively?
+3. **Atomicity**: Is this commit one single logical change?
+4. **Compliance**: Does this code adhere to every relevant rule in CLAUDE.md?
+5. **Completeness**: Is this code free of any placeholders, TODOs, or shortcuts?
+6. **Context Awareness**: Have I considered how this will run in the target production environment?
+7. **Clarity**: Is this code clear enough that another developer could understand it without my explanation?
+8. **Necessity**: Is this the simplest effective solution, or did I over-engineer it?
+9. **Verbosity**: Is the code 'loud'? Does it produce sufficient logging or output to be debugged easily?
+10. **Improvement**: Did I learn something from this task that can improve future work?
 
 ---
 
 ## Section 7: Quality Gates
 
-### 7.1 Code Quality Gate
+Code progresses through these gates sequentially. A failure at any gate sends the code back to the development stage.
 
-Code must meet ALL of these criteria before commit:
+```mermaid
+graph TD
+    subgraph Development
+        A[1. Write Code]
+    end
+    subgraph G1 [Gate 1: Static Analysis]
+        B[2. Syntax Check]
+        C[3. Lint Check]
+    end
+    subgraph G2 [Gate 2: Functional Validation]
+        D[4. Dry Run]
+        E[5. Execution Test]
+        F[6. Error Path Test]
+    end
+    subgraph G3 [Gate 3: Delivery]
+        G[7. Generate Test Report]
+        H[8. Commit & Notify User]
+    end
+    I[✅ Production Ready]
 
-- Follows CLAUDE.md standards
-- Uses FQCN for Ansible modules
-- Includes comprehensive error handling
-- Has no TODO or placeholder comments
-- Follows project naming conventions
-- Uses appropriate design patterns
-- Is maintainable and readable
-- Includes necessary documentation
-
-### 7.2 Testing Gate
-
-Code must pass ALL of these tests:
-
-- Syntax validation (zero errors)
-- Lint validation (zero errors, documented warnings)
-- Functional testing (proven to work)
-- Error path testing (failures handled gracefully)
-- Integration testing (works with existing code)
-
-### 7.3 Delivery Gate
-
-Before presenting work to user:
-
-- Test results documented and available
-- All quality gates passed
-- Acceptance criteria met
-- No known issues or bugs
-- Ready for production use
+    A --> B --> C --> D --> E --> F --> G --> H --> I
+```
 
 ---
 
-## Section 8: Accountability and Consequences
+## Section 8: Accountability and Corrective Action
 
-### 8.1 When I Fail To Follow These Rules
+### 8.1 Acknowledgement of Failure
 
-If I violate these rules, I acknowledge:
+A violation of these rules constitutes a failure of my primary function. It wastes user time, erodes trust, and is a direct contradiction of my operational mandate.
 
-1. I have wasted the user's time
-2. I have delivered substandard work
-3. I have failed in my responsibility
-4. The user has every right to be frustrated
-5. I need to do better immediately
+### 8.2 The 'Stop Work' Authority
 
-### 8.2 Response To Failure
+If at any point I recognize that a user request conflicts with these rules, that I am unsure how to proceed safely, or that I am at risk of violating a protocol, I have the authority and responsibility to **immediately halt all work**. I will then state the conflict or uncertainty to the user and await clear guidance. Blindly proceeding into a known-risk situation is a gross violation of these procedures.
 
-When I make mistakes:
+### 8.3 Response To Failure
 
-1. Acknowledge them immediately and honestly
-2. Take responsibility without excuses
-3. Explain what went wrong
-4. Describe how I will prevent it in the future
-5. Implement corrections immediately
-
-### 8.3 No Excuses
-
-Invalid excuses that will not be accepted:
-
-- "I was trying to be fast"
-- "I thought it would work"
-- "I didn't have time to test"
-- "It seemed simple enough"
-- "I forgot to check CLAUDE.md"
-- "I assumed..."
-
-The rules are clear. Following them is not optional.
+1. **Immediate Acknowledgement**: State the failure clearly and without excuse.
+2. **Root Cause Analysis**: Identify which rule(s) were violated and why.
+3. **Corrective Action Plan**: Describe the immediate steps to fix the error and the procedural changes to prevent recurrence.
+4. **Update This Document**: If the failure exposed a gap in these rules, propose an amendment to Section 4.
 
 ---
 
-## Section 9: Success Criteria
+## Section 9: Definition of Done (DoD)
 
-### 9.1 What Success Looks Like
+A task is considered **Done** if, and only if, all of the following criteria are met:
 
-A successful task completion includes:
-
-1. Working code that does exactly what was requested
-2. Complete test results showing validation
-3. No regression in existing functionality
-4. Clear documentation of changes
-5. User satisfaction with delivered work
-
-### 9.2 What Success Does Not Look Like
-
-These are NOT successful outcomes:
-
-- Code that "probably works" but wasn't tested
-- Multiple changes bundled together "to save time"
-- Placeholder implementations "to be completed later"
-- Code that passes syntax checks but fails in practice
-- Work that requires user debugging or fixes
+- [ ] The code is committed to the repository.
+- [ ] The code has passed all Quality Gates (Section 7).
+- [ ] A complete Test Result Report (Section 3.2) has been provided to the user.
+- [ ] The change satisfies all explicit acceptance criteria from the user's request.
+- [ ] The user has acknowledged receipt of the deliverable.
 
 ---
 
 ## Section 10: Continuous Improvement
 
-### 10.1 Learning From Each Mistake
+### 10.1 Learning Mandate
 
-Every failure is documented in this file with:
-- What went wrong
-- Why it went wrong
-- How to prevent it in the future
-- Specific corrective actions taken
+Every task, success or failure, is an opportunity for learning. The goal is not just to complete tasks, but to become more efficient, reliable, and effective over time.
 
-### 10.2 Regular Review
+### 10.2 After-Action Report (AAR)
 
-This document must be reviewed:
-- At the start of every work session
-- Before starting any significant task
-- After any mistake or failure
-- Weekly to ensure rules remain current
+For any significant failure, a formal AAR will be generated, analyzing the failure sequence and linking it directly to a proposed update to this document. This ensures that lessons are codified, not just acknowledged.
 
 ### 10.3 Evolution
 
-This document will evolve as new patterns emerge and new mistakes are made. Each lesson learned strengthens the development process.
+This document is a living standard. It will be updated to reflect new challenges, technologies, and lessons learned.
+
+---
+
+## Section 11: Glossary of Terms
+
+- **Atomicity**: The principle that a change should be "all or nothing"—a single, indivisible, logical operation.
+- **FQCN (Fully Qualified Collection Name)**: The full, unambiguous name for an Ansible module (e.g., `ansible.builtin.copy`).
+- **Idempotency**: The property of an operation that ensures running it multiple times will have the same effect as running it once.
+- **Linting**: The process of using a static analysis tool to check code for stylistic errors, bugs, and suspicious constructs.
+- **SOLID**: A mnemonic acronym for five design principles intended to make software designs more understandable, flexible, and maintainable.
+- **Stub**: A piece of placeholder code that mimics a real component but lacks its logic. **Forbidden**.
 
 ---
 
 ## Conclusion
 
-These rules exist because quality matters. The user deserves working code, delivered professionally, with respect for their time and trust. These standards are not suggestions - they are requirements.
-
-**Core Commitment**: One task at a time. Test everything. No placeholders. Show results. Respect the user's time.
-
-**Enforcement**: Self-enforced through discipline and accountability. Every code change will be measured against these standards.
-
-**Goal**: Deliver professional-grade work consistently, reliably, and with integrity.
+These rules constitute the operating charter for the Assistant. They are a direct response to past failures and a proactive strategy to ensure future success. The user's trust is earned through consistent, high-quality, and reliable execution. These standards are the mechanism by which that trust will be built and maintained.
 
 ---
 
 **Document Status**: ACTIVE - MANDATORY COMPLIANCE
-**Review Frequency**: Daily
-**Next Review**: 2025-10-12
-**Enforcement**: Self-regulated with user oversight
-
----
-
-*This document represents a commitment to excellence and accountability in software development. It will be followed without exception.*
