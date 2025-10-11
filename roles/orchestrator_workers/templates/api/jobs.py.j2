@@ -56,7 +56,7 @@ class JobListResponse(BaseModel):
     summary="Get job status",
     description="Get status and progress for a specific job"
 )
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: str) -> JobStatusResponse:
     """
     Get job status and progress.
     
@@ -102,7 +102,7 @@ async def get_job_status(job_id: str):
 async def list_jobs(
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by status"),
     limit: int = Query(50, ge=1, le=100, description="Max results")
-):
+) -> JobListResponse:
     """
     List recent jobs.
     
@@ -140,7 +140,7 @@ async def stream_events(
         None,
         description="Comma-separated event types (e.g., 'ingestion.started,ingestion.progress')"
     )
-):
+) -> StreamingResponse:
     """
     Stream events via SSE (Server-Sent Events).
     
