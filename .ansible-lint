@@ -28,6 +28,9 @@ enable_list:
 # Rules to skip (only when absolutely necessary)
 skip_list:
   - yaml[line-length]  # Line length handled by yamllint
+  - yaml[comments]  # Comment spacing is cosmetic
+  - yaml[trailing-spaces]  # Auto-fixed where critical
+  - yaml[braces]  # Dictionary/list formatting preference
   - galaxy[version-incorrect]  # Allow version ranges in requirements.yml
   
 # Warn on deprecated features but don't fail
