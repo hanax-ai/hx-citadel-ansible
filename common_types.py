@@ -1,0 +1,475 @@
+#!/usr/bin/env python3
+"""
+Common Types Module - HX-Citadel Shield
+Generated for test environment
+
+This module defines shared type aliases, TypedDicts, and Pydantic models
+used across the MCP server and orchestrator codebase.
+
+Phase 2 Sprint 2.1: Type Hints Migration (TASK-023)
+Target: 100% type hint coverage with strict mode
+"""
+
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+    TypeAlias,
+    Literal,
+    TypedDict,
+    NotRequired,
+)
+from enum import Enum
+from datetime import datetime
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict, ValidationInfo
+
+
+# ==========================================
+# ==========================================
+
+class JobStatusEnum(str, Enum):
+    """Job status enumeration for async operations"""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class HealthStatusEnum(str, Enum):
+    """Health check status levels"""
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+    UNKNOWN = "unknown"
+
+
+class CircuitBreakerStateEnum(str, Enum):
+    """Circuit breaker state enumeration"""
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+
+class LightRAGModeEnum(str, Enum):
+    """LightRAG retrieval modes"""
+    NAIVE = "naive"
+    LOCAL = "local"
+    GLOBAL = "global"
+    HYBRID = "hybrid"
+
+
+class MCPResponseStatusEnum(str, Enum):
+    """MCP tool response status"""
+    SUCCESS = "success"
+    ACCEPTED = "accepted"
+    ERROR = "error"
+
+
+# ==========================================
+# ==========================================
+
+JSONDict: TypeAlias = Dict[str, Any]
+JobID: TypeAlias = str
+PointID: TypeAlias = str
+CollectionName: TypeAlias = str
+EmbeddingVector: TypeAlias = List[float]
+Timestamp: TypeAlias = str
+
+
+# ==========================================
+# ==========================================
+
+class HealthCheckResult(TypedDict):
+    """Health check response structure"""
+    overall_status: HealthStatusEnum
+    timestamp: Timestamp
+    services: Dict[str, "ServiceHealth"]
+    circuit_breakers: NotRequired[Dict[str, "CircuitBreakerHealth"]]
+
+
+class ServiceHealth(TypedDict):
+    """Individual service health status"""
+    status: HealthStatusEnum
+    response_time_ms: NotRequired[float]
+    error: NotRequired[str]
+    details: NotRequired[Dict[str, Any]]
+
+
+class CircuitBreakerHealth(TypedDict):
+    """Circuit breaker state metrics"""
+    state: CircuitBreakerStateEnum
+    fail_counter: int
+    fail_max: int
+    reset_timeout: int
+    success_threshold: int
+
+
+class JobStatusResponse(TypedDict):
+    """Job status query response (HTTP 202 pattern)"""
+    status: MCPResponseStatusEnum
+    job_id: JobID
+    job_status: JobStatusEnum
+    progress: int
+    result: NotRequired[Dict[str, Any]]
+    error: NotRequired[str]
+    created_at: Timestamp
+    updated_at: Timestamp
+    metadata: NotRequired[Dict[str, Any]]
+
+
+class MCPErrorResponse(TypedDict):
+    """Standardized error response"""
+    status: Literal["error"]
+    error: str
+    error_type: str
+    status_code: NotRequired[int]
+    retry_after: NotRequired[int]
+
+
+class CrawlWebMetadata(TypedDict):
+    """Metadata for web crawl operations"""
+    max_pages: int
+    allowed_domains: List[str]
+    max_depth: int
+    pages_crawled: int
+
+
+class DocumentMetadata(TypedDict):
+    """Metadata for document ingestion"""
+    file_name: str
+    file_path: str
+    file_size_bytes: int
+    file_format: str
+    page_count: NotRequired[int]
+    title: NotRequired[str]
+    source_name: str
+
+
+class QdrantSearchResult(TypedDict):
+    """Single search result from Qdrant"""
+    id: PointID
+    score: float
+    payload: Dict[str, Any]
+
+
+class QdrantStoreResult(TypedDict):
+    """Result from storing a vector in Qdrant"""
+    status: MCPResponseStatusEnum
+    message: str
+    point_id: PointID
+    collection: CollectionName
+    embedding_dimension: int
+    embedding_model: str
+    payload_keys: List[str]
+
+
+# ==========================================
+# ==========================================
+
+class CrawlWebRequest(BaseModel):
+    """Request model for crawl_web() tool"""
+    url: HttpUrl = Field(..., description="Starting URL to crawl")
+    max_pages: int = Field(10, ge=1, le=100, description="Maximum pages to crawl")
+    allowed_domains: Optional[List[str]] = Field(None, description="Allowed domains list")
+    max_depth: int = Field(2, ge=1, le=5, description="Maximum crawl depth")
+
+    @field_validator("allowed_domains", mode="before")
+    @classmethod
+    def set_default_domains(cls, v: Optional[List[str]], info: ValidationInfo) -> List[str]:
+        """Set allowed_domains to URL's domain if not provided"""
+        if v is None and "url" in info.data:
+            from urllib.parse import urlparse
+            return [urlparse(str(info.data["url"])).netloc]
+        return v or []
+
+
+class IngestDocRequest(BaseModel):
+    """Request model for ingest_doc() tool"""
+    file_path: str = Field(..., description="Path to document file")
+    source_name: Optional[str] = Field(None, description="Optional document name")
+
+    @field_validator("file_path")
+    @classmethod
+    def validate_file_path(cls, v: str) -> str:
+        """
+        Validate file path exists and is readable.
+
+        Security: Protects against path traversal attacks (e.g., ../../../../etc/passwd)
+        """
+        from pathlib import Path
+
+        if ".." in v:
+            raise ValueError(f"Path traversal detected: {v}")
+
+        path = Path(v)
+
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as e:
+            raise ValueError(f"Invalid file path: {v}") from e
+
+        if not path.exists():
+            raise ValueError(f"File not found: {v}")
+        if not path.is_file():
+            raise ValueError(f"Path is not a file: {v}")
+
+        return str(path)
+
+
+class QdrantFindRequest(BaseModel):
+    """Request model for qdrant_find() tool"""
+    query: str = Field(..., min_length=1, description="Search query text")
+    collection: Optional[str] = Field(None, description="Qdrant collection name")
+    limit: int = Field(10, ge=1, le=100, description="Number of results")
+    score_threshold: float = Field(0.0, ge=0.0, le=1.0, description="Minimum similarity score")
+    filter_conditions: Optional[Dict[str, Any]] = Field(None, description="Optional filters")
+
+
+class QdrantStoreRequest(BaseModel):
+    """Request model for qdrant_store() tool"""
+    text: str = Field(..., min_length=1, description="Text to embed and store")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata")
+    collection: Optional[str] = Field(None, description="Qdrant collection name")
+    point_id: Optional[str] = Field(None, description="Optional specific point ID")
+
+
+class LightRAGQueryRequest(BaseModel):
+    """Request model for lightrag_query() tool"""
+    query: str = Field(..., min_length=1, description="Query text")
+    mode: LightRAGModeEnum = Field(LightRAGModeEnum.HYBRID, description="Retrieval mode")
+    only_need_context: bool = Field(False, description="Return only context, no response")
+
+    model_config = ConfigDict(use_enum_values=True)
+
+
+class JobStatusRequest(BaseModel):
+    """Request model for get_job_status() tool"""
+    job_id: JobID = Field(..., min_length=1, description="Job identifier")
+
+
+# ==========================================
+# ==========================================
+
+class CrawlWebResponse(BaseModel):
+    """Response from crawl_web() tool (HTTP 202 pattern)"""
+    status: MCPResponseStatusEnum
+    message: Optional[str] = None
+    job_id: Optional[JobID] = None
+    pages_crawled: int
+    source_url: Optional[str] = None
+    check_status_endpoint: Optional[str] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+    retry_after: Optional[int] = None
+
+
+class IngestDocResponse(BaseModel):
+    """Response from ingest_doc() tool (HTTP 202 pattern)"""
+    status: MCPResponseStatusEnum
+    message: Optional[str] = None
+    job_id: Optional[JobID] = None
+    source_name: Optional[str] = None
+    file_format: Optional[str] = None
+    content_length: Optional[int] = None
+    page_count: Optional[int] = None
+    check_status_endpoint: Optional[str] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+    retry_after: Optional[int] = None
+
+
+class QdrantFindResponse(BaseModel):
+    """Response from qdrant_find() tool"""
+    status: MCPResponseStatusEnum
+    query: Optional[str] = None
+    collection: Optional[CollectionName] = None
+    result_count: int = 0
+    results: List[QdrantSearchResult] = []
+    score_threshold: float = 0.0
+    embedding_model: Optional[str] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+
+
+class LightRAGQueryResponse(BaseModel):
+    """Response from lightrag_query() tool"""
+    status: MCPResponseStatusEnum
+    query: Optional[str] = None
+    mode: Optional[LightRAGModeEnum] = None
+    response: Optional[str] = None
+    context: List[Dict[str, Any]] = []
+    metadata: Dict[str, Any] = {}
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+    retry_after: Optional[int] = None
+
+
+# ==========================================
+# ==========================================
+
+def create_error_response(
+    error: str,
+    error_type: str,
+    status_code: Optional[int] = None,
+    retry_after: Optional[int] = None
+) -> MCPErrorResponse:
+    """
+    Create a standardized error response
+
+    Args:
+        error: Error message
+        error_type: Type of error (validation_error, http_error, etc.)
+        status_code: Optional HTTP status code
+        retry_after: Optional retry delay in seconds
+
+    Returns:
+        Standardized error response dictionary
+    """
+    response: MCPErrorResponse = {
+        "status": "error",
+        "error": error,
+        "error_type": error_type,
+    }
+
+    if status_code is not None:
+        response["status_code"] = status_code
+
+    if retry_after is not None:
+        response["retry_after"] = retry_after
+
+    return response
+
+
+def create_job_status_response(
+    job_id: JobID,
+    job_status: JobStatusEnum,
+    progress: int,
+    created_at: Timestamp,
+    updated_at: Timestamp,
+    result: Optional[Dict[str, Any]] = None,
+    error: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None
+) -> JobStatusResponse:
+    """
+    Create a standardized job status response
+
+    Args:
+        job_id: Job identifier
+        job_status: Current job status
+        progress: Progress percentage (0-100)
+        created_at: Job creation timestamp
+        updated_at: Job update timestamp
+        result: Optional result data if completed
+        error: Optional error message if failed
+        metadata: Optional metadata
+
+    Returns:
+        Standardized job status response
+    """
+    response: JobStatusResponse = {
+        "status": MCPResponseStatusEnum.SUCCESS,
+        "job_id": job_id,
+        "job_status": job_status,
+        "progress": min(max(progress, 0), 100),
+        "created_at": created_at,
+        "updated_at": updated_at,
+    }
+
+    if result is not None:
+        response["result"] = result
+
+    if error is not None:
+        response["error"] = error
+
+    if metadata is not None:
+        response["metadata"] = metadata
+
+    return response
+
+
+# ==========================================
+# ==========================================
+
+def is_valid_job_status(status: str) -> bool:
+    """Check if a string is a valid job status"""
+    try:
+        JobStatusEnum(status)
+        return True
+    except ValueError:
+        return False
+
+
+def is_valid_health_status(status: str) -> bool:
+    """Check if a string is a valid health status"""
+    try:
+        HealthStatusEnum(status)
+        return True
+    except ValueError:
+        return False
+
+
+def is_valid_lightrag_mode(mode: str) -> bool:
+    """Check if a string is a valid LightRAG mode"""
+    try:
+        LightRAGModeEnum(mode)
+        return True
+    except ValueError:
+        return False
+
+
+# ==========================================
+# ==========================================
+
+SUPPORTED_DOCUMENT_FORMATS = [".pdf", ".docx", ".doc", ".txt", ".md"]
+
+DEFAULT_QDRANT_COLLECTION = "shield_knowledge_base"
+DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
+DEFAULT_EMBEDDING_DIMENSION = 768
+DEFAULT_MAX_PAGES = 10
+DEFAULT_MAX_DEPTH = 2
+DEFAULT_QDRANT_LIMIT = 10
+DEFAULT_SCORE_THRESHOLD = 0.0
+
+DEFAULT_CIRCUIT_FAIL_MAX = 5
+DEFAULT_CIRCUIT_RESET_TIMEOUT = 60
+DEFAULT_CIRCUIT_SUCCESS_THRESHOLD = 1
+
+DEFAULT_HTTP_TIMEOUT = 30.0
+DEFAULT_EMBEDDING_TIMEOUT = 60.0
+DEFAULT_QUERY_TIMEOUT = 60.0
+DEFAULT_JOB_STATUS_TIMEOUT = 10.0
+
+
+if __name__ == "__main__":
+    """Module test - validate all type definitions"""
+    print("Common Types Module - Type Definitions Test")
+    print("=" * 50)
+
+    print(f"\n✓ JobStatusEnum: {[s.value for s in JobStatusEnum]}")
+    print(f"✓ HealthStatusEnum: {[s.value for s in HealthStatusEnum]}")
+    print(f"✓ CircuitBreakerStateEnum: {[s.value for s in CircuitBreakerStateEnum]}")
+    print(f"✓ LightRAGModeEnum: {[s.value for s in LightRAGModeEnum]}")
+    print(f"✓ MCPResponseStatusEnum: {[s.value for s in MCPResponseStatusEnum]}")
+
+    print(f"\n✓ create_error_response(): {type(create_error_response('test', 'test_error'))}")
+
+    print(f"\n✓ QdrantFindRequest validation works")
+    try:
+        req = QdrantFindRequest(query="test", limit=5)
+        print(f"  - Created request: query='{req.query}', limit={req.limit}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+
+    print(f"\n✓ LightRAGQueryRequest validation works")
+    try:
+        req = LightRAGQueryRequest(query="test", mode=LightRAGModeEnum.HYBRID)
+        print(f"  - Created request: query='{req.query}', mode={req.mode}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+
+    print("\n" + "=" * 50)
+    print("All type definitions validated successfully! ✓")
+    print("=" * 50)

@@ -2,9 +2,18 @@ name: Test Suite
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'feature/**' ]
+    paths:
+      - '**.py'
+      - 'tests/**'
+      - 'pytest.ini'
+      - 'requirements-dev.txt'
+      - '.github/workflows/test.yml'
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - '**.py'
+      - 'tests/**'
   workflow_dispatch:
 
 jobs:
@@ -30,7 +39,14 @@ jobs:
     
     - name: Run unit tests with coverage
       run: |
-        pytest tests/unit/
+        pytest tests/unit/ -v \
+          --cov=tests \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          -n auto \
+          --durations=10 \
+          --tb=short
     
     - name: Run integration tests
       if: false  # Disabled: Requires services (hx-mcp1-server, hx-orchestrator-server) not available in CI

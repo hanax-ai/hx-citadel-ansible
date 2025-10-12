@@ -12,6 +12,7 @@ pytest-html>=4.1.0  # HTML test reports
 pytest-timeout>=2.2.0  # Test timeout handling
 httpx>=0.27.0  # Async HTTP client for integration tests
 respx>=0.21.0  # HTTP request mocking for tests
+pybreaker>=1.0.0  # Circuit breaker pattern for resilience testing
 
 # Pydantic (needed for Settings tests)
 pydantic>=2.0.0
@@ -39,6 +40,9 @@ safety>=3.0.0
 # Documentation
 mkdocs>=1.5.3
 mkdocs-material>=9.5.0
+
+# Load Testing
+locust>=2.20.0  # Load and performance testing
 
 # Utilities
 jq>=1.0.0  # JSON processing (via apt, listed for reference)
