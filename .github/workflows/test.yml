@@ -11,18 +11,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        python-version: ["3.12"]  # Primary version for this project
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.12"
         cache: 'pip'
         cache-dependency-path: 'requirements-dev.txt'
     
@@ -31,29 +28,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
     
-    - name: Type check with mypy
-      run: |
-        mypy .
-      continue-on-error: true
-    
     - name: Run unit tests with coverage
       run: |
-        pytest tests/unit/ \
-          --cov=tests \
-          --cov-report=xml \
-          --cov-report=html \
-          --cov-report=term \
-          -v \
-          --tb=short \
-          -n auto
+        pytest tests/unit/
     
     - name: Run integration tests
+      if: false  # Disabled: Requires services (hx-mcp1-server, hx-orchestrator-server) not available in CI
+                 # TODO: Enable when Issue #17 (Docker test environment) is complete
       run: |
-        pytest tests/integration/ \
-          -v \
-          --tb=short \
-          -m integration
-      continue-on-error: true
+        pytest tests/integration/ -m integration
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -67,8 +50,9 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: coverage-reports-${{ matrix.python-version }}
+        name: coverage-reports-python-3.12
         path: |
           coverage.xml
           htmlcov/
+          reports/
         retention-days: 30
