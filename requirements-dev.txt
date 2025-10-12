@@ -9,14 +9,9 @@ pytest-cov>=4.1.0
 pytest-mock>=3.12.0
 pytest-xdist>=3.5.0  # Parallel test execution
 pytest-html>=4.1.0  # HTML test reports
-pytest-timeout>=2.2.0  # Timeout support
-
-# Load Testing
-locust>=2.20.0
-
-# HTTP Testing (for integration tests)
-httpx>=0.27.0
-respx>=0.21.0
+pytest-timeout>=2.2.0  # Test timeout handling
+httpx>=0.27.0  # Async HTTP client for integration tests
+respx>=0.21.0  # HTTP request mocking for tests
 
 # Pydantic (needed for Settings tests)
 pydantic>=2.0.0
