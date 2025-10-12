@@ -22,6 +22,15 @@ jobs:
         cache: 'pip'
         cache-dependency-path: 'requirements-dev.txt'
     
+    - name: Check Python Syntax (Fast Fail)
+      run: |
+        echo "🔍 Checking Python syntax in tests/"
+        python -m compileall tests/ -q || {
+          echo "❌ Syntax errors found!"
+          exit 1
+        }
+        echo "✅ All Python files have valid syntax"
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -55,3 +64,47 @@ jobs:
           htmlcov/
           reports/
         retention-days: 30
+    
+    - name: Create Issue on Test Failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const issue = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 CI Failure: Test Suite - Run #${context.runNumber}`,
+            labels: ['bug', 'ci-failure', 'automated'],
+            body: `## CI Test Failure Detected
+
+**Workflow**: Test Suite
+**Run**: [#${context.runNumber}](${context.payload.repository.html_url}/actions/runs/${context.runId})
+**Branch**: \`${context.ref}\`
+**Commit**: ${context.sha.substring(0, 7)}
+**Triggered by**: @${context.actor}
+
+### What Happened
+
+The test suite failed during CI execution. This could be due to:
+- Syntax errors in Python files
+- Failing unit tests
+- Import errors
+- Dependency issues
+
+### Action Required
+
+1. Review the workflow run linked above
+2. Check the logs for specific errors
+3. Fix the issue locally
+4. Re-run tests: \`pytest tests/unit/ -v\`
+5. Push fix to trigger CI again
+
+### Automation
+
+This issue was automatically created by the CI workflow to ensure failures are tracked and addressed.
+
+---
+**Auto-created by**: \`.github/workflows/test.yml\`
+**Related**: Issue #45 (CI automation improvements)`
+          });
+          console.log(\`Created issue #\${issue.data.number}\`)
