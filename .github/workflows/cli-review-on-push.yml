@@ -1,0 +1,179 @@
+name: CodeRabbit CLI Review on Push
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'sprint-*'
+    paths:
+      - '**.py'
+      - '**.yml'
+      - '**.yaml'
+      - 'roles/**'
+      - 'playbooks/**'
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'Base branch for comparison'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  coderabbit-cli-review:
+    name: CodeRabbit CLI Review
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate diff
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install CodeRabbit CLI
+        run: |
+          echo "📦 Installing CodeRabbit CLI..."
+          curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+          
+          # Add to PATH
+          export PATH="$HOME/.coderabbit/bin:$PATH"
+          
+          # Verify installation
+          coderabbit --version || cr --version
+      
+      - name: Authenticate CodeRabbit
+        env:
+          CODERABBIT_TOKEN: ${{ secrets.CODERABBIT_CLI_TOKEN }}
+        run: |
+          # If token is available, authenticate
+          if [ -n "$CODERABBIT_TOKEN" ]; then
+            echo "$CODERABBIT_TOKEN" | coderabbit auth login --token-stdin
+          else
+            echo "⚠️  CODERABBIT_CLI_TOKEN not set - running in free tier mode"
+          fi
+      
+      - name: Run CodeRabbit Review
+        id: review
+        env:
+          BASE_BRANCH: ${{ github.event.inputs.base_branch || 'main' }}
+        run: |
+          echo "🔍 Running CodeRabbit CLI review..."
+          echo "Base branch: $BASE_BRANCH"
+          
+          # Run review and save output
+          REVIEW_FILE="/tmp/coderabbit-review-${{ github.run_id }}.txt"
+          
+          # Use --plain for parseable output
+          coderabbit --plain --base "$BASE_BRANCH" > "$REVIEW_FILE" 2>&1 || true
+          
+          echo "review_file=$REVIEW_FILE" >> $GITHUB_OUTPUT
+          
+          # Check if there are findings
+          if grep -q "CRITICAL\|MAJOR\|HIGH" "$REVIEW_FILE" 2>/dev/null; then
+            echo "has_findings=true" >> $GITHUB_OUTPUT
+            echo "✅ Review complete - findings detected"
+          else
+            echo "has_findings=false" >> $GITHUB_OUTPUT
+            echo "✅ Review complete - no critical findings"
+          fi
+          
+          # Show summary
+          echo ""
+          echo "Review Summary:"
+          cat "$REVIEW_FILE" | head -50
+      
+      - name: Find or Create PR
+        id: pr
+        if: steps.review.outputs.has_findings == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            
+            // Find existing PR for this branch
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open'
+            });
+            
+            if (prs.length > 0) {
+              core.setOutput('pr_number', prs[0].number);
+              core.setOutput('pr_exists', 'true');
+            } else {
+              core.setOutput('pr_number', 'none');
+              core.setOutput('pr_exists', 'false');
+            }
+      
+      - name: Create GitHub Issues from Findings
+        if: steps.review.outputs.has_findings == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ steps.pr.outputs.pr_number }}"
+          REVIEW_FILE="${{ steps.review.outputs.review_file }}"
+          
+          if [ "$PR_NUM" == "none" ]; then
+            # Use branch name if no PR exists
+            PR_NUM="${{ github.ref_name }}"
+          fi
+          
+          echo "🚀 Creating GitHub issues from findings..."
+          echo "PR/Branch: $PR_NUM"
+          
+          python3 .github/scripts/parse-review-create-issues.py \
+            "$REVIEW_FILE" \
+            "$PR_NUM" \
+            "$GITHUB_TOKEN"
+      
+      - name: Comment on PR
+        if: |
+          steps.review.outputs.has_findings == 'true' && 
+          steps.pr.outputs.pr_exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr.outputs.pr_number }};
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `🤖 **CodeRabbit CLI Review Complete**
+              
+CodeRabbit CLI has reviewed your changes and found issues that need attention.
+
+✅ **Automated actions taken:**
+- GitHub issues created for all CRITICAL and MAJOR findings
+- Issues labeled and linked to this PR
+- Review results archived
+
+📊 **Next steps:**
+1. Check the [Issues tab](${context.payload.repository.html_url}/issues?q=is:issue+is:open+label:code-review) for details
+2. Address critical findings before merge
+3. Run \`coderabbit --plain\` locally for immediate feedback
+
+---
+*Review powered by CodeRabbit CLI | Workflow: \`.github/workflows/cli-review-on-push.yml\`*`
+            });
+      
+      - name: Upload review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coderabbit-review-${{ github.run_id }}
+          path: /tmp/coderabbit-review-*.txt
+          retention-days: 30
+
