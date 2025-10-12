@@ -1,0 +1,17 @@
+---
+# Vault Variables for HX-Citadel Shield
+# CRITICAL: Encrypt this file with: ansible-vault encrypt vault_template.yml
+
+# Qdrant Vector Database
+vault_qdrant_api_key: "YOUR_QDRANT_API_KEY_HERE"
+
+# Redis Cache
+vault_redis_password: "YOUR_REDIS_PASSWORD_HERE"
+
+# PostgreSQL Database
+vault_postgres_superuser_password: "YOUR_POSTGRES_SUPERUSER_PASSWORD"
+vault_postgresql_orchestrator_password: "YOUR_POSTGRES_APP_PASSWORD"
+vault_postgres_orchestrator_password: "YOUR_POSTGRES_APP_PASSWORD"  # duplicate for compatibility
+
+# LiteLLM API Gateway
+vault_litellm_api_key: "YOUR_LITELLM_API_KEY"
