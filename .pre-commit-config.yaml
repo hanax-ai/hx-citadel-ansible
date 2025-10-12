@@ -7,3 +7,18 @@ repos:
         language: system
         pass_filenames: false
         stages: [commit, push]
+      
+      - id: python-syntax-check
+        name: Python Syntax Check
+        entry: python3 -m py_compile
+        language: system
+        types: [python]
+        description: "Validates Python syntax before commit (prevents syntax errors like Issue #45)"
+  
+  # Ruff linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
