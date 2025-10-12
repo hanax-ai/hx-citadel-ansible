@@ -15,6 +15,7 @@
 - **Issue #6**: 🔴 CI/CD test workflow (Critical)
 - **Issue #7**: 🔴 Missing dependencies (Critical)
 - **Issue #8**: 🔴 Pytest coverage config (Critical)
+- **Issue #19**: 🔴 CI/CD Ansible playbook validation workflow (Critical)
 - **Issue #10**: ⚡ Load tests implementation (High)
 - **Issue #11**: 🔗 Integration tests completion (High)
 - **Issue #16**: 🪝 Pre-commit test hooks (Medium)

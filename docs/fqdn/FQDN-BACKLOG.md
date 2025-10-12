@@ -12,6 +12,7 @@
 **All backlog items have been migrated to GitHub Issues for tracking:**
 
 - **Issue #5**: 🔴 SECURITY: Remove StrictHostKeyChecking (Critical)
+- **Issue #18**: 🔴 FQDN VIOLATION: Hardcoded IP in redis_additional_bind_ip (Critical)
 - **Issue #9**: 📝 FQDN Documentation Sync (High)
 - **Issue #12**: 📝 SERVICE_PORTS.md creation (Medium)
 - **Issue #13**: 🔄 Diagram automation (Medium)
