@@ -287,7 +287,7 @@ class QdrantFindResponse(BaseModel):
     query: Optional[str] = None
     collection: Optional[CollectionName] = None
     result_count: int = 0
-    results: List[QdrantSearchResult] = []
+    results: List[QdrantSearchResult] = Field(default_factory=list)
     score_threshold: float = 0.0
     embedding_model: Optional[str] = None
     error: Optional[str] = None
@@ -300,8 +300,8 @@ class LightRAGQueryResponse(BaseModel):
     query: Optional[str] = None
     mode: Optional[LightRAGModeEnum] = None
     response: Optional[str] = None
-    context: List[Dict[str, Any]] = []
-    metadata: Dict[str, Any] = {}
+    context: List[Dict[str, Any]] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
     error_type: Optional[str] = None
     retry_after: Optional[int] = None
@@ -369,8 +369,16 @@ def create_job_status_response(
     Returns:
         Standardized job status response
     """
+    # Derive MCP response status from job status (Issue #43 fix)
+    if job_status == JobStatusEnum.COMPLETED:
+        status = MCPResponseStatusEnum.SUCCESS
+    elif job_status in (JobStatusEnum.PENDING, JobStatusEnum.PROCESSING):
+        status = MCPResponseStatusEnum.ACCEPTED
+    else:  # FAILED or CANCELLED
+        status = MCPResponseStatusEnum.ERROR
+    
     response: JobStatusResponse = {
-        "status": MCPResponseStatusEnum.SUCCESS,
+        "status": status,
         "job_id": job_id,
         "job_status": job_status,
         "progress": min(max(progress, 0), 100),

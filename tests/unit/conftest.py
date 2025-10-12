@@ -6,18 +6,12 @@ Sets up common test fixtures and imports for all unit tests.
 
 import pytest
 import sys
-import tempfile
-import os
 from pathlib import Path
 
-# Add common_types module to path (deployed location)
-# Configurable via COMMON_TYPES_PATH environment variable for testing flexibility
-# Default uses user-specific temp directory for security (avoids shared /tmp issues)
-COMMON_TYPES_PATH = os.getenv(
-    "COMMON_TYPES_PATH",
-    str(Path(tempfile.gettempdir()) / "hx_citadel_common_types_test")
-)
-sys.path.insert(0, COMMON_TYPES_PATH)
+# Add tests directory to path for common_types import
+# common_types.py is located in tests/ directory
+TESTS_DIR = Path(__file__).parent.parent
+sys.path.insert(0, str(TESTS_DIR))
 
 # Try to import common_types module
 try:

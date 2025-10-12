@@ -53,28 +53,35 @@ class TestCircuitBreakerStates:
         assert breaker.fail_counter == 3
     
     def test_circuit_breaker_fast_fail_when_open(self):
-        """Test circuit breaker fails fast when open (< 1ms)"""
+        """Test circuit breaker fails fast when open without calling function"""
         breaker = pybreaker.CircuitBreaker(
             fail_max=1,
             reset_timeout=60,
             name="test_breaker"
         )
         
+        call_count = 0
         def failing_function():
+            nonlocal call_count
+            call_count += 1
             raise Exception("Test failure")
         
+        # Trip the breaker
         try:
             breaker.call(failing_function)
         except Exception:
             pass
         
-        import time
-        start = time.time()
-        with pytest.raises(pybreaker.CircuitBreakerError):
-            breaker.call(lambda: "test")
-        elapsed = time.time() - start
+        assert breaker.current_state == "open"
+        assert call_count == 1
         
-        assert elapsed < 0.01
+        # When breaker is open, subsequent calls should NOT execute the function
+        call_count = 0
+        with pytest.raises(pybreaker.CircuitBreakerError):
+            breaker.call(failing_function)
+        
+        # Assert function was NOT called (fast fail behavior)
+        assert call_count == 0, "Function should not be called when breaker is open"
         assert breaker.current_state == "open"
     
     def test_circuit_breaker_half_open_after_timeout(self):
@@ -85,32 +92,40 @@ class TestCircuitBreakerStates:
             name="test_breaker"
         )
         
+        call_count = 0
         def failing_function():
+            nonlocal call_count
+            call_count += 1
             import time
             time.sleep(0.01)
             raise Exception("Test failure")
         
+        # Trip the breaker
         try:
             breaker.call(failing_function)
         except Exception:
             pass
         
         assert breaker.current_state == "open"
+        assert call_count == 1
         
-        import time
-        start = time.time()
+        # While in OPEN state, function should NOT be called (fast fail)
+        call_count = 0
         with pytest.raises(pybreaker.CircuitBreakerError):
             breaker.call(failing_function)
-        fast_fail_time = time.time() - start
-        assert fast_fail_time < 0.01
+        assert call_count == 0, "Fast fail should not call function"
         
+        # Wait for reset timeout to transition to HALF_OPEN
+        import time
         time.sleep(1.1)
         
-        start = time.time()
-        with pytest.raises(pybreaker.CircuitBreakerError):
+        # In HALF_OPEN state, function SHOULD be called (trial attempt)
+        call_count = 0
+        with pytest.raises(Exception, match="Test failure"):
             breaker.call(failing_function)
-        trial_time = time.time() - start
-        assert trial_time >= 0.01
+        assert call_count == 1, "Half-open state should allow trial call"
+        # After failed trial, should transition back to OPEN
+        assert breaker.current_state == "open"
     
     def test_circuit_breaker_closes_on_success_in_half_open(self):
         """Test circuit breaker closes after successful retry"""
