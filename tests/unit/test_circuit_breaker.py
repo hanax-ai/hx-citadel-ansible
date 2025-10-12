@@ -121,7 +121,7 @@ class TestCircuitBreakerStates:
         
         # In HALF_OPEN state, function SHOULD be called (trial attempt)
         call_count = 0
-        with pytest.raises(Exception, match="Test failure"):
+        with pytest.raises(pybreaker.CircuitBreakerError):
             breaker.call(failing_function)
         assert call_count == 1, "Half-open state should allow trial call"
         # After failed trial, should transition back to OPEN
