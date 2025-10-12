@@ -217,7 +217,7 @@ roles/ag_ui_deployment/
 **Created Tasks**:
 - **T001**: Create Ansible role structure (1h)
 - **T002**: FastAPI backend application (4h, [P])
-- **T003**: Next.js frontend application (6h, [P])
+- **T003**: Integrate existing Vite frontend (2h, [P])
 - **T004**: Docker Compose configuration (2h)
 
 **Planned Tasks** (T005-T016):

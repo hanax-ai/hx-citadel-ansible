@@ -784,7 +784,7 @@ python-dotenv==1.0.0
 | Task ID | Task Name | Effort | Dependencies | Deliverable |
 |---------|-----------|--------|--------------|-------------|
 | **DEV-013** | Clone and integrate existing Vite frontend | 2 hours | DEV-005 | Vite app ready |
-| **DEV-014** | Integrate AG-UI React SDK | 3 hours | DEV-013 | @ag-ui/react configured |
+| **DEV-014** | Connect to FastAPI backend | 3 hours | DEV-013 | API client configured |
 | **DEV-015** | Create chat interface component | 4 hours | DEV-014 | Chat UI with streaming |
 | **DEV-016** | Build event timeline component | 4 hours | DEV-014 | Real-time event display |
 | **DEV-017** | Implement D3.js KG visualization | 6 hours | DEV-015 | Interactive graph view |

@@ -106,7 +106,7 @@ Each task follows this structure:
 ```
 T001: Ansible Role Structure
   ├─[P]─> T002: Backend (FastAPI)
-  ├─[P]─> T003: Frontend (Next.js)
+  ├─[P]─> T003: Frontend (Vite integration)
   └─[P]─> T006-T009: Tests (TDD)
   
 T002 + T003 ──> T004: Docker Compose
@@ -133,7 +133,7 @@ T002 + T003 ──> T004: Docker Compose
 ```bash
 # After T001 completes, launch T002-T003 together:
 Task T002: "Create FastAPI Backend Application"
-Task T003: "Create Next.js Frontend Application"
+Task T003: "Integrate Existing Vite Frontend"
 Task T006: "Unit tests for backend services"
 Task T007: "Integration tests for API endpoints"
 Task T008: "E2E tests with Playwright"

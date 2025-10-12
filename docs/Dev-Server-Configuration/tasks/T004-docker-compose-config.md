@@ -97,7 +97,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Frontend Service (Next.js)
+  # Frontend Service (Vite SPA - static)
   frontend:
     image: {{ ag_ui_frontend_image }}:latest
     container_name: ag-ui-frontend
@@ -373,7 +373,7 @@ ag-ui-network (bridge)
 
 - **backend-data**: Temporary data, job artifacts
 - **backend-logs**: Application logs (JSON format)
-- **frontend-logs**: Next.js logs
+- **frontend-logs**: Vite/nginx logs
 - **nginx-logs**: Access and error logs
 
 ## Next Tasks

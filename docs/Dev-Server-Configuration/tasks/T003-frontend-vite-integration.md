@@ -556,7 +556,7 @@ export default function KnowledgeGraphViz() {
 ### 7. Dockerfile
 
 ```dockerfile
-# Multi-stage build for Shield AG-UI Frontend (Next.js)
+# Multi-stage build for Shield AG-UI Frontend (Vite SPA)
 FROM node:20-alpine AS base
 
 # Stage 1: Install dependencies
@@ -574,7 +574,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build Next.js app
+# Build Vite app (static SPA)
 RUN npm run build
 
 # Stage 3: Production runtime
@@ -639,11 +639,11 @@ module.exports = nextConfig
 
 ## Acceptance Criteria
 
-- [x] Complete Next.js 14 directory structure created
+- [x] Complete Vite + React directory structure (existing from repo)
 - [x] App Router (not Pages Router) configured
 - [x] TypeScript configuration
 - [x] TailwindCSS setup
-- [x] AG-UI React SDK integrated
+- [x] shadcn-ui + Radix UI components integrated (existing)
 - [x] AgentChat component with SSE
 - [x] KnowledgeGraphViz with D3.js
 - [x] EventTimeline component
@@ -690,8 +690,8 @@ docker build -t shield-ag-ui-frontend:test .
 
 ## Notes
 
-- Uses Next.js 14 App Router (not Pages Router)
-- AG-UI React SDK for protocol compliance
+- Uses Vite 5.4 for fast SPA builds  
+- shadcn-ui + Radix UI for components (90% pages complete)
 - D3.js for knowledge graph visualization (force-directed layout)
 - SSE for real-time event streaming
 - Zustand for state management (lightweight)

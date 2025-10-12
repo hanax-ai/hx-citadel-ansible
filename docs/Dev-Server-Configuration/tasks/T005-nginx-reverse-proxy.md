@@ -240,7 +240,7 @@ http {
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
             
-            # Next.js timeouts
+            # Static file serving (Vite build)
             proxy_connect_timeout 60s;
             proxy_send_timeout 60s;
             proxy_read_timeout 60s;
@@ -478,7 +478,7 @@ ag_ui_use_letsencrypt: true
 - Rate limiting prevents abuse (adjust limits as needed)
 - HSTS enforces HTTPS for all future requests
 - CSP restricts resource loading for security
-- Static assets cached for 1 year (Next.js builds)
+- Static assets cached for 1 year (Vite builds)
 - Health check on `/health` (no authentication)
 - Nginx validates config before applying (Ansible)
 

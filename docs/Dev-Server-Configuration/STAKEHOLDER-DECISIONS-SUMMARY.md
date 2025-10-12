@@ -374,7 +374,7 @@ This document captures all stakeholder decisions for the Shield AG-UI implementa
 
 | Milestone | Date | Deliverables |
 |-----------|------|--------------|
-| **M9: Next.js App + Auth UI** | Oct 24-25 | Login, dashboard, auth flows |
+| **M9: Vite Frontend + Auth UI** | Oct 24-25 | Existing UI integrated, auth connected |
 | **M10: Accessibility Baseline** | Oct 25 | WCAG 2.2 AA compliance started |
 | **M11: Chat & Event Timeline** | Oct 26-27 | Core UI components |
 | **M12: KG Visualization (D3.js)** | Oct 28-29 | Interactive graph with auto-layout |

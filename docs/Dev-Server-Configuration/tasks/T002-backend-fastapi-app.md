@@ -583,7 +583,7 @@ pytest tests/integration/ -v
 
 ## Next Tasks
 
-- T003: Create Next.js Frontend Application [P]
+- T003: Integrate Existing Vite Frontend [P]
 - T008: Implement Authentication Service
 - T009: Implement RBAC Service
 - T010: Implement Event Transformation Service
