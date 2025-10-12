@@ -1,10 +1,11 @@
 # Dev Server AG-UI Implementation Plan
 ## Shield AG-UI: Power User Interface Deployment
 
-**Version**: 1.0  
-**Date**: October 11, 2025  
-**Status**: 🔵 **PLANNING - REVIEW REQUIRED**  
+**Version**: 2.0 (Hybrid Approach)  
+**Date**: October 12, 2025  
+**Status**: 🟢 **APPROVED - HYBRID ARCHITECTURE**  
 **Prepared By**: AI Agent  
+**Revised By**: HX-Citadel Team (Oct 12, 2025)  
 **Target Server**: hx-dev-server (192.168.10.12)
 
 ---
@@ -28,7 +29,7 @@
 
 ### 1.1 Vision
 
-Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power users with an advanced, real-time interface to the HX-Citadel Shield RAG pipeline. This application will leverage the AG-UI protocol for agent-user interaction, providing real-time event streaming, knowledge graph visualization, and advanced tool controls.
+Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power users with an advanced, real-time interface to the HX-Citadel Shield RAG pipeline. This **hybrid approach** leverages an existing Vite + React frontend (6,500 LOC) combined with a new FastAPI backend implementing the AG-UI Python SDK protocol for agent-user interaction, providing real-time event streaming, knowledge graph visualization, and advanced tool controls.
 
 ### 1.2 Key Objectives
 
@@ -61,9 +62,10 @@ Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power
 │  │  Docker Compose Stack                                  │ │
 │  │                                                        │ │
 │  │  ┌──────────────────────────────────────────────────┐ │ │
-│  │  │  shield-ag-ui (Port 3001)                        │ │ │
-│  │  │  Technology: Next.js 14 + React 18               │ │ │
-│  │  │  Framework: AG-UI Protocol + TypeScript SDK      │ │ │
+│  │  │  shield-ag-ui-frontend (Port 3001)               │ │ │
+│  │  │  Technology: Vite 5.4 + React 18 (SPA)           │ │ │
+│  │  │  UI Framework: shadcn-ui + Radix UI              │ │ │
+│  │  │  Source: Existing 6,500 LOC (Lovable-built)      │ │ │
 │  │  │  Features:                                        │ │ │
 │  │  │  • Real-time event timeline                      │ │ │
 │  │  │  • Knowledge graph D3.js visualization           │ │ │
@@ -115,14 +117,15 @@ Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power
 
 ### 2.3 Technology Stack
 
-**Frontend (shield-ag-ui)**:
-- Next.js 14 (React framework with SSR)
+**Frontend (shield-ag-ui-frontend)** - EXISTING CODEBASE:
+- Vite 5.4 (Build tool - faster than Next.js for SPA)
 - React 18 (UI framework)
-- AG-UI TypeScript SDK (@ag-ui/core, @ag-ui/react)
-- Zustand (state management)
+- shadcn-ui + Radix UI (Component library - replaces AG-UI React SDK)
+- TanStack Query (state management - replaces Zustand)
 - Zod (schema validation)
-- D3.js (knowledge graph visualization)
+- D3.js (knowledge graph visualization - already implemented)
 - TailwindCSS (styling)
+- **Source**: 6,500 LOC from Lovable.dev (90% feature-complete)
 
 **Backend (ag-ui-backend)**:
 - Python 3.12
@@ -142,7 +145,17 @@ Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power
 
 ## 3. Infrastructure Requirements
 
-### 3.1 Server Specifications
+### 3.1 Hybrid Approach Overview
+
+**Architecture Decision**: Leverage existing Vite + React frontend (6,500 LOC from Lovable.dev) + build new FastAPI backend with AG-UI Python SDK protocol.
+
+**Rationale**:
+- Preserves 90% complete frontend implementation
+- Reduces development time from 50 hours to ~20 hours
+- Maintains AG-UI protocol compliance via backend
+- Faster time to production (8 days vs 15 days)
+
+### 3.2 Server Specifications
 
 **Target Server**: hx-dev-server (192.168.10.12)
 
@@ -157,8 +170,8 @@ Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power
 - ✅ Docker Engine 24.x+
 - ✅ Docker Compose 2.x+
 - ✅ Nginx (for reverse proxy)
-- ✅ Node.js 20.x+ (for Next.js builds)
-- ✅ Python 3.12+ (for backend)
+- ✅ Node.js 20.x+ (for Vite builds - one-time build)
+- ✅ Python 3.12+ (for FastAPI backend)
 
 ### 3.2 Network Requirements
 
@@ -192,7 +205,7 @@ Deploy **shield-ag-ui** on hx-dev-server to provide Line-of-Business (LoB) power
 
 **Docker Images** (to be built):
 ```yaml
-- shield-ag-ui:latest (Next.js app)
+- shield-ag-ui-frontend:latest (Vite SPA - static build)
 - ag-ui-backend:latest (FastAPI app)
 - nginx:alpine (reverse proxy)
 ```

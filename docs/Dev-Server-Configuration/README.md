@@ -27,8 +27,8 @@ Dev-Server-Configuration/
 └── tasks/
     ├── README.md                                Master task index
     ├── T001-create-ansible-role.md              (1 hour)
-    ├── T002-backend-fastapi-app.md              (4 hours, [P])
-    ├── T003-frontend-nextjs-app.md              (6 hours, [P])
+    ├── T002-backend-fastapi-app.md              (4 hours)
+    ├── T003-frontend-vite-integration.md        (2 hours) - Integrate existing UI
     ├── T004-docker-compose-config.md            (2 hours)
     └── [T005-T016 to be created]                (12 more tasks planned)
 ```
@@ -152,24 +152,24 @@ Dev-Server-Configuration/
 ### 4. DEV-SERVER-AG-UI-IMPLEMENTATION-PLAN.md
 **Size**: 67 KB  
 **Audience**: Developers, DevOps engineers  
-**Purpose**: HOW - Complete implementation guide
+**Purpose**: HOW - Complete implementation guide (HYBRID APPROACH)
 
 **What's Inside**:
 - ✅ Ansible role design (8 task files, 33 tasks)
 - ✅ Docker configuration (3 containers + compose)
 - ✅ Complete code examples (Python + TypeScript)
-- ✅ Frontend: Next.js 14 + React 18 + AG-UI SDK
-- ✅ Backend: FastAPI + AG-UI Python SDK + Redis
+- ✅ Frontend: Vite 5.4 + React 18 + shadcn-ui (existing 6,500 LOC)
+- ✅ Backend: FastAPI + AG-UI Python SDK + Redis (new implementation)
 - ✅ Integration points (LiteLLM, Orchestrator, Redis, Qdrant)
 - ✅ Testing strategy (unit + integration + E2E)
-- ✅ 10-day phased timeline (now 15 days)
+- ✅ Revised timeline (8 days - leverages existing frontend)
 - ✅ SOLID principles mapped
 - ✅ Security & monitoring included
-- ✅ Cost breakdown ($12,000 approved)
+- ✅ Cost breakdown ($12,000 approved, reduced effort)
 
-**Technology Stack**:
-- **Frontend**: Next.js 14, React 18, AG-UI React SDK, D3.js, TailwindCSS
-- **Backend**: Python 3.12, FastAPI, AG-UI Python SDK, Redis-py, HTTPX
+**Technology Stack** (Hybrid Approach):
+- **Frontend**: Vite 5.4, React 18, shadcn-ui, D3.js, TailwindCSS (6,500 LOC existing)
+- **Backend**: Python 3.12, FastAPI, AG-UI Python SDK, Redis-py, HTTPX (new)
 - **Infrastructure**: Docker 24.x, Docker Compose, Nginx, Ubuntu 24.04
 - **Data**: Redis Streams, PostgreSQL, Qdrant
 - **LLMs**: Ollama (9 models + 3 embeddings), LiteLLM Gateway
@@ -183,7 +183,7 @@ roles/ag_ui_deployment/
 │   ├── 01-prerequisites.yml    # Docker, Node.js, Python
 │   ├── 02-user-setup.yml       # Create agui user
 │   ├── 03-directories.yml      # App directories
-│   ├── 04-frontend-build.yml   # Next.js build
+│   ├── 04-frontend-build.yml   # Vite build (static SPA)
 │   ├── 05-backend-setup.yml    # FastAPI setup
 │   ├── 06-docker-compose.yml   # Container orchestration
 │   ├── 07-nginx-config.yml     # Reverse proxy
