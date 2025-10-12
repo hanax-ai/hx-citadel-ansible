@@ -1,0 +1,29 @@
+# How to Edit Existing Vault
+
+## Method 1: Edit in place (safest)
+ansible-vault edit group_vars/all/vault.yml
+
+# This will:
+# 1. Prompt for vault password
+# 2. Open the decrypted content in your editor (nano/vi)
+# 3. Let you add/modify variables
+# 4. Automatically re-encrypt when you save and exit
+
+## Method 2: View first, then edit
+# View current contents
+ansible-vault view group_vars/all/vault.yml
+
+# Then edit
+ansible-vault edit group_vars/all/vault.yml
+
+## Method 3: Decrypt, edit, re-encrypt (manual)
+ansible-vault decrypt group_vars/all/vault.yml
+nano group_vars/all/vault.yml
+ansible-vault encrypt group_vars/all/vault.yml
+
+## What to add to your vault:
+vault_qdrant_api_key: "your_qdrant_api_key_here"
+vault_redis_password: "your_redis_password_here"
+vault_postgres_superuser_password: "your_postgres_password"
+vault_postgresql_orchestrator_password: "your_app_password"
+vault_litellm_api_key: "your_litellm_key"
