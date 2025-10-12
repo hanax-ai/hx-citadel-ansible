@@ -65,47 +65,97 @@
 
 ### 2. Server Access Inconsistency 🔐
 
-**Issue**: Two servers have different authentication/access methods compared to the rest of the fleet
+**Issue**: Two servers have different SSH authentication compared to the rest of the fleet
 
 **Impact**: High (operational complexity, security risk)  
 **Effort**: Medium  
 **Priority**: 🟡 High
 
-**Details**:
-- Specific servers: **TBD** (User to identify which 2 servers)
-- Different SSH key, different user, or different authentication method
-- Creates operational burden and security complexity
-- Inconsistent with fleet standardization goals
+**Affected Servers**:
+- **hx-qwebui-server** (192.168.10.53)
+- **hx-mcp1-server** (192.168.10.59)
 
-**Potential Causes**:
-- Legacy configuration from initial setup
-- Special security requirements
-- Different OS/distribution on those servers
-- Temporary workaround that became permanent
+**Current Configuration** (from `inventory/prod.ini`):
 
-**Action Items**:
+**Standard Fleet Configuration:**
+```ini
+[all:vars]
+ansible_user=agent0
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+```
 
-1. **Identify the two servers** with different access
-2. **Document current access method** for each
-3. **Assess why** they differ:
-   - Technical requirement?
-   - Historical artifact?
-   - Security policy?
-4. **Create standardization plan**:
-   - Can they be migrated to standard access?
-   - What's the migration risk?
-   - What's the rollback plan?
-5. **Execute remediation** (if feasible)
-6. **Update fleet documentation** with any permanent exceptions
+**Non-Standard Configuration:**
+```ini
+# Lines 24-25 in inventory/prod.ini
+hx-qwebui-server  ansible_ssh_private_key_file=~/.ssh/id_ed25519 ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+hx-mcp1-server    ansible_ssh_private_key_file=~/.ssh/id_ed25519 ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+```
 
-**Dependencies**:
-- User input to identify the 2 servers
-- Security team approval for access changes
-- Testing window for authentication changes
+**Differences Identified**:
+
+1. **SSH Key Type**: 
+   - Fleet standard: RSA (`~/.ssh/id_rsa`)
+   - These servers: Ed25519 (`~/.ssh/id_ed25519`)
+   
+2. **Host Key Verification**:
+   - Fleet standard: StrictHostKeyChecking enabled (secure)
+   - These servers: **`-o StrictHostKeyChecking=no`** ⚠️ **SECURITY RISK**
+
+**Security Concerns**:
+
+🔴 **Critical**: `StrictHostKeyChecking=no` disables MITM protection
+- Vulnerable to man-in-the-middle attacks
+- Does not validate host identity
+- **Should only be used in initial setup, never in production**
+
+**Potential Root Causes**:
+
+- **Likely**: Recently added servers (Oct 2025) with temporary workaround
+- **Possible**: Different initial setup process
+- **Possible**: Host key mismatch that was bypassed instead of resolved
+
+**Remediation Plan**:
+
+**Phase 1: Immediate (Security Fix)**
+1. **Remove StrictHostKeyChecking=no**:
+   ```bash
+   # SSH to each server and add to known_hosts properly
+   ssh-keyscan hx-qwebui-server.dev-test.hana-x.ai >> ~/.ssh/known_hosts
+   ssh-keyscan hx-mcp1-server.dev-test.hana-x.ai >> ~/.ssh/known_hosts
+   ```
+
+2. **Update inventory/prod.ini**:
+   ```ini
+   hx-qwebui-server ansible_host=192.168.10.53 ansible_ssh_private_key_file=~/.ssh/id_ed25519
+   hx-mcp1-server   ansible_host=192.168.10.59 ansible_ssh_private_key_file=~/.ssh/id_ed25519
+   ```
+
+**Phase 2: Standardization (Optional)**
+1. **Assess**: Why Ed25519 vs RSA?
+   - Ed25519 is actually better (more secure, faster)
+   - Could standardize entire fleet to Ed25519
+   - Or just accept two key types
+
+2. **Options**:
+   - **Option A**: Migrate these 2 servers to RSA key (matches fleet)
+   - **Option B**: Migrate entire fleet to Ed25519 (better security)
+   - **Option C**: Accept mixed keys, just remove StrictHostKeyChecking
+
+**Recommended**: **Phase 1 immediately** (remove security risk), **Phase 2 decide later** (standardization can wait)
+
+**Testing Plan**:
+```bash
+# Test connectivity with proper host key checking
+ansible hx-qwebui-server -i inventory/prod.ini -m ping
+ansible hx-mcp1-server -i inventory/prod.ini -m ping
+
+# Verify no StrictHostKeyChecking bypass needed
+ansible hx-qwebui-server,hx-mcp1-server -i inventory/prod.ini -m shell -a "whoami"
+```
 
 **Assigned**: Unassigned  
-**Target**: Q4 2025  
-**Blocked**: Yes (awaiting server identification)
+**Target**: **IMMEDIATE** (Security issue)  
+**Blocked**: No (ready for execution)
 
 ---
 
