@@ -156,7 +156,7 @@
     name: qdrant-ui-monitor
     job: "{{ qdrant_ui_root }}/scripts/monitor.sh"
     minute: "{{ qdrant_ui_monitor_interval }}"
-    ansible.builtin.user: root
+    user: root
 
 - name: Deploy backup script
   ansible.builtin.template:
@@ -182,7 +182,7 @@
     job: "{{ qdrant_ui_root }}/scripts/backup.sh"
     minute: "{{ qdrant_ui_backup_minute }}"
     hour: "{{ qdrant_ui_backup_hour }}"
-    ansible.builtin.user: root
+    user: root
 
 - name: Execute health check probes
   ansible.builtin.command:

@@ -40,7 +40,7 @@
     name: HX-Citadel base health check
     minute: "*/15"
     job: "{{ app_dir }}/scripts/health-check.sh --cron >> {{ log_dir }}/health/health-check.log 2>&1"
-    ansible.builtin.user: "{{ service_user | default('agent0') }}"
+    user: "{{ service_user | default('agent0') }}"
     state: present
   become: true
   when:

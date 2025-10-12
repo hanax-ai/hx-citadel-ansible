@@ -37,7 +37,7 @@
 - name: Schedule model sync cron job
   ansible.builtin.cron:
     name: Ollama model sync
-    ansible.builtin.user: root
+    user: root
     job: /usr/local/bin/ollama list > /var/log/ollama-models.log
     minute: "{{ model_sync_cron.split()[0] }}"
     hour: "{{ model_sync_cron.split()[1] }}"

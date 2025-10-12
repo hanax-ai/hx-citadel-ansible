@@ -11,7 +11,7 @@
   ansible.builtin.user:
     name: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    ansible.builtin.shell: "{{ fastmcp_user_shell }}"
+    shell: "{{ fastmcp_user_shell }}"
     home: "{{ fastmcp_user_home }}"
     create_home: true
     system: true
