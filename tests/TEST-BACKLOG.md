@@ -3,8 +3,26 @@
 **Created**: October 12, 2025  
 **Source**: tests_assessment.md comprehensive review  
 **Assessment Rating**: 7.5/10 (Strong framework, partial implementation)  
-**Status**: Backlog for test suite improvements  
+**Status**: ✅ **Migrated to GitHub Issues**  
 **Priority Matrix**: 🔴 Critical | 🟡 High | 🟠 Medium | 🔵 Low
+
+---
+
+## 🔗 GitHub Issues
+
+**All backlog items have been migrated to GitHub Issues for tracking:**
+
+- **Issue #6**: 🔴 CI/CD test workflow (Critical)
+- **Issue #7**: 🔴 Missing dependencies (Critical)
+- **Issue #8**: 🔴 Pytest coverage config (Critical)
+- **Issue #10**: ⚡ Load tests implementation (High)
+- **Issue #11**: 🔗 Integration tests completion (High)
+- **Issue #16**: 🪝 Pre-commit test hooks (Medium)
+- **Issue #17**: 🐳 Docker test environment (Medium)
+
+**View all testing issues**: `gh issue list --label testing`
+
+**This document remains as reference documentation and implementation guide.**
 
 ---
 

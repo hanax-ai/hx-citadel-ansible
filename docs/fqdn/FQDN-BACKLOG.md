@@ -2,8 +2,25 @@
 
 **Created**: October 12, 2025  
 **Source**: fqdn_assessment.md comprehensive review  
-**Status**: Backlog for future remediation  
+**Status**: ✅ **Migrated to GitHub Issues**  
 **Priority Matrix**: 🔴 Critical | 🟡 High | 🟠 Medium | 🔵 Low
+
+---
+
+## 🔗 GitHub Issues
+
+**All backlog items have been migrated to GitHub Issues for tracking:**
+
+- **Issue #5**: 🔴 SECURITY: Remove StrictHostKeyChecking (Critical)
+- **Issue #9**: 📝 FQDN Documentation Sync (High)
+- **Issue #12**: 📝 SERVICE_PORTS.md creation (Medium)
+- **Issue #13**: 🔄 Diagram automation (Medium)
+- **Issue #14**: 📊 Health check dashboard (Medium)
+- **Issue #15**: 🚨 Disaster recovery docs (Medium)
+
+**View all FQDN issues**: `gh issue list --label fqdn`
+
+**This document remains as reference documentation and implementation guide.**
 
 ---
 
