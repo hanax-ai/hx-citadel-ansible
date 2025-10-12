@@ -1,38 +1,40 @@
-# Task T003: Create Next.js Frontend Application
+# Task T003: Integrate Existing Vite Frontend
 
-**Feature**: Shield AG-UI Frontend  
+**Feature**: Shield AG-UI Frontend Integration  
 **Phase**: 3.3 Core Implementation  
 **Parallel**: [P] (can run parallel with T002 backend)  
-**Estimated Effort**: 6 hours  
+**Estimated Effort**: 2 hours (reduced - leverages existing code)  
 **Prerequisites**: T001 (Ansible role structure)
 
 ## Task Description
 
-Create the complete Next.js 14 frontend application with AG-UI React SDK integration, D3.js knowledge graph visualization, real-time SSE event handling, and authentication UI.
+Integrate the existing Vite + React frontend application (6,500 LOC) from the citadel-shield-ui repository. The codebase is 90% feature-complete with all 9 pages implemented (Dashboard, Jobs, Ingest, Graph, Queries, Audit, Admin) using shadcn-ui + Radix UI components. This task involves cloning the repository, removing Supabase dependencies, and connecting to the new FastAPI backend API.
 
 ## Execution Flow
 
 ```
-1. Create frontend directory structure
-   → roles/ag_ui_deployment/files/frontend/
-   → app/, components/, lib/, public/
-2. Initialize Next.js 14 project
-   → App Router (not Pages Router)
-   → TypeScript configuration
-   → TailwindCSS setup
-3. Integrate AG-UI React SDK
-   → useAgentChat hook
-   → useEventStream hook
-   → Event timeline component
-4. Implement UI components
-   → Chat interface
-   → Knowledge graph visualization (D3.js)
-   → Job tracking dashboard
-   → Authentication forms
-5. Create Dockerfile (multi-stage build)
-6. Write package.json with dependencies
-7. Configure next.config.js
-8. Verify structure matches architecture
+1. Clone existing frontend repository
+   → git clone https://github.com/hanax-ai/citadel-shield-ui.git
+   → git checkout feature-1
+   → Copy to roles/ag_ui_deployment/files/frontend/
+2. Remove Supabase dependencies
+   → Delete src/integrations/supabase/
+   → Remove @supabase/supabase-js from package.json
+   → Remove Supabase Edge Functions
+3. Create backend API client
+   → Create src/lib/api-client.ts
+   → Add fetch wrappers for backend endpoints
+   → Add authentication token handling
+4. Update existing pages to use backend API
+   → Replace Supabase calls with fetch to /api/*
+   → Update event streaming to use /events/stream
+   → Maintain existing UI/UX
+5. Fix CodeRabbit findings (15 issues)
+   → Security: Remove .env from version control
+   → Quality: Fix AsyncButton, add timeouts, etc.
+6. Create production Dockerfile (multi-stage Vite build)
+7. Configure environment variables (.env.production)
+8. Verify build works (npm run build)
 ```
 
 ## Files to Create

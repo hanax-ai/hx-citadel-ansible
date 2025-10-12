@@ -53,9 +53,9 @@ Each task follows this structure:
 
 **Deliverables**:
 - **T002**: Complete FastAPI app with AG-UI Python SDK, Redis consumer, SSE endpoint, multi-stage Dockerfile
-- **T003**: Complete Next.js 14 app with AG-UI React SDK, D3.js graph, authentication UI, multi-stage Dockerfile
+- **T003**: Existing Vite + React app integrated (6,500 LOC), Supabase removed, backend API connected, CodeRabbit issues fixed, multi-stage Dockerfile
 
-**Note**: T002 and T003 can run in parallel (different directories, no dependencies)
+**Note**: T002 and T003 can run in parallel (different directories, no dependencies). T003 is significantly faster (2h vs 6h) because it leverages existing working code.
 
 ---
 
