@@ -48,7 +48,9 @@
     chdir: "{{ app_dir }}/prisma"
   become: true
   register: migrate_result
-  changed_when: "'No pending migrations' not in migrate_result.stdout and 'No migrations to apply' not in migrate_result.stdout"
+  changed_when: >-
+    'No pending migrations' not in migrate_result.stdout and
+    'No migrations to apply' not in migrate_result.stdout
   failed_when: migrate_result.rc != 0
   tags:
     - api
