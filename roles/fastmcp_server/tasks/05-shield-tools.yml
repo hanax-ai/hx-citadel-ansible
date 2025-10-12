@@ -7,28 +7,28 @@
     - name: Install Crawl4AI and dependencies
       ansible.builtin.pip:
         name:
-          - "crawl4ai>=0.3.0"
-          - "playwright>=1.49.0"
-          - "patchright>=1.49.0"
+          - crawl4ai>=0.3.0
+          - playwright>=1.49.0
+          - patchright>=1.49.0
         virtualenv: "{{ fastmcp_venv_dir }}"
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
       register: crawl4ai_install
 
   rescue:
     - name: Log Crawl4AI installation failure
       ansible.builtin.debug:
-        msg: "⚠️  Crawl4AI installation failed, retrying..."
+        msg: ⚠️  Crawl4AI installation failed, retrying...
 
     - name: Retry Crawl4AI installation
       ansible.builtin.pip:
         name:
-          - "crawl4ai>=0.3.0"
-          - "playwright>=1.49.0"
-          - "patchright>=1.49.0"
+          - crawl4ai>=0.3.0
+          - playwright>=1.49.0
+          - patchright>=1.49.0
         virtualenv: "{{ fastmcp_venv_dir }}"
         state: forcereinstall
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
 
   always:
@@ -43,29 +43,29 @@
     - name: Install Docling for document processing
       ansible.builtin.pip:
         name:
-          - "docling>=1.0.0"
+          - docling>=1.0.0
         virtualenv: "{{ fastmcp_venv_dir }}"
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
       register: docling_install
 
     - name: Install LightRAG
       ansible.builtin.pip:
         name:
-          - "lightrag>=0.1.0b6"  # Using beta version (latest available)
+          - lightrag>=0.1.0b6 # Using beta version (latest available)
         virtualenv: "{{ fastmcp_venv_dir }}"
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
       register: lightrag_install
-      failed_when: false  # LightRAG may not be in PyPI
+      failed_when: false # LightRAG may not be in PyPI
 
     - name: Fix numpy version conflict (LightRAG downgrades, Docling needs 2.x)
       ansible.builtin.pip:
         name:
-          - "numpy>=2.0.0"
+          - numpy>=2.0.0
         virtualenv: "{{ fastmcp_venv_dir }}"
-        state: latest
-      become: yes
+        state: present
+      become: true
       become_user: "{{ fastmcp_service_user }}"
       register: numpy_fix
 
@@ -79,11 +79,11 @@
     - name: Reinstall with correct numpy version
       ansible.builtin.pip:
         name:
-          - "numpy>=2.0.0"
-          - "docling>=1.0.0"
+          - numpy>=2.0.0
+          - docling>=1.0.0
         virtualenv: "{{ fastmcp_venv_dir }}"
         state: forcereinstall
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
 
   always:
@@ -104,18 +104,18 @@
 - name: Install Qdrant client
   ansible.builtin.pip:
     name:
-      - "qdrant-client>=1.7.0"
+      - qdrant-client>=1.7.0
     virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
 
 - name: Install additional utilities
   ansible.builtin.pip:
     name:
-      - "aiohttp>=3.9.0"
-      - "beautifulsoup4>=4.12.0"
-      - "lxml>=5.0.0"
-      - "numpy>=1.26.0"
+      - aiohttp>=3.9.0
+      - beautifulsoup4>=4.12.0
+      - lxml>=5.0.0
+      - numpy>=1.26.0
     virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"

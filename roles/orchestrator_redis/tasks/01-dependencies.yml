@@ -7,26 +7,22 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   tags: [dependencies]
-
 - name: Install Redis Python dependencies
   ansible.builtin.pip:
     requirements: "{{ orchestrator_app_dir }}/requirements-redis.txt"
     virtualenv: "{{ orchestrator_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   notify: restart orchestrator
   tags: [dependencies]
-
 - name: Verify Redis client installation
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import redis; print(redis.__version__)'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import redis; print(redis.__version__)'
   register: redis_version_check
   changed_when: false
   tags: [dependencies, validation]
-
 - name: Display Redis client version
   ansible.builtin.debug:
     msg: "✅ Redis client version: {{ redis_version_check.stdout }}"

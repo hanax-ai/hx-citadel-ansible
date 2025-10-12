@@ -4,9 +4,9 @@
 # Database server
 postgres_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
 postgres_port: 5432
-postgres_database: "shield_orchestrator"
-postgres_user: "orchestrator"
-postgres_superuser: "postgres"
+postgres_database: shield_orchestrator
+postgres_user: orchestrator
+postgres_superuser: postgres
 
 # Connection pooling
 postgres_pool_size: 20

@@ -12,13 +12,13 @@ worker_graceful_shutdown_timeout: 60
 # Redis is running on hx-sqldb-server
 redis_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
 redis_port: 6379
-redis_stream_ingestion: "shield:ingestion_queue"
-redis_consumer_group_workers: "lightrag-workers"
-redis_consumer_block_ms: 30000  # 30 seconds
+redis_stream_ingestion: shield:ingestion_queue
+redis_consumer_group_workers: lightrag-workers
+redis_consumer_block_ms: 30000 # 30 seconds
 
 # Job Tracking Configuration
-job_status_ttl: 3600  # 1 hour after completion (seconds)
-job_cleanup_interval: 300  # 5 minutes
+job_status_ttl: 3600 # 1 hour after completion (seconds)
+job_cleanup_interval: 300 # 5 minutes
 
 # Database Configuration (from Component 3)
 postgres_host: "{{ hx_hosts_fqdn['hx-sqldb-server'] }}"
@@ -29,5 +29,5 @@ postgres_password: "{{ vault_postgresql_orchestrator_password }}"
 
 # Event Bus Configuration
 event_bus_max_clients: 100
-event_bus_keepalive_interval: 15  # seconds
-event_bus_message_ttl: 60  # seconds
+event_bus_keepalive_interval: 15 # seconds
+event_bus_message_ttl: 60 # seconds

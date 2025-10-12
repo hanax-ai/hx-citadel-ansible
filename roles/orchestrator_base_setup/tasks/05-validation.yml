@@ -7,7 +7,6 @@
   register: orchestrator_user_check
   failed_when: orchestrator_user_check.ansible_facts.getent_passwd[orchestrator_service_user] is undefined
   tags: [validation]
-
 - name: Verify all critical directories exist
   ansible.builtin.stat:
     path: "{{ item }}"
@@ -20,21 +19,18 @@
     - "{{ lightrag_working_dir }}"
     - "{{ orchestrator_log_dir }}"
   tags: [validation]
-
 - name: Verify Python 3.12 in virtual environment
   ansible.builtin.command: "{{ orchestrator_venv_dir }}/bin/python --version"
   register: venv_python_check
   changed_when: false
   failed_when: "'Python 3.12' not in venv_python_check.stdout"
   tags: [validation]
-
 - name: Verify pip in virtual environment
   ansible.builtin.command: "{{ orchestrator_venv_dir }}/bin/pip --version"
   register: venv_pip_check
   changed_when: false
   failed_when: venv_pip_check.rc != 0
   tags: [validation]
-
 - name: Display validation summary
   ansible.builtin.debug:
     msg:
@@ -43,5 +39,5 @@
       - "✅ Virtual environment: {{ orchestrator_venv_dir }}"
       - "✅ Python version: {{ venv_python_check.stdout }}"
       - "✅ pip version: {{ venv_pip_check.stdout }}"
-      - "✅ Base system setup complete!"
+      - ✅ Base system setup complete!
   tags: [validation]

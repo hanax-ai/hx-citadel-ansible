@@ -7,8 +7,8 @@
       - curl
       - gnupg
     state: present
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
   tags:
     - vector
 
@@ -17,7 +17,7 @@
     url: "{{ qdrant_apt_key_url }}"
     keyring: "{{ qdrant_apt_keyring }}"
     state: present
-  become: yes
+  become: true
   tags:
     - vector
   when: not ansible_check_mode
@@ -27,7 +27,7 @@
     repo: "{{ qdrant_apt_repository }}"
     filename: qdrant
     state: present
-  become: yes
+  become: true
   tags:
     - vector
   when: not ansible_check_mode
@@ -36,8 +36,8 @@
   ansible.builtin.apt:
     name: "{{ 'qdrant=' + qdrant_version if qdrant_version != 'latest' else 'qdrant' }}"
     state: present
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
   tags:
     - vector
   when: not ansible_check_mode
@@ -52,7 +52,7 @@
   loop:
     - "{{ qdrant_storage_path }}"
     - "{{ qdrant_snapshots_path }}"
-  become: yes
+  become: true
   tags:
     - vector
 
@@ -63,7 +63,7 @@
     owner: root
     group: root
     mode: "0755"
-  become: yes
+  become: true
   tags:
     - vector
 
@@ -75,16 +75,16 @@
     group: "{{ qdrant_group }}"
     mode: "0644"
   notify: restart qdrant
-  become: yes
+  become: true
   tags:
     - vector
 
 - name: Ensure Qdrant service is enabled and running
   ansible.builtin.service:
     name: "{{ qdrant_service_name }}"
-    enabled: yes
+    enabled: true
     state: started
-  become: yes
+  become: true
   tags:
     - vector
   when: not ansible_check_mode

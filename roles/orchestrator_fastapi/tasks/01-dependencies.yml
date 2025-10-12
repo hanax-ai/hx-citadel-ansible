@@ -7,22 +7,20 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
 
 - name: Install FastAPI and dependencies
   ansible.builtin.pip:
     requirements: "{{ orchestrator_app_dir }}/requirements-fastapi.txt"
     virtualenv: "{{ orchestrator_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   tags: [dependencies]
-
 - name: Verify FastAPI installation
   ansible.builtin.command: "{{ orchestrator_venv_dir }}/bin/python -c 'import fastapi; print(fastapi.__version__)'"
   register: fastapi_version_check
   changed_when: false
   tags: [dependencies, validation]
-
 - name: Display FastAPI version
   ansible.builtin.debug:
     msg: "FastAPI version: {{ fastapi_version_check.stdout }}"

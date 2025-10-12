@@ -7,7 +7,7 @@
     dest: "{{ fastmcp_app_dir }}/.env"
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0600'
+    mode: "0600"
   notify: restart fastmcp-server
 
 - name: Deploy Shield MCP server application
@@ -16,7 +16,7 @@
     dest: "{{ fastmcp_app_dir }}/shield_mcp_server.py"
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0755'
+    mode: "0755"
   notify: restart fastmcp-server
 
 - name: Deploy enhanced health check module
@@ -25,7 +25,7 @@
     dest: "{{ fastmcp_app_dir }}/enhanced_health_check.py"
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0644'
+    mode: "0644"
   notify: restart fastmcp-server
 
 - name: Deploy structured logging configuration
@@ -34,7 +34,7 @@
     dest: "{{ fastmcp_app_dir }}/logging_config.py"
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0644'
+    mode: "0644"
   notify: restart fastmcp-server
 
 - name: Deploy common types module (TASK-023)
@@ -43,7 +43,7 @@
     dest: "{{ fastmcp_app_dir }}/common_types.py"
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0644'
+    mode: "0644"
   notify: restart fastmcp-server
 
 - name: Generate Prometheus scrape configuration
@@ -52,4 +52,4 @@
     dest: "{{ fastmcp_app_dir }}/prometheus-config.yml"
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0644'
+    mode: "0644"

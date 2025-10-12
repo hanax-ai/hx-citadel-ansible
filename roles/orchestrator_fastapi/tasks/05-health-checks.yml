@@ -8,51 +8,46 @@
     timeout: 60
     state: started
   tags: [health, validation]
-
 - name: Check basic health endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port }}{{ health_check_path }}"
+    url: http://localhost:{{ orchestrator_port }}{{ health_check_path }}
     method: GET
     status_code: 200
-    return_content: yes
+    return_content: true
   register: health_check
   retries: 5
   delay: 3
   until: health_check.status == 200
   tags: [health, validation]
-
 - name: Check detailed health endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port }}{{ health_detailed_path }}"
+    url: http://localhost:{{ orchestrator_port }}{{ health_detailed_path }}
     method: GET
     status_code: 200
-    return_content: yes
+    return_content: true
   register: health_detailed_check
   tags: [health, validation]
-
 - name: Check readiness endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port }}{{ health_readiness_path }}"
+    url: http://localhost:{{ orchestrator_port }}{{ health_readiness_path }}
     method: GET
     status_code: 200
-    return_content: yes
+    return_content: true
   register: readiness_check
   tags: [health, validation]
-
 - name: Check liveness endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port }}{{ health_liveness_path }}"
+    url: http://localhost:{{ orchestrator_port }}{{ health_liveness_path }}
     method: GET
     status_code: 200
-    return_content: yes
+    return_content: true
   register: liveness_check
   tags: [health, validation]
-
 - name: Display health check results
   ansible.builtin.debug:
     msg:
       - "✅ Health: {{ health_check.json.status }}"
       - "✅ Readiness: {{ readiness_check.json.ready }}"
       - "✅ Liveness: {{ liveness_check.json.alive }}"
-      - "✅ Orchestrator is operational on port {{ orchestrator_port }}!"
+      - ✅ Orchestrator is operational on port {{ orchestrator_port }}!
   tags: [health, validation]

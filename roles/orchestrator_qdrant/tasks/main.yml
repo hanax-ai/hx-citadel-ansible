@@ -3,25 +3,20 @@
 # Main task orchestration
 
 - name: Include Qdrant dependencies installation tasks
-  ansible.builtin.include_tasks: 01-dependencies.yml
+  ansible.builtin.include_tasks: "01-dependencies.yml"
   tags: [dependencies]
-
 - name: Include Qdrant client setup tasks
-  ansible.builtin.include_tasks: 02-client-setup.yml
+  ansible.builtin.include_tasks: "02-client-setup.yml"
   tags: [client]
-
 - name: Include embeddings service tasks
-  ansible.builtin.include_tasks: 03-embeddings.yml
+  ansible.builtin.include_tasks: "03-embeddings.yml"
   tags: [embeddings]
-
 - name: Include search operations tasks
-  ansible.builtin.include_tasks: 04-search-ops.yml
+  ansible.builtin.include_tasks: "04-search-ops.yml"
   tags: [search]
-
 - name: Include main.py integration tasks
-  ansible.builtin.include_tasks: 06-main-integration.yml
+  ansible.builtin.include_tasks: "06-main-integration.yml"
   tags: [integration]
-
 - name: Include validation tasks
-  ansible.builtin.include_tasks: 05-validation.yml
+  ansible.builtin.include_tasks: "05-validation.yml"
   tags: [validation]

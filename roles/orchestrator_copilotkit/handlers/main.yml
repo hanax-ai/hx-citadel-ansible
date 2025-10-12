@@ -1,10 +1,10 @@
 ---
 # Component 10: CopilotKit Adapter - Handlers
 
-- name: restart orchestrator
+- name: Restart orchestrator
   ansible.builtin.systemd:
     name: orchestrator
     state: restarted
-    daemon_reload: yes
-  become: yes
-  listen: "restart orchestrator"
+    daemon_reload: true
+  become: true
+  listen: restart orchestrator

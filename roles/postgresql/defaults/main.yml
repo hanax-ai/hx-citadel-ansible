@@ -6,10 +6,10 @@ postgresql_version: "16"
 
 # PostgreSQL configuration file path
 # Default assumes Debian/Ubuntu layout, can be overridden for other distributions
-postgresql_config_path: "/etc/postgresql/{{ postgresql_version }}/main/postgresql.conf"
+postgresql_config_path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
 
 # PostgreSQL listen address configuration
-postgresql_listen_address: "127.0.0.1"
+postgresql_listen_address: 127.0.0.1
 
 # PostgreSQL service port
 postgresql_port: 5432

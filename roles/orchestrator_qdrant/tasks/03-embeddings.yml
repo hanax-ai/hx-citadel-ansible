@@ -7,22 +7,18 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [embeddings]
-
 - name: Test embedding service import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from services.embeddings import EmbeddingService; 
-    print("✅ Embedding service imported")'
-  become: yes
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from services.embeddings
+    import EmbeddingService;  print("✅ Embedding service imported")'
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   register: embedding_import_test
   changed_when: false
   tags: [embeddings, validation]
-
 - name: Display embedding import result
   ansible.builtin.debug:
     msg: "{{ embedding_import_test.stdout }}"

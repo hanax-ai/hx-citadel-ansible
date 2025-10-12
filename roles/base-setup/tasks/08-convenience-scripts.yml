@@ -7,8 +7,8 @@
 #   - convenience_scripts_enabled: Enable/disable convenience features (default: true)
 
 - name: Add shell aliases and environment setup to .bashrc
-  blockinfile:
-    path: "/home/{{ service_user | default('agent0') }}/.bashrc"
+  ansible.builtin.blockinfile:
+    path: /home/{{ service_user | default('agent0') }}/.bashrc
     marker: "# {mark} ANSIBLE MANAGED BLOCK - HX-CITADEL"
     block: |
       # HX-Citadel Shield Orchestrator convenience aliases
@@ -17,70 +17,70 @@
       alias shield-status='sudo systemctl status orchestrator'
       alias shield-restart='sudo systemctl restart orchestrator'
       alias shield-cd='cd {{ app_dir }}'
-      
+
       # LiteLLM convenience aliases
       alias llm-logs='sudo journalctl -u litellm -f'
       alias llm-status='sudo systemctl status litellm'
       alias llm-restart='sudo systemctl restart litellm'
-      
+
       # System monitoring aliases
       alias shield-health='{{ app_dir }}/scripts/health-check.sh'
       alias shield-ps='ps aux | grep -E "(orchestrator|litellm|qdrant|redis)" | grep -v grep'
-      
+
       # Quick navigation
       export SHIELD_HOME="{{ app_dir }}"
       export SHIELD_LOGS="/var/log/hx-citadel"
-    create: yes
+    create: true
     owner: "{{ service_user | default('agent0') }}"
     group: "{{ service_group | default('agent0') }}"
-    mode: '0644'
-  become: yes
+    mode: "0644"
+  become: true
   when: convenience_scripts_enabled | default(true)
   tags:
     - convenience
     - config
 
 - name: Create scripts directory
-  file:
+  ansible.builtin.file:
     path: "{{ app_dir }}/scripts"
     state: directory
     owner: "{{ service_user | default('agent0') }}"
     group: "{{ service_group | default('agent0') }}"
-    mode: '0755'
-  become: yes
+    mode: "0755"
+  become: true
   when: convenience_scripts_enabled | default(true)
   tags:
     - convenience
     - directories
 
 - name: Create quick activation script
-  template:
+  ansible.builtin.template:
     src: activate-shield.sh.j2
     dest: "{{ app_dir }}/scripts/activate-shield.sh"
     owner: "{{ service_user | default('agent0') }}"
     group: "{{ service_group | default('agent0') }}"
-    mode: '0755'
-  become: yes
+    mode: "0755"
+  become: true
   when: convenience_scripts_enabled | default(true)
   tags:
     - convenience
     - scripts
 
 - name: Create service management wrapper script
-  template:
+  ansible.builtin.template:
     src: manage-services.sh.j2
     dest: "{{ app_dir }}/scripts/manage-services.sh"
     owner: "{{ service_user | default('agent0') }}"
     group: "{{ service_group | default('agent0') }}"
-    mode: '0755'
-  become: yes
+    mode: "0755"
+  become: true
   when: convenience_scripts_enabled | default(true)
   tags:
     - convenience
     - scripts
 
 - name: Display convenience features message
-  debug:
+  ansible.builtin.debug:
     msg: |
       Convenience scripts installed! Available aliases:
       - shield-activate: Activate Python virtual environment
@@ -89,7 +89,7 @@
       - shield-restart: Restart orchestrator service
       - shield-health: Run system health check
       - shield-cd: Navigate to application directory
-      
+
       Scripts available in {{ app_dir }}/scripts/:
       - activate-shield.sh: Quick environment setup
       - manage-services.sh: Service management helper

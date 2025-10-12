@@ -9,27 +9,23 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   tags: [dependencies]
-
 - name: Install Pydantic AI and dependencies
   ansible.builtin.pip:
     requirements: "{{ orchestrator_app_dir }}/requirements-pydantic-ai.txt"
     virtualenv: "{{ orchestrator_venv_dir }}"
     state: present
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   notify: restart orchestrator
   tags: [dependencies]
-
 - name: Verify pydantic_ai installation
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import pydantic_ai; print(f"pydantic_ai {pydantic_ai.__version__} installed")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import pydantic_ai; print(f"pydantic_ai {pydantic_ai.__version__} installed")'
   register: pydantic_ai_check
   changed_when: false
   tags: [dependencies, validation]
-
 - name: Display pydantic_ai version
   ansible.builtin.debug:
     msg: "{{ pydantic_ai_check.stdout }}"

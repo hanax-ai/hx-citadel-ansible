@@ -6,11 +6,10 @@
     dest: "{{ orchestrator_app_dir }}/config/.env"
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
-    mode: "0600"  # Sensitive file
-  become: yes
+    mode: "0600" # Sensitive file
+  become: true
   notify: restart orchestrator
   tags: [configuration]
-
 - name: Deploy logging configuration
   ansible.builtin.template:
     src: logging.yaml.j2
@@ -18,10 +17,9 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [configuration]
-
 - name: Deploy logging utilities
   ansible.builtin.template:
     src: utils/logging_config.py.j2
@@ -29,6 +27,6 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [configuration]

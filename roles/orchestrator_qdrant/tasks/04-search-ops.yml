@@ -6,7 +6,7 @@
     content: |
       """
       Vector search operations
-      
+
       TODO: Implement in LightRAG component (Component 6)
       """
       # Placeholder for now
@@ -14,5 +14,5 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   tags: [search]

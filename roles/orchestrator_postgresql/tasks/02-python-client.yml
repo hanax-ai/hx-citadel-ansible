@@ -7,34 +7,28 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   tags: [dependencies]
-
 - name: Install PostgreSQL Python dependencies
   ansible.builtin.pip:
     requirements: "{{ orchestrator_app_dir }}/requirements-postgresql.txt"
     virtualenv: "{{ orchestrator_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   notify: restart orchestrator
   tags: [dependencies]
-
 - name: Verify asyncpg installation
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import asyncpg; print(asyncpg.__version__)'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import asyncpg; print(asyncpg.__version__)'
   register: asyncpg_version
   changed_when: false
   tags: [dependencies, validation]
-
 - name: Verify SQLAlchemy installation
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sqlalchemy; print(sqlalchemy.__version__)'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sqlalchemy; print(sqlalchemy.__version__)'
   register: sqlalchemy_version
   changed_when: false
   tags: [dependencies, validation]
-
 - name: Display client library versions
   ansible.builtin.debug:
     msg:

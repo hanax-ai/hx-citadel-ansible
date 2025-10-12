@@ -8,22 +8,18 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [job-tracker]
-
 - name: Test job tracker import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from services.job_tracker import job_tracker; 
-    print("✅ Job tracker imported")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from services.job_tracker
+    import job_tracker;  print("✅ Job tracker imported")'
   register: job_tracker_import_test
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   tags: [job-tracker, validation]
-
 - name: Display job tracker import result
   ansible.builtin.debug:
     msg: "{{ job_tracker_import_test.stdout }}"

@@ -2,22 +2,19 @@
 # Component 3: PostgreSQL Integration - Main Tasks
 
 - name: Include database setup tasks
-  ansible.builtin.include_tasks: 01-database-setup.yml
+  ansible.builtin.include_tasks: "01-database-setup.yml"
   tags: [database]
-
 - name: Include Python client installation tasks
-  ansible.builtin.include_tasks: 02-python-client.yml
+  ansible.builtin.include_tasks: "02-python-client.yml"
   tags: [dependencies]
-
 - name: Include database models deployment tasks
-  ansible.builtin.include_tasks: 04-models.yml
+  ansible.builtin.include_tasks: "04-models.yml"
   tags: [models]
-
 - name: Include Alembic setup tasks
-  ansible.builtin.include_tasks: 03-alembic-setup.yml
+  ansible.builtin.include_tasks: "03-alembic-setup.yml"
   tags: [migrations]
   when: alembic_enabled | default(true)
 
 - name: Include validation tasks
-  ansible.builtin.include_tasks: 05-validation.yml
+  ansible.builtin.include_tasks: "05-validation.yml"
   tags: [validation]

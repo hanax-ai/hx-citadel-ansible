@@ -2,25 +2,22 @@
 # System package installation
 - name: Update apt cache
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
     cache_valid_time: 3600
-  become: yes
+  become: true
   tags: [packages]
-
 - name: Install base system packages
   ansible.builtin.apt:
     name: "{{ base_packages }}"
     state: present
-  become: yes
+  become: true
   tags: [packages]
-
 - name: Verify Python 3.12 installation
   ansible.builtin.command: python3.12 --version
   register: python_version_check
   changed_when: false
   failed_when: "'Python 3.12' not in python_version_check.stdout"
   tags: [packages, validation]
-
 - name: Display Python version
   ansible.builtin.debug:
     msg: "Installed: {{ python_version_check.stdout }}"

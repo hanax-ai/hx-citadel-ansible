@@ -15,7 +15,7 @@
       "
   register: langgraph_deps
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_user }}"
   failed_when: langgraph_deps.rc != 0
   tags:
@@ -35,7 +35,7 @@
       {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/workflows/query_workflow.py
   register: query_workflow_syntax
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_user }}"
   failed_when: query_workflow_syntax.rc != 0
   tags:
@@ -48,7 +48,7 @@
       {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/workflows/ingestion_workflow.py
   register: ingestion_workflow_syntax
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_user }}"
   failed_when: ingestion_workflow_syntax.rc != 0
   tags:
@@ -61,7 +61,7 @@
       {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/services/workflow_manager.py
   register: workflow_manager_syntax
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_user }}"
   failed_when: workflow_manager_syntax.rc != 0
   tags:
@@ -74,7 +74,7 @@
       {{ orchestrator_venv }}/bin/python -m py_compile {{ orchestrator_dir }}/workflows/__init__.py
   register: workflow_init_syntax
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_user }}"
   failed_when: workflow_init_syntax.rc != 0
   tags:
@@ -105,8 +105,10 @@
       - "Workflow Init Syntax: {{ 'PASS ✓' if langgraph_validation_summary.workflow_init_syntax else 'FAIL ✗' }}"
       - ""
       - "Timestamp: {{ langgraph_validation_summary.timestamp }}"
-      - "Status: {{ '✅ ALL CHECKS PASSED' if (langgraph_validation_summary.langgraph_deps and langgraph_validation_summary.query_workflow_syntax and langgraph_validation_summary.ingestion_workflow_syntax and langgraph_validation_summary.workflow_manager_syntax and langgraph_validation_summary.workflow_init_syntax) else '❌ VALIDATION FAILED' }}"
-      - "============================================================"
+      - "Status: {{ '✅ ALL CHECKS PASSED' if (langgraph_validation_summary.langgraph_deps and langgraph_validation_summary.query_workflow_syntax\
+        \ and langgraph_validation_summary.ingestion_workflow_syntax and langgraph_validation_summary.workflow_manager_syntax\
+        \ and langgraph_validation_summary.workflow_init_syntax) else '❌ VALIDATION FAILED' }}"
+      - ============================================================
   tags:
     - langgraph
     - validation

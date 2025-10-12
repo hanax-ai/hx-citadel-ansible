@@ -7,25 +7,22 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
 
 - name: Install Qdrant Python dependencies
   ansible.builtin.pip:
     requirements: "{{ orchestrator_app_dir }}/requirements-qdrant.txt"
     virtualenv: "{{ orchestrator_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   notify: restart orchestrator
   tags: [dependencies]
-
 - name: Verify Qdrant client installation
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'from qdrant_client import AsyncQdrantClient; print("✅ Qdrant client installed")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'from qdrant_client import AsyncQdrantClient; print("✅ Qdrant client installed")'
   register: qdrant_import_test
   changed_when: false
   tags: [dependencies, validation]
-
 - name: Display Qdrant client version
   ansible.builtin.debug:
     msg: "{{ qdrant_import_test.stdout }}"

@@ -1,24 +1,24 @@
 ---
 # Handlers for FastMCP Shield server
 
-- name: reload systemd
+- name: Reload systemd
   ansible.builtin.systemd:
-    daemon_reload: yes
+    daemon_reload: true
 
-- name: restart fastmcp-server
+- name: Restart fastmcp-server
   ansible.builtin.systemd:
     name: shield-mcp-server
     state: restarted
-  become: yes
+  become: true
 
-- name: stop fastmcp-server
+- name: Stop fastmcp-server
   ansible.builtin.systemd:
     name: shield-mcp-server
     state: stopped
-  become: yes
+  become: true
 
-- name: start fastmcp-server
+- name: Start fastmcp-server
   ansible.builtin.systemd:
     name: shield-mcp-server
     state: started
-  become: yes
+  become: true

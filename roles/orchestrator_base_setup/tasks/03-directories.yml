@@ -7,9 +7,8 @@
     owner: root
     group: root
     mode: "0755"
-  become: yes
+  become: true
   tags: [directories]
-
 - name: Create orchestrator application directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -29,9 +28,8 @@
     - "{{ orchestrator_app_dir }}/database"
     - "{{ orchestrator_app_dir }}/utils"
     - "{{ orchestrator_app_dir }}/tests"
-  become: yes
+  become: true
   tags: [directories]
-
 - name: Create data directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -48,9 +46,8 @@
     - "{{ lightrag_cache_dir }}/relationship_extraction"
     - "{{ lightrag_logs_dir }}"
     - "{{ lightrag_checkpoints_dir }}"
-  become: yes
+  become: true
   tags: [directories]
-
 - name: Create log directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -63,9 +60,8 @@
     - "{{ orchestrator_log_dir }}/api"
     - "{{ orchestrator_log_dir }}/workers"
     - "{{ orchestrator_log_dir }}/lightrag"
-  become: yes
+  become: true
   tags: [directories]
-
 - name: Verify directory ownership
   ansible.builtin.stat:
     path: "{{ orchestrator_app_dir }}"

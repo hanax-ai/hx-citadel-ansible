@@ -1,50 +1,50 @@
 ---
 - name: Download Ollama installer script
-  get_url:
+  ansible.builtin.get_url:
     url: https://ollama.ai/install.sh
     dest: /tmp/ollama-install.sh
     mode: "0755"
-  become: yes
+  become: true
   tags:
     - models
 
 - name: Install Ollama
-  command: /tmp/ollama-install.sh
+  ansible.builtin.command: /tmp/ollama-install.sh
   args:
     creates: /usr/local/bin/ollama
-  become: yes
+  become: true
   tags:
     - models
 
 - name: Ensure Ollama service is running
-  systemd:
+  ansible.builtin.systemd:
     name: ollama
     state: started
-    enabled: yes
-  become: yes
+    enabled: true
+  become: true
   tags:
     - models
 
 - name: Pull required Ollama models
-  command: "ollama pull {{ item }}"
+  ansible.builtin.command: ollama pull {{ item }}
   loop: "{{ ollama_models | default([]) }}"
   register: ollama_pull
   changed_when: "'already exists' not in ollama_pull.stdout"
-  become: yes
+  become: true
   tags:
     - models
 
 - name: Schedule model sync cron job
-  cron:
+  ansible.builtin.cron:
     name: Ollama model sync
-    user: root
-    job: "/usr/local/bin/ollama list > /var/log/ollama-models.log"
+    ansible.builtin.user: root
+    job: /usr/local/bin/ollama list > /var/log/ollama-models.log
     minute: "{{ model_sync_cron.split()[0] }}"
     hour: "{{ model_sync_cron.split()[1] }}"
     day: "{{ model_sync_cron.split()[2] }}"
     month: "{{ model_sync_cron.split()[3] }}"
     weekday: "{{ model_sync_cron.split()[4] }}"
   when: model_sync_cron is defined
-  become: yes
+  become: true
   tags:
     - models

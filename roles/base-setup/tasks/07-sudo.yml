@@ -7,32 +7,32 @@
 #   - app_name: Application name for sudo config (default: hx-citadel)
 
 - name: Ensure sudo package is installed
-  apt:
+  ansible.builtin.apt:
     name: sudo
     state: present
-  become: yes
+  become: true
   when: sudo_enabled | default(true)
   tags:
     - sudo
     - packages
 
 - name: Create sudoers.d configuration for service management
-  template:
+  ansible.builtin.template:
     src: sudoers.j2
-    dest: "/etc/sudoers.d/{{ app_name | default('hx-citadel') }}-services"
+    dest: /etc/sudoers.d/{{ app_name | default('hx-citadel') }}-services
     owner: root
     group: root
-    mode: '0440'
-    validate: 'visudo -cf %s'
-  become: yes
+    mode: "0440"
+    validate: visudo -cf %s
+  become: true
   when: sudo_enabled | default(true)
   tags:
     - sudo
     - config
 
 - name: Verify sudo configuration
-  command: sudo -l -U {{ service_user | default('agent0') }}
-  become: yes
+  ansible.builtin.command: sudo -l -U {{ service_user | default('agent0') }}
+  become: true
   changed_when: false
   register: sudo_check
   when: sudo_enabled | default(true)
@@ -41,9 +41,9 @@
     - validation
 
 - name: Display sudo permissions
-  debug:
-    msg: "Sudo permissions configured for {{ service_user | default('agent0') }}"
-  when: 
+  ansible.builtin.debug:
+    msg: Sudo permissions configured for {{ service_user | default('agent0') }}
+  when:
     - sudo_enabled | default(true)
     - sudo_check is defined
   tags:

@@ -11,17 +11,17 @@
 python_version: "3.12"
 
 # Main application directory
-app_dir: "/opt/hx-citadel-shield"
+app_dir: /opt/hx-citadel-shield
 
 # Log directory for application logs
-log_dir: "/var/log/hx-citadel"
+log_dir: /var/log/hx-citadel
 
 # Service user and group (user that runs the application)
-service_user: "agent0"
-service_group: "agent0"
+service_user: agent0
+service_group: agent0
 
 # Application name (used for configuration files)
-app_name: "hx-citadel"
+app_name: hx-citadel
 
 # ------------------------------------------------------------------------------
 # Logrotate Configuration
@@ -34,7 +34,7 @@ logrotate_enabled: true
 logrotate_retention_days: 30
 
 # Maximum log file size before rotation (e.g., 100M, 1G)
-logrotate_rotation_size: "100M"
+logrotate_rotation_size: 100M
 
 # ------------------------------------------------------------------------------
 # Sudo Configuration

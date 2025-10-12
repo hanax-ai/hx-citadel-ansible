@@ -7,9 +7,8 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0755"
-  become: yes
+  become: true
   tags: [application]
-
 - name: Deploy main application file
   ansible.builtin.template:
     src: main.py.j2
@@ -17,10 +16,9 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0755"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [application]
-
 - name: Deploy configuration settings
   ansible.builtin.template:
     src: config/settings.py.j2
@@ -28,10 +26,9 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [application]
-
 - name: Create __init__.py files
   ansible.builtin.copy:
     content: '"""{{ item.split("/")[-1] | title }} module"""'
@@ -49,9 +46,8 @@
     - api
     - database
     - utils
-  become: yes
+  become: true
   tags: [application]
-
 - name: Deploy health check API
   ansible.builtin.template:
     src: api/health.py.j2
@@ -59,6 +55,6 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [application]

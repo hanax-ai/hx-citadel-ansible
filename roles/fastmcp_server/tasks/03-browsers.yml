@@ -7,36 +7,39 @@
     name: playwright
     version: ">=1.49.0"
     virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: playwright_pip_install
 
 - name: Check if Playwright browsers are already installed
   ansible.builtin.stat:
     path: "{{ fastmcp_user_home }}/.cache/ms-playwright"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: playwright_cache_dir
 
 - name: List installed Playwright browsers
   ansible.builtin.find:
     paths: "{{ fastmcp_user_home }}/.cache/ms-playwright"
-    patterns: "chromium-*,firefox-*,webkit-*"
+    patterns: chromium-*,firefox-*,webkit-*
     file_type: directory
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: playwright_browsers_found
   when: playwright_cache_dir.stat.exists
 
 - name: Debug - Show found browsers
   ansible.builtin.debug:
-    msg: "Found {{ playwright_browsers_found.matched | default(0) }} browser(s): {{ playwright_browsers_found.files | map(attribute='path') | list }}"
+    msg: "Found {{ playwright_browsers_found.matched | default(0) }} browser(s): {{ playwright_browsers_found.files | map(attribute='path')\
+      \ | list }}"
   when: playwright_cache_dir.stat.exists
 
 - name: Detect required browsers
   ansible.builtin.set_fact:
-    chromium_installed: "{{ playwright_browsers_found.files | selectattr('path', 'search', 'chromium-') | list | length > 0 }}"
-    firefox_installed: "{{ playwright_browsers_found.files | selectattr('path', 'search', 'firefox-') | list | length > 0 }}"
+    chromium_installed: "{{ playwright_browsers_found.files | selectattr('path', 'search', 'chromium-') | list | length >\
+      \ 0 }}"
+    firefox_installed: "{{ playwright_browsers_found.files | selectattr('path', 'search', 'firefox-') | list | length > 0\
+      \ }}"
     webkit_installed: "{{ playwright_browsers_found.files | selectattr('path', 'search', 'webkit-') | list | length > 0 }}"
   when: playwright_cache_dir.stat.exists and playwright_browsers_found.matched > 0
 
@@ -49,7 +52,7 @@
 
 - name: Install Playwright browsers (Chromium and Firefox)
   ansible.builtin.command: "{{ fastmcp_venv_dir }}/bin/playwright install chromium firefox"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   environment:
     PLAYWRIGHT_BROWSERS_PATH: "{{ fastmcp_user_home }}/.cache/ms-playwright"
@@ -64,14 +67,14 @@
 
 - name: Install Playwright system dependencies
   ansible.builtin.command: "{{ fastmcp_venv_dir }}/bin/playwright install-deps"
-  become: yes
+  become: true
   changed_when: false
   register: playwright_deps_install
 
 - name: Verify Chromium installation
   ansible.builtin.stat:
     path: "{{ fastmcp_user_home }}/.cache/ms-playwright/chromium-{{ playwright_chromium_version | default('*') }}/chrome-linux/chrome"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: chromium_binary
   failed_when: false
@@ -79,14 +82,14 @@
 - name: Verify Firefox installation
   ansible.builtin.stat:
     path: "{{ fastmcp_user_home }}/.cache/ms-playwright/firefox-{{ playwright_firefox_version | default('*') }}/firefox/firefox"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: firefox_binary
   failed_when: false
 
 - name: Verify browser installation by listing cache directory
-  ansible.builtin.command: "ls -la {{ fastmcp_user_home }}/.cache/ms-playwright"
-  become: yes
+  ansible.builtin.command: ls -la {{ fastmcp_user_home }}/.cache/ms-playwright
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: browser_cache_contents
   changed_when: false
@@ -97,7 +100,7 @@
 
 - name: Test Playwright browser availability
   ansible.builtin.command: "{{ fastmcp_venv_dir }}/bin/python3 -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.name)'"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: playwright_test
   changed_when: false
@@ -112,7 +115,7 @@
 - name: Re-check browser cache directory after installation
   ansible.builtin.stat:
     path: "{{ fastmcp_user_home }}/.cache/ms-playwright"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
   register: playwright_cache_dir_final
 
@@ -127,7 +130,7 @@
       - Cache directory exists: {{ playwright_cache_dir_final.stat.exists }}
       - Browser cache accessible: {{ browser_cache_contents.rc == 0 }}
       - Playwright test passed: {{ playwright_test.rc == 0 }}
-    success_msg: "All Playwright browsers verified successfully"
+    success_msg: All Playwright browsers verified successfully
 
 - name: Create browser installation marker file
   ansible.builtin.copy:
@@ -143,4 +146,4 @@
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
     mode: "0644"
-  become: yes
+  become: true

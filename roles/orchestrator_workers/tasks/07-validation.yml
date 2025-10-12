@@ -9,59 +9,55 @@
     timeout: 30
   when: orchestrator_validate_after_deploy | default(true)
   tags: [validation]
-
 - name: Check orchestrator health
   ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:8000/health"
+    url: http://{{ ansible_host }}:8000/health
     method: GET
-    return_content: yes
+    return_content: true
   register: health_check
   failed_when: false
   tags: [validation]
-
 - name: Display orchestrator health
   ansible.builtin.debug:
     msg: "{{ health_check.json }}"
   when: health_check.status == 200
   tags: [validation]
-
 - name: Check orchestrator detailed health
   ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:8000/health/detailed"
+    url: http://{{ ansible_host }}:8000/health/detailed
     method: GET
-    return_content: yes
+    return_content: true
   register: detailed_health_check
   failed_when: false
   tags: [validation]
-
 - name: Display detailed health (worker pool)
   ansible.builtin.debug:
     msg:
-      - "Worker Pool Status: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('status', 'unknown') }}"
-      - "Active Workers: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('active_workers', 0) }}"
+      - "Worker Pool Status: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('status',\
+        \ 'unknown') }}"
+      - "Active Workers: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('active_workers',\
+        \ 0) }}"
       - "Pool Size: {{ (detailed_health_check.json.components | default({})).get('worker_pool', {}).get('pool_size', 0) }}"
-      - "Event Bus Subscribers: {{ (detailed_health_check.json.components | default({})).get('event_bus', {}).get('active_subscribers', 0) }}"
-  when: 
+      - "Event Bus Subscribers: {{ (detailed_health_check.json.components | default({})).get('event_bus', {}).get('active_subscribers',\
+        \ 0) }}"
+  when:
     - detailed_health_check.status == 200
     - detailed_health_check.json is defined
     - detailed_health_check.json.components is defined
   tags: [validation]
-
 - name: Check jobs API endpoint
   ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:8000/jobs?limit=5"
+    url: http://{{ ansible_host }}:8000/jobs?limit=5
     method: GET
-    return_content: yes
+    return_content: true
   register: jobs_api_check
   failed_when: false
   tags: [validation]
-
 - name: Display jobs API result
   ansible.builtin.debug:
     msg: "Jobs API: {{ jobs_api_check.status }} - {{ jobs_api_check.json.count | default(0) }} jobs"
   when: jobs_api_check.status == 200
   tags: [validation]
-
 - name: Check Redis consumer group exists
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} XINFO GROUPS {{ redis_stream_ingestion }}
@@ -69,36 +65,35 @@
   changed_when: false
   failed_when: false
   tags: [validation]
-
 - name: Display Redis consumer group
   ansible.builtin.debug:
     msg: "{{ consumer_groups_check.stdout }}"
   when: consumer_groups_check.rc == 0
   tags: [validation]
-
 - name: Check orchestrator logs for worker pool
   ansible.builtin.shell: >
     journalctl -u shield-orchestrator.service --since '2 minutes ago' --no-pager | grep -Ei 'worker|event[._]bus' | tail -20
   register: orchestrator_logs
   changed_when: false
   failed_when: false
-  become: yes
+  become: true
   tags: [validation]
-
 - name: Display orchestrator logs
   ansible.builtin.debug:
     msg: "{{ orchestrator_logs.stdout_lines }}"
   when: orchestrator_logs.stdout_lines | length > 0
   tags: [validation]
-
 - name: Validation summary
   ansible.builtin.debug:
     msg:
       - "=== Component 7: Worker Pool - Validation Summary ==="
       - "Orchestrator Health: {{ 'OK' if health_check.status == 200 else 'FAILED' }}"
-      - "Worker Pool Status: {{ detailed_health_check.json.components.worker_pool.status | default('unknown') if detailed_health_check.status == 200 else 'unknown' }}"
-      - "Active Workers: {{ detailed_health_check.json.components.worker_pool.active_workers | default(0) if detailed_health_check.status == 200 else 0 }}"
+      - "Worker Pool Status: {{ detailed_health_check.json.components.worker_pool.status | default('unknown') if detailed_health_check.status\
+        \ == 200 else 'unknown' }}"
+      - "Active Workers: {{ detailed_health_check.json.components.worker_pool.active_workers | default(0) if detailed_health_check.status\
+        \ == 200 else 0 }}"
       - "Jobs API: {{ 'OK' if jobs_api_check.status == 200 else 'FAILED' }}"
       - "Redis Consumer Group: {{ 'OK' if consumer_groups_check.rc == 0 else 'FAILED' }}"
-      - "=== Deployment {{ 'SUCCESSFUL' if health_check.status == 200 and jobs_api_check.status == 200 else 'NEEDS ATTENTION' }} ==="
+      - === Deployment {{ 'SUCCESSFUL' if health_check.status == 200 and jobs_api_check.status == 200 else 'NEEDS ATTENTION'
+        }} ===
   tags: [validation]

@@ -5,31 +5,28 @@
     name: "{{ orchestrator_service_group }}"
     gid: "{{ orchestrator_group_gid }}"
     state: present
-  become: yes
+  become: true
   tags: [user]
-
 - name: Create orchestrator user
   ansible.builtin.user:
     name: "{{ orchestrator_service_user }}"
     uid: "{{ orchestrator_user_uid }}"
     group: "{{ orchestrator_service_group }}"
     home: "{{ orchestrator_user_home }}"
-    shell: "{{ orchestrator_user_shell }}"
-    create_home: yes
-    comment: "Shield Orchestrator Service User"
+    ansible.builtin.shell: "{{ orchestrator_user_shell }}"
+    create_home: true
+    comment: Shield Orchestrator Service User
     state: present
-  become: yes
+  become: true
   tags: [user]
-
 - name: Add orchestrator user to required groups
   ansible.builtin.user:
     name: "{{ orchestrator_service_user }}"
-    groups: 
+    groups:
       - "{{ orchestrator_service_group }}"
-    append: yes
-  become: yes
+    append: true
+  become: true
   tags: [user]
-
 - name: Set orchestrator user home permissions
   ansible.builtin.file:
     path: "{{ orchestrator_user_home }}"
@@ -37,5 +34,5 @@
     group: "{{ orchestrator_service_group }}"
     mode: "0755"
     state: directory
-  become: yes
+  become: true
   tags: [user]

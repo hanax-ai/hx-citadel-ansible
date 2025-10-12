@@ -1,48 +1,48 @@
 ---
 - name: Ensure Node.js repository is present
-  apt:
+  ansible.builtin.apt:
     deb: https://deb.nodesource.com/node_20.x/pool/main/n/nodejs/nodejs_20.17.0-deb-1nodesource1_amd64.deb
     state: present
-  become: yes
+  become: true
   tags:
     - api
   when: not ansible_check_mode
 
 - name: Install LiteLLM dependencies
-  npm:
+  community.general.npm:
     name: litellm
-    global: yes
-  become: yes
+    global: true
+  become: true
   tags:
     - api
   when: not ansible_check_mode
 
 - name: Deploy LiteLLM configuration
-  template:
+  ansible.builtin.template:
     src: config.yaml.j2
     dest: /etc/litellm/config.yaml
     mode: "0640"
-  become: yes
+  become: true
   notify: restart litellm
   tags:
     - api
 
 - name: Ensure LiteLLM service file exists
-  template:
+  ansible.builtin.template:
     src: litellm.service.j2
     dest: /etc/systemd/system/litellm.service
     mode: "0644"
-  become: yes
+  become: true
   notify: restart litellm
   tags:
     - api
 
 - name: Ensure LiteLLM service is running
-  systemd:
+  ansible.builtin.systemd:
     name: litellm
     state: started
-    enabled: yes
-  become: yes
+    enabled: true
+  become: true
   tags:
     - api
   when: not ansible_check_mode

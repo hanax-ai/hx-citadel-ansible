@@ -7,20 +7,18 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0755"
-  become: yes
+  become: true
 
 - name: Check if database exists
   ansible.builtin.command: >
-    psql -tAc 
-    "SELECT 1 FROM pg_database WHERE datname='{{ postgres_database }}'"
-  become: yes
+    psql -tAc  "SELECT 1 FROM pg_database WHERE datname='{{ postgres_database }}'"
+  become: true
   become_user: "{{ postgres_superuser }}"
   delegate_to: "{{ postgres_host }}"
   register: db_exists
   changed_when: false
   failed_when: false
   tags: [database]
-
 - name: Deploy database setup script
   ansible.builtin.template:
     src: database/schema/001_initial_setup.sql.j2
@@ -28,36 +26,31 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   tags: [database]
-
 - name: Execute database setup script
   ansible.builtin.shell: >
-    psql -h {{ postgres_host }} -U {{ postgres_superuser }} 
-    -f {{ orchestrator_app_dir }}/database/001_initial_setup.sql
+    psql -h {{ postgres_host }} -U {{ postgres_superuser }}  -f {{ orchestrator_app_dir }}/database/001_initial_setup.sql
   environment:
     PGPASSWORD: "{{ vault_postgres_superuser_password }}"
-  become: yes
+  become: true
+  changed_when: false
   become_user: "{{ orchestrator_service_user }}"
   when: db_exists.stdout != "1"
   register: db_setup_result
   tags: [database]
-
 - name: Display database setup result
   ansible.builtin.debug:
     msg: "Database setup: {{ 'Created new database' if db_exists.stdout != '1' else 'Database already exists' }}"
   tags: [database]
-
 - name: Verify database creation
   ansible.builtin.command: >
-    psql -h {{ postgres_host }} -U {{ postgres_user }} -d {{ postgres_database }} -tAc 
-    "SELECT 1"
+    psql -h {{ postgres_host }} -U {{ postgres_user }} -d {{ postgres_database }} -tAc  "SELECT 1"
   environment:
     PGPASSWORD: "{{ vault_postgres_orchestrator_password }}"
   register: schema_check
   changed_when: false
   tags: [database, validation]
-
 - name: Display database connection status
   ansible.builtin.debug:
     msg: "✅ Database connection test: {{ 'Success' if schema_check.rc == 0 else 'Failed' }}"

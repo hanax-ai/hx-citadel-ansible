@@ -10,7 +10,6 @@
   failed_when: false
   changed_when: "'OK' in create_ingestion_group.stdout"
   tags: [consumer-groups]
-
 - name: Create metrics collector consumer group (ingestion)
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -21,7 +20,6 @@
   failed_when: false
   changed_when: "'OK' in create_metrics_ingestion.stdout"
   tags: [consumer-groups]
-
 - name: Create events stream with ag-ui consumer group
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -32,7 +30,6 @@
   failed_when: false
   changed_when: "'OK' in create_events_ag_ui.stdout"
   tags: [consumer-groups]
-
 - name: Create power-ui consumer group (events)
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -43,7 +40,6 @@
   failed_when: false
   changed_when: "'OK' in create_events_power_ui.stdout"
   tags: [consumer-groups]
-
 - name: Create dashboard consumer group (events)
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -54,7 +50,6 @@
   failed_when: false
   changed_when: "'OK' in create_events_dashboard.stdout"
   tags: [consumer-groups]
-
 - name: Create metrics collector consumer group (events)
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -65,7 +60,6 @@
   failed_when: false
   changed_when: "'OK' in create_events_metrics.stdout"
   tags: [consumer-groups]
-
 - name: Verify consumer groups created on ingestion stream
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -75,7 +69,6 @@
   register: ingestion_groups_check
   changed_when: false
   tags: [consumer-groups, validation]
-
 - name: Verify consumer groups created on events stream
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -85,7 +78,6 @@
   register: events_groups_check
   changed_when: false
   tags: [consumer-groups, validation]
-
 - name: Display consumer groups summary
   ansible.builtin.debug:
     msg:

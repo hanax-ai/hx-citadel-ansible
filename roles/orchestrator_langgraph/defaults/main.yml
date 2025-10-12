@@ -10,7 +10,7 @@ orchestrator_venv: /opt/hx-citadel-shield/orchestrator/.venv
 
 # Workflow configuration
 langgraph_enable: true
-langgraph_checkpoint_backend: "postgres"  # Changed to postgres for AsyncPostgresSaver
+langgraph_checkpoint_backend: postgres # Changed to postgres for AsyncPostgresSaver
 langgraph_state_retention_hours: 72
 
 # Workflow limits
@@ -23,4 +23,4 @@ lightrag_chunk_size: 1200
 lightrag_chunk_overlap: 100
 
 # Qdrant configuration for workflows
-qdrant_collection: "hx_corpus_v1"
+qdrant_collection: hx_corpus_v1

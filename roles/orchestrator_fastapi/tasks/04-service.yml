@@ -7,23 +7,21 @@
     owner: root
     group: root
     mode: "0644"
-  become: yes
+  become: true
   notify:
     - reload systemd
     - restart orchestrator
   tags: [service]
-
 - name: Enable orchestrator service
   ansible.builtin.systemd:
     name: shield-orchestrator
-    enabled: yes
-    daemon_reload: yes
-  become: yes
+    enabled: true
+    daemon_reload: true
+  become: true
   tags: [service]
-
 - name: Start orchestrator service
   ansible.builtin.systemd:
     name: shield-orchestrator
     state: started
-  become: yes
+  become: true
   tags: [service]

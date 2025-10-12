@@ -1,8 +1,8 @@
 ---
-- name: restart litellm service
+- name: Restart litellm service
   listen: restart litellm
-  systemd:
+  ansible.builtin.systemd:
     name: litellm
     state: restarted
-  become: yes
+  become: true
   when: not ansible_check_mode

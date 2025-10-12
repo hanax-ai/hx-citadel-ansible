@@ -1,51 +1,52 @@
 ---
 - name: Install Node.js dependencies for Prisma
-  apt:
+  ansible.builtin.apt:
     name:
       - nodejs
       - npm
     state: present
-  become: yes
+  become: true
   tags:
     - api
   when: not ansible_check_mode
 
 - name: Install Prisma CLI globally
-  npm:
+  community.general.npm:
     name: prisma
-    global: yes
-  become: yes
+    global: true
+  become: true
   tags:
     - api
   when: not ansible_check_mode
 
 - name: Deploy Prisma service directory
-  file:
+  ansible.builtin.file:
     path: "{{ app_dir }}/prisma"
     state: directory
     owner: "{{ prisma_service_user }}"
     group: "{{ prisma_service_user }}"
     mode: "0755"
-  become: yes
+  become: true
   tags:
     - api
 
 - name: Upload Prisma schema
-  template:
+  ansible.builtin.template:
     src: schema.prisma.j2
     dest: "{{ app_dir }}/prisma/schema.prisma"
     owner: "{{ prisma_service_user }}"
     group: "{{ prisma_service_user }}"
-  become: yes
+    mode: "0644"
+  become: true
   notify: restart prisma
   tags:
     - api
 
 - name: Run Prisma migrate deploy
-  command: npx prisma migrate deploy
+  ansible.builtin.command: npx prisma migrate deploy
   args:
     chdir: "{{ app_dir }}/prisma"
-  become: yes
+  become: true
   register: migrate_result
   changed_when: "'No pending migrations' not in migrate_result.stdout and 'No migrations to apply' not in migrate_result.stdout"
   failed_when: migrate_result.rc != 0

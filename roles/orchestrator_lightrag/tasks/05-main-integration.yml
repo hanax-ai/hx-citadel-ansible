@@ -5,32 +5,32 @@
   ansible.builtin.blockinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
     marker: "# {mark} ANSIBLE MANAGED - LightRAG imports"
-    insertafter: "from services.qdrant_client import init_qdrant, close_qdrant"
+    insertafter: from services.qdrant_client import init_qdrant, close_qdrant
     block: |
       from services.lightrag_service import init_lightrag, close_lightrag
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Add LightRAG initialization to lifespan startup
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
     line: "    await init_lightrag()  # Initialize LightRAG engine"
-    insertafter: "await init_qdrant"
+    insertafter: await init_qdrant
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Add LightRAG cleanup to lifespan shutdown
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
     line: "    await close_lightrag()  # Close LightRAG engine"
-    insertafter: "await close_qdrant"
+    insertafter: await close_qdrant
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Add LightRAG API routers to main.py
@@ -41,11 +41,11 @@
     block: |
       from api.ingestion import router as ingestion_router
       from api.query import router as query_router
-      
+
       # Include LightRAG routers
       app.include_router(ingestion_router, tags=["lightrag"])
       app.include_router(query_router, tags=["lightrag"])
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
-  become: yes
+  become: true
   notify: restart orchestrator

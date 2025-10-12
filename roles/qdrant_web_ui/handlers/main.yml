@@ -3,4 +3,4 @@
   ansible.builtin.service:
     name: nginx
     state: reloaded
-  become: yes
+  become: true

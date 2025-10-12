@@ -1,43 +1,45 @@
 ---
 - name: Install Prometheus
-  apt:
+  ansible.builtin.apt:
     name: prometheus
     state: present
-  become: yes
+  become: true
   tags:
     - observability
 
 - name: Install Grafana
-  apt:
+  ansible.builtin.apt:
     name: grafana
     state: present
-  become: yes
+  become: true
   tags:
     - observability
 
 - name: Deploy HealthService component
-  template:
+  ansible.builtin.template:
     src: HealthService.py.j2
     dest: "{{ app_dir }}/orchestrator/health_service.py"
-  become: yes
+    mode: "0644"
+  become: true
   become_user: agent0
   tags:
     - observability
 
 - name: Install httpx in virtual environment
-  pip:
+  ansible.builtin.pip:
     name: httpx
     virtualenv: "{{ app_dir }}/venv"
-  become: yes
+  become: true
   become_user: agent0
   tags:
     - observability
 
 - name: Deploy Prometheus config
-  template:
+  ansible.builtin.template:
     src: prometheus.yml.j2
     dest: /etc/prometheus/prometheus.yml
-  become: yes
+    mode: "0644"
+  become: true
   notify: restart prometheus
   tags:
     - observability

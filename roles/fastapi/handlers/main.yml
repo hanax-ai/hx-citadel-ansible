@@ -1,6 +1,6 @@
 ---
-- name: restart orchestrator
-  systemd:
+- name: Restart orchestrator
+  ansible.builtin.systemd:
     name: orchestrator
     state: restarted
-  become: yes
+  become: true

@@ -8,9 +8,8 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0755"
-  become: yes
+  become: true
   tags: [database]
-
 - name: Deploy JobStatus model
   ansible.builtin.template:
     src: database/models.py.j2
@@ -18,22 +17,18 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [database]
-
 - name: Test database models import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from database.models import JobStatus; 
-    print("✅ JobStatus model imported")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from database.models
+    import JobStatus;  print("✅ JobStatus model imported")'
   register: models_import_test
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   tags: [database, validation]
-
 - name: Display models import result
   ansible.builtin.debug:
     msg: "{{ models_import_test.stdout }}"

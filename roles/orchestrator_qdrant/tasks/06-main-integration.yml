@@ -4,37 +4,37 @@
   ansible.builtin.copy:
     src: "{{ orchestrator_app_dir }}/main.py"
     dest: "{{ orchestrator_app_dir }}/main.py.bak-qdrant"
-    remote_src: yes
+    remote_src: true
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
 
 - name: Add Qdrant imports to main.py
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
-    line: "from services.qdrant_client import init_qdrant, close_qdrant"
-    insertafter: "from services.redis_streams import init_redis, close_redis"
+    line: from services.qdrant_client import init_qdrant, close_qdrant
+    insertafter: from services.redis_streams import init_redis, close_redis
     state: present
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Add Qdrant initialization to startup
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
     line: "    await init_qdrant()  # Initialize Qdrant vector database client"
-    insertafter: "await init_redis\\(\\)"
+    insertafter: await init_redis\(\)
     state: present
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Add Qdrant close to shutdown
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
     line: "    await close_qdrant()  # Close Qdrant client"
-    insertafter: "await close_redis\\(\\)"
+    insertafter: await close_redis\(\)
     state: present
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Verify Qdrant integration in main.py
@@ -45,4 +45,4 @@
 
 - name: Display Qdrant integration status
   ansible.builtin.debug:
-    msg: "✅ Qdrant integration added to main.py"
+    msg: ✅ Qdrant integration added to main.py

@@ -8,7 +8,7 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Deploy query API endpoints
@@ -18,14 +18,13 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Test API endpoints import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from api.ingestion import router as ingestion_router;
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from api.ingestion
+    import router as ingestion_router;
     from api.query import router as query_router;
     print("✅ LightRAG API endpoints imported")'
   register: api_import

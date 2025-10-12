@@ -5,17 +5,17 @@
   ansible.builtin.group:
     name: "{{ fastmcp_service_group }}"
     state: present
-    system: yes
+    system: true
 
 - name: Create FastMCP service user
   ansible.builtin.user:
     name: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    shell: "{{ fastmcp_user_shell }}"
+    ansible.builtin.shell: "{{ fastmcp_user_shell }}"
     home: "{{ fastmcp_user_home }}"
-    create_home: yes
-    system: yes
-    comment: "FastMCP Shield MCP Server"
+    create_home: true
+    system: true
+    comment: FastMCP Shield MCP Server
 
 - name: Create FastMCP application directory
   ansible.builtin.file:
@@ -23,7 +23,7 @@
     state: directory
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Create FastMCP logs directory
   ansible.builtin.file:
@@ -31,7 +31,7 @@
     state: directory
     owner: "{{ fastmcp_service_user }}"
     group: "{{ fastmcp_service_group }}"
-    mode: '0755'
+    mode: "0755"
 
 - name: Install system dependencies
   ansible.builtin.apt:
@@ -46,4 +46,4 @@
       - libffi-dev
       - ca-certificates
     state: present
-    update_cache: yes
+    update_cache: true

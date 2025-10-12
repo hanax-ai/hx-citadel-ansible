@@ -8,22 +8,18 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [event-bus]
-
 - name: Test event bus import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from services.event_bus import event_bus; 
-    print("✅ Event bus imported")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from services.event_bus
+    import event_bus;  print("✅ Event bus imported")'
   register: event_bus_import_test
   changed_when: false
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   tags: [event-bus, validation]
-
 - name: Display event bus import result
   ansible.builtin.debug:
     msg: "{{ event_bus_import_test.stdout }}"

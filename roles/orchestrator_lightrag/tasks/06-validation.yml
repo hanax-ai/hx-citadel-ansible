@@ -11,9 +11,9 @@
 
 - name: Test LightRAG health endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port }}/lightrag/health"
+    url: http://localhost:{{ orchestrator_port }}/lightrag/health
     method: GET
-    return_content: yes
+    return_content: true
     status_code: 200
   register: lightrag_health
   retries: 3
@@ -28,9 +28,9 @@
 
 - name: Test LightRAG stats endpoint
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port }}/lightrag/stats"
+    url: http://localhost:{{ orchestrator_port }}/lightrag/stats
     method: GET
-    return_content: yes
+    return_content: true
     status_code: 200
   register: lightrag_stats
   when: orchestrator_validate_after_deploy | default(true)
@@ -51,6 +51,6 @@
 - name: Display LightRAG logs
   ansible.builtin.debug:
     msg: "{{ lightrag_logs.stdout_lines }}"
-  when: 
+  when:
     - orchestrator_validate_after_deploy | default(true)
     - lightrag_logs.stdout_lines is defined

@@ -10,7 +10,6 @@
       - "Actions Endpoint: {{ copilotkit_actions_endpoint }}"
       - "Available Actions: {{ copilotkit_actions | length }}"
   tags: [info]
-
 - name: Deploy CopilotKit adapter service
   ansible.builtin.template:
     src: services/copilotkit_adapter.py.j2
@@ -18,10 +17,9 @@
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [adapter, services]
-
 - name: Deploy CopilotKit API endpoints
   ansible.builtin.template:
     src: api/copilotkit.py.j2
@@ -29,45 +27,41 @@
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [adapter, api]
-
 - name: Check if CopilotKit router already integrated in main.py
   ansible.builtin.shell: |
     grep -q "copilotkit.router" {{ orchestrator_dir }}/main.py
   register: copilotkit_router_check
   failed_when: false
   changed_when: false
-  become: yes
+  become: true
   tags: [integration]
-
 - name: Add CopilotKit import to main.py
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_dir }}/main.py"
-    line: "from api import health, events, jobs, ingestion, query, copilotkit"
-    regexp: "^from api import.*"
-    backrefs: yes
-  become: yes
+    line: from api import health, events, jobs, ingestion, query, copilotkit
+    regexp: ^from api import.*
+    backrefs: true
+  become: true
   when: copilotkit_router_check.rc != 0
   notify: restart orchestrator
   tags: [integration]
-
 - name: Add CopilotKit router to main.py
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_dir }}/main.py"
-    line: 'app.include_router(copilotkit.router, prefix="/copilotkit", tags=["copilotkit"])'
-    insertafter: "app.include_router\\(query_router"
+    line: app.include_router(copilotkit.router, prefix="/copilotkit", tags=["copilotkit"])
+    insertafter: app.include_router\(query_router
     state: present
-  become: yes
+  become: true
   when: copilotkit_router_check.rc != 0
   notify: restart orchestrator
   tags: [integration]
-
 - name: Display deployment status
   ansible.builtin.debug:
     msg:
-      - "✅ CopilotKit adapter service deployed"
-      - "✅ CopilotKit API endpoints deployed"
+      - ✅ CopilotKit adapter service deployed
+      - ✅ CopilotKit API endpoints deployed
       - "✅ Router integration: {{ 'SKIPPED (already integrated)' if copilotkit_router_check.rc == 0 else 'COMPLETED' }}"
   tags: [info]

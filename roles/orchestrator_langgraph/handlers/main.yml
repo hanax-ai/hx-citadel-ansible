@@ -2,16 +2,16 @@
 # LangGraph Workflow Handlers
 # Component 9: LangGraph Workflows
 
-- name: restart orchestrator
+- name: Restart orchestrator
   ansible.builtin.systemd:
     name: orchestrator
     state: restarted
-    daemon_reload: yes
-  become: yes
+    daemon_reload: true
+  become: true
 
-- name: validate orchestrator
+- name: Validate orchestrator
   ansible.builtin.uri:
-    url: "http://localhost:{{ orchestrator_port | default(8000) }}/health"
+    url: http://localhost:{{ orchestrator_port | default(8000) }}/health
     method: GET
     status_code: 200
   retries: 5

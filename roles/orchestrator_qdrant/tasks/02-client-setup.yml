@@ -7,20 +7,16 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [client]
-
 - name: Test Qdrant client module import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from services.qdrant_client import QdrantService; 
-    print("✅ Qdrant service module imported")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from services.qdrant_client
+    import QdrantService;  print("✅ Qdrant service module imported")'
   register: client_import_test
   changed_when: false
   tags: [client, validation]
-
 - name: Display client import result
   ansible.builtin.debug:
     msg: "{{ client_import_test.stdout }}"

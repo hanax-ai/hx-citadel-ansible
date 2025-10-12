@@ -10,7 +10,7 @@
     state: present
 
 - name: Ensure all configured locales are present.
-  ansible.builtin.locale_gen:
+  community.general.locale_gen:
     name: "{{ item }}"
     state: present
   loop: "{{ postgresql_locales }}"

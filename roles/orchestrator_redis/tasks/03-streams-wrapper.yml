@@ -7,20 +7,16 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [services]
-
 - name: Test Redis Streams wrapper import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from services.redis_streams import RedisStreamsClient; 
-    print("✅ Redis Streams wrapper imported successfully")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from services.redis_streams
+    import RedisStreamsClient;  print("✅ Redis Streams wrapper imported successfully")'
   register: wrapper_import_test
   changed_when: false
   tags: [services, validation]
-
 - name: Display wrapper import result
   ansible.builtin.debug:
     msg: "{{ wrapper_import_test.stdout }}"

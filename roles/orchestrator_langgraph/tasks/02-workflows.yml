@@ -7,7 +7,7 @@
     state: directory
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
-    mode: '0755'
+    mode: "0755"
   tags:
     - langgraph
     - workflows
@@ -18,7 +18,7 @@
     dest: "{{ orchestrator_dir }}/workflows/__init__.py"
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
-    mode: '0644'
+    mode: "0644"
   tags:
     - langgraph
     - workflows
@@ -29,7 +29,7 @@
     dest: "{{ orchestrator_dir }}/workflows/query_workflow.py"
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
-    mode: '0644'
+    mode: "0644"
   notify:
     - restart orchestrator
   tags:
@@ -42,7 +42,7 @@
     dest: "{{ orchestrator_dir }}/workflows/ingestion_workflow.py"
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
-    mode: '0644'
+    mode: "0644"
   notify:
     - restart orchestrator
   tags:
@@ -55,7 +55,7 @@
     dest: "{{ orchestrator_dir }}/services/workflow_manager.py"
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
-    mode: '0644'
+    mode: "0644"
   notify:
     - restart orchestrator
   tags:
@@ -67,8 +67,8 @@
     path: "{{ orchestrator_dir }}/workflows"
     owner: "{{ orchestrator_user }}"
     group: "{{ orchestrator_group }}"
-    mode: '0755'
-    recurse: yes
+    mode: "0755"
+    recurse: true
   tags:
     - langgraph
     - workflows

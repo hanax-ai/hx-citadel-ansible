@@ -1,9 +1,9 @@
 ---
 # Handlers for orchestrator_workers role
 
-- name: restart orchestrator
+- name: Restart orchestrator
   ansible.builtin.systemd:
     name: shield-orchestrator.service
     state: restarted
-    daemon_reload: yes
-  become: yes
+    daemon_reload: true
+  become: true

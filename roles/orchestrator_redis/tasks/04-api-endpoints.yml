@@ -7,47 +7,42 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
   tags: [api]
-
 - name: Check if events router is already included in main.py
   ansible.builtin.command: grep -q "api import health, events" {{ orchestrator_app_dir }}/main.py
   register: events_import_check
   failed_when: false
   changed_when: false
   tags: [api]
-
 - name: Add events import to main.py
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
-    line: "from api import health, events"
-    regexp: "^from api import health$"
+    line: from api import health, events
+    regexp: ^from api import health$
     state: present
-  become: yes
+  become: true
   notify: restart orchestrator
   when: events_import_check.rc != 0
   tags: [api]
-
 - name: Add events router to main.py
   ansible.builtin.lineinfile:
     path: "{{ orchestrator_app_dir }}/main.py"
-    line: "app.include_router(events.router, prefix='/events', tags=['events'])"
-    insertafter: "app.include_router\\(health.router"
+    line: app.include_router(events.router, prefix='/events', tags=['events'])
+    insertafter: app.include_router\(health.router
     state: present
-  become: yes
+  become: true
   notify: restart orchestrator
   when: events_import_check.rc != 0
   tags: [api]
-
 - name: Verify events API deployment
   ansible.builtin.stat:
     path: "{{ orchestrator_app_dir }}/api/events.py"
   register: events_api_file
   tags: [api, validation]
-
 - name: Display API deployment status
   ansible.builtin.debug:
-    msg: "✅ Events API endpoints deployed"
+    msg: ✅ Events API endpoints deployed
   when: events_api_file.stat.exists
   tags: [api]

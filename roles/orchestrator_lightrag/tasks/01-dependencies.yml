@@ -8,22 +8,21 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
 
 - name: Install LightRAG and dependencies
   ansible.builtin.pip:
     requirements: "{{ orchestrator_app_dir }}/requirements-lightrag.txt"
     virtualenv: "{{ orchestrator_venv_dir }}"
     state: present
-  become: yes
+  become: true
   become_user: "{{ orchestrator_service_user }}"
   notify: restart orchestrator
   register: lightrag_install_result
 
 - name: Verify LightRAG installation
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import lightrag; print(f"✅ LightRAG {lightrag.__version__}")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import lightrag; print(f"✅ LightRAG {lightrag.__version__}")'
   register: lightrag_version
   changed_when: false
   failed_when: lightrag_version.rc != 0

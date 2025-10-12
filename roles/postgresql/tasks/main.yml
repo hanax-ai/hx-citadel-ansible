@@ -1,6 +1,6 @@
 ---
 - name: Include external PostgreSQL role
-  include_role:
+  ansible.builtin.include_role:
     name: postgresql_role
   tags:
     - db
@@ -11,9 +11,9 @@
     name:
       - python3-psycopg2
     state: present
-    update_cache: yes
+    update_cache: true
     cache_valid_time: 3600
-  become: yes
+  become: true
   tags:
     - db
     - postgresql
@@ -54,7 +54,7 @@
     type: database
     privs: ALL
     roles: "{{ db_owner | default('hx_pg') }}"
-    grant_option: no
+    grant_option: false
     login_unix_socket: "{{ pg_login_unix_socket | default('/var/run/postgresql') }}"
     login_user: "{{ pg_login_user | default('postgres') }}"
   become: true
@@ -67,21 +67,21 @@
     - postgresql
 
 - name: Check for existing PostgreSQL configuration file
-  stat:
+  ansible.builtin.stat:
     path: "{{ postgresql_config_path }}"
   register: postgresql_conf_file
-  become: yes
+  become: true
   tags:
     - db
     - postgresql
 
 - name: Configure PostgreSQL to listen on specified address
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: "{{ postgresql_config_path }}"
-    regexp: '^listen_addresses'
-    line: "listen_addresses = '{{ postgresql_listen_address | default('127.0.0.1') }}'"
+    regexp: ^listen_addresses
+    line: listen_addresses = '{{ postgresql_listen_address | default('127.0.0.1') }}'
   notify: restart postgresql
-  become: yes
+  become: true
   tags:
     - db
     - postgresql

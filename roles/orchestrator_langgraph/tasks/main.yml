@@ -2,19 +2,19 @@
 # Component 9: LangGraph Workflows - Main Tasks
 
 - name: Include dependency installation tasks
-  ansible.builtin.include_tasks: 01-dependencies.yml
+  ansible.builtin.include_tasks: "01-dependencies.yml"
   tags:
     - langgraph
     - dependencies
 
 - name: Include workflow deployment tasks
-  ansible.builtin.include_tasks: 02-workflows.yml
+  ansible.builtin.include_tasks: "02-workflows.yml"
   tags:
     - langgraph
     - workflows
 
 - name: Include validation tasks
-  ansible.builtin.include_tasks: 03-validation.yml
+  ansible.builtin.include_tasks: "03-validation.yml"
   tags:
     - langgraph
     - validation

@@ -1,19 +1,19 @@
 ---
 # If you truly have a separate role `redis_role`, keep this include; otherwise remove it.
 - name: Include Redis role
-  include_role:
+  ansible.builtin.include_role:
     name: redis_role
   tags: [cache]
   when: redis_role is defined
 
 - name: Configure Redis with template
-  become: yes
+  become: true
   ansible.builtin.template:
     src: roles/redis_role/templates/redis.conf.j2
     dest: /etc/redis/redis.conf
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   notify: restart redis
   no_log: true
   tags: [cache, redis]

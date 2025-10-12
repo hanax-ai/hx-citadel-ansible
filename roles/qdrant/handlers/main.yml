@@ -1,6 +1,6 @@
 ---
-- name: restart qdrant
+- name: Restart qdrant
   ansible.builtin.service:
     name: "{{ qdrant_service_name }}"
     state: restarted
-  become: yes
+  become: true

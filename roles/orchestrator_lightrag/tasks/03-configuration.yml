@@ -8,13 +8,13 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0755"
-  become: yes
+  become: true
 
 - name: Verify working directory permissions
   ansible.builtin.stat:
     path: "{{ lightrag_working_dir }}"
   register: lightrag_workdir_stat
-  become: yes
+  become: true
 
 - name: Display working directory info
   ansible.builtin.debug:

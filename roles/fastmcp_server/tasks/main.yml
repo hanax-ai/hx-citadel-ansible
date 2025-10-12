@@ -16,33 +16,26 @@
       ╚════════════════════════════════════════════════════════════╝
 
 - name: Include user and directory setup
-  ansible.builtin.import_tasks: 01-setup.yml
+  ansible.builtin.import_tasks: "01-setup.yml"
   tags: [setup, user]
-
 - name: Include Python environment setup
-  ansible.builtin.import_tasks: 02-python.yml
+  ansible.builtin.import_tasks: "02-python.yml"
   tags: [setup, python]
-
 - name: Include Playwright browser installation
-  ansible.builtin.import_tasks: 03-browsers.yml
+  ansible.builtin.import_tasks: "03-browsers.yml"
   tags: [setup, browsers]
-
 - name: Include FastMCP installation
-  ansible.builtin.import_tasks: 04-fastmcp.yml
+  ansible.builtin.import_tasks: "04-fastmcp.yml"
   tags: [install, fastmcp]
-
 - name: Include Shield tools installation
-  ansible.builtin.import_tasks: 05-shield-tools.yml
+  ansible.builtin.import_tasks: "05-shield-tools.yml"
   tags: [install, tools]
-
 - name: Include application configuration
-  ansible.builtin.import_tasks: 06-configure.yml
+  ansible.builtin.import_tasks: "06-configure.yml"
   tags: [configure]
-
 - name: Include systemd service setup
-  ansible.builtin.import_tasks: 07-service.yml
+  ansible.builtin.import_tasks: "07-service.yml"
   tags: [service]
-
 - name: Display deployment completion
   ansible.builtin.debug:
     msg: |

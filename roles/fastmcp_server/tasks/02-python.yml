@@ -2,18 +2,18 @@
 # Python environment setup
 
 - name: Create Python virtual environment
-  ansible.builtin.command: "python{{ python_version }} -m venv {{ fastmcp_venv_dir }}"
+  ansible.builtin.command: python{{ python_version }} -m venv {{ fastmcp_venv_dir }}
   args:
     creates: "{{ fastmcp_venv_dir }}/bin/python"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
 
 - name: Upgrade pip in virtual environment
   ansible.builtin.pip:
     name: pip
-    state: latest
+    state: present
     virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"
 
 - name: Install wheel and setuptools
@@ -21,7 +21,7 @@
     name:
       - wheel
       - setuptools
-    state: latest
+    state: present
     virtualenv: "{{ fastmcp_venv_dir }}"
-  become: yes
+  become: true
   become_user: "{{ fastmcp_service_user }}"

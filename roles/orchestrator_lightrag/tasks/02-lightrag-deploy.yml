@@ -8,15 +8,13 @@
     owner: "{{ orchestrator_service_user }}"
     group: "{{ orchestrator_service_group }}"
     mode: "0644"
-  become: yes
+  become: true
   notify: restart orchestrator
 
 - name: Test LightRAG service import
   ansible.builtin.command: >
-    {{ orchestrator_venv_dir }}/bin/python -c 
-    'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}"); 
-    from services.lightrag_service import LightRAGService; 
-    print("✅ LightRAGService imported")'
+    {{ orchestrator_venv_dir }}/bin/python -c  'import sys; sys.path.insert(0, "{{ orchestrator_app_dir }}");  from services.lightrag_service
+    import LightRAGService;  print("✅ LightRAGService imported")'
   register: lightrag_import
   changed_when: false
   failed_when: lightrag_import.rc != 0

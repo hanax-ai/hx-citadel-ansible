@@ -7,16 +7,16 @@
     - name: Install FastMCP framework
       ansible.builtin.pip:
         name:
-          - "fastmcp>=0.4.0"
-          - "pydantic>=2.0.0"
-          - "httpx>=0.27.0"
-          - "uvicorn>=0.30.0"
-          - "python-dotenv>=1.0.0"
-          - "structlog>=24.1.0"
-          - "python-multipart>=0.0.6"
-          - "pybreaker>=1.0.0"
+          - fastmcp>=0.4.0
+          - pydantic>=2.0.0
+          - httpx>=0.27.0
+          - uvicorn>=0.30.0
+          - python-dotenv>=1.0.0
+          - structlog>=24.1.0
+          - python-multipart>=0.0.6
+          - pybreaker>=1.0.0
         virtualenv: "{{ fastmcp_venv_dir }}"
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
       notify: restart fastmcp-server
       register: fastmcp_install
@@ -33,27 +33,27 @@
         msg: |
           ⚠️  FastMCP installation failed
           Error: {{ ansible_failed_result | default('Unknown pip error') }}
-          
+
     - name: Retry FastMCP installation with verbose output
       ansible.builtin.pip:
         name:
-          - "fastmcp>=0.4.0"
-          - "pydantic>=2.0.0"
-          - "httpx>=0.27.0"
-          - "uvicorn>=0.30.0"
-          - "python-dotenv>=1.0.0"
-          - "structlog>=24.1.0"
-          - "python-multipart>=0.0.6"
-          - "pybreaker>=1.0.0"
+          - fastmcp>=0.4.0
+          - pydantic>=2.0.0
+          - httpx>=0.27.0
+          - uvicorn>=0.30.0
+          - python-dotenv>=1.0.0
+          - structlog>=24.1.0
+          - python-multipart>=0.0.6
+          - pybreaker>=1.0.0
         virtualenv: "{{ fastmcp_venv_dir }}"
         state: forcereinstall
-      become: yes
+      become: true
       become_user: "{{ fastmcp_service_user }}"
       register: fastmcp_retry
 
     - name: Fail if retry unsuccessful
       ansible.builtin.fail:
-        msg: "FastMCP installation failed after retry. Check pip logs in venv."
+        msg: FastMCP installation failed after retry. Check pip logs in venv.
       when: fastmcp_retry is failed
 
   always:

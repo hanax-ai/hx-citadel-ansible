@@ -10,7 +10,6 @@
   changed_when: false
   failed_when: "'PONG' not in redis_ping_test.stdout"
   tags: [validation]
-
 - name: Verify ingestion queue stream exists
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -20,7 +19,6 @@
   register: ingestion_stream_check
   changed_when: false
   tags: [validation]
-
 - name: Verify events stream exists
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -30,7 +28,6 @@
   register: events_stream_check
   changed_when: false
   tags: [validation]
-
 - name: Verify consumer groups on ingestion stream
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -41,7 +38,6 @@
   changed_when: false
   failed_when: "'{{ redis_consumer_group_workers }}' not in ingestion_groups.stdout"
   tags: [validation]
-
 - name: Verify consumer groups on events stream
   ansible.builtin.command: >
     redis-cli -h {{ redis_host }} -p {{ redis_port }}
@@ -51,35 +47,32 @@
   register: events_groups
   changed_when: false
   tags: [validation]
-
 - name: Wait for orchestrator service to be ready
   ansible.builtin.wait_for:
-    host: 0.0.0.0
+    host: "0.0.0.0"
     port: 8000
     delay: 2
     timeout: 30
   tags: [validation]
-
 - name: Test events/stats endpoint
   ansible.builtin.uri:
-    url: "http://localhost:8000/events/stats"
+    url: http://localhost:8000/events/stats
     method: GET
     timeout: 10
     status_code: 200
   register: stats_endpoint_test
-  ignore_errors: yes
+  ignore_errors: true
   tags: [validation]
-
 - name: Display Redis validation summary
   ansible.builtin.debug:
     msg:
-      - "============================================================"
-      - "Redis Streams Validation"
-      - "============================================================"
+      - ============================================================
+      - Redis Streams Validation
+      - ============================================================
       - "✅ Redis connection: {{ redis_ping_test.stdout }}"
       - "✅ Ingestion stream: Created with {{ ingestion_groups.stdout_lines | length }} consumer groups"
       - "✅ Events stream: Created with {{ events_groups.stdout_lines | length }} consumer groups"
       - "✅ Stats endpoint: {{ 'Available' if stats_endpoint_test.status == 200 else 'Not yet available' }}"
-      - "✅ Redis Streams integration complete!"
-      - "============================================================"
+      - ✅ Redis Streams integration complete!
+      - ============================================================
   tags: [validation]

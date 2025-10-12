@@ -8,66 +8,66 @@
 # Core System Setup
 # ------------------------------------------------------------------------------
 - name: Ensure apt cache is up to date
-  apt:
-    update_cache: yes
-  become: yes
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
   tags:
     - always
 
 - name: Install base packages
-  apt:
+  ansible.builtin.apt:
     name:
-      - "python{{ python_version }}"
-      - "python{{ python_version }}-venv"
+      - python{{ python_version }}
+      - python{{ python_version }}-venv
       - git
       - curl
     state: present
-  become: yes
+  become: true
   tags:
     - deps
 
 - name: Create application directory
-  file:
+  ansible.builtin.file:
     path: "{{ app_dir }}"
     state: directory
     owner: "{{ service_user | default('agent0') }}"
     group: "{{ service_group | default('agent0') }}"
     mode: "0755"
-  become: yes
+  become: true
   tags:
     - app
 
 - name: Ensure log directory exists
-  file:
+  ansible.builtin.file:
     path: "{{ log_dir }}"
     state: directory
     owner: "{{ service_user | default('agent0') }}"
     group: "{{ service_group | default('agent0') }}"
     mode: "0755"
-  become: yes
+  become: true
   tags:
     - app
 
 - name: Create Python virtual environment
-  command: "python{{ python_version }} -m venv {{ app_dir }}/venv"
+  ansible.builtin.command: python{{ python_version }} -m venv {{ app_dir }}/venv
   args:
     creates: "{{ app_dir }}/venv/bin/activate"
-  become: yes
+  become: true
   become_user: "{{ service_user | default('agent0') }}"
   tags:
     - python
 
 - name: Install Poetry in the virtual environment
-  pip:
+  ansible.builtin.pip:
     name: poetry
     virtualenv: "{{ app_dir }}/venv"
-  become: yes
+  become: true
   become_user: "{{ service_user | default('agent0') }}"
   tags:
     - python
 
 - name: Capture realm configuration
-  command: realm list
+  ansible.builtin.command: realm list
   register: realm_check
   changed_when: false
   failed_when: realm_check.rc != 0
@@ -79,28 +79,28 @@
 # ------------------------------------------------------------------------------
 
 - name: Configure logrotate for log management
-  include_tasks: 06-logrotate.yml
+  ansible.builtin.include_tasks: "06-logrotate.yml"
   when: logrotate_enabled | default(true)
   tags:
     - logrotate
     - optional
 
 - name: Configure sudo permissions for service management
-  include_tasks: 07-sudo.yml
+  ansible.builtin.include_tasks: "07-sudo.yml"
   when: sudo_enabled | default(true)
   tags:
     - sudo
     - optional
 
 - name: Set up convenience scripts and shell enhancements
-  include_tasks: 08-convenience-scripts.yml
+  ansible.builtin.include_tasks: "08-convenience-scripts.yml"
   when: convenience_scripts_enabled | default(true)
   tags:
     - convenience
     - optional
 
 - name: Deploy health check monitoring
-  include_tasks: 09-health-check.yml
+  ansible.builtin.include_tasks: "09-health-check.yml"
   when: health_check_enabled | default(true)
   tags:
     - health
