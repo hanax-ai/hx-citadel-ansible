@@ -54,9 +54,9 @@ This document defines the technical architecture for Shield AG-UI, an advanced w
 ```mermaid
 graph TD
     subgraph Frontend
-        A[Next.js 14]
+        A[Vite 5.4 + React 18]
         B[React 18]
-        C[AG-UI React SDK]
+        C[shadcn-ui + Radix UI]
         D[D3.js]
         E[TailwindCSS]
     end
@@ -149,7 +149,7 @@ graph TB
 graph LR
     subgraph "hx-dev-server (192.168.10.12)"
         subgraph "Docker Compose Stack"
-            FE[shield-ag-ui:3001<br/>Next.js Frontend<br/>AG-UI React SDK]
+            FE[shield-ag-ui-frontend:3001<br/>Vite + React SPA<br/>shadcn-ui (6500 LOC)]
             BE[ag-ui-backend:8002<br/>FastAPI Backend<br/>Redis Consumer]
             NX[nginx:80/443<br/>Reverse Proxy<br/>SSL Termination]
         end
@@ -229,7 +229,7 @@ sequenceDiagram
 
 ```mermaid
 graph TB
-    subgraph "Next.js 14 Application"
+    subgraph "Vite + React 18 SPA (Existing)"
         subgraph "Pages"
             P1[/login - Auth]
             P2[/dashboard - Main UI]
@@ -418,7 +418,7 @@ erDiagram
 sequenceDiagram
     autonumber
     participant U as Power User
-    participant FE as Frontend (Next.js)
+    participant FE as Frontend (Vite SPA)
     participant BE as Backend (FastAPI)
     participant LLM as LiteLLM Gateway
     participant MCP as MCP Server
@@ -582,7 +582,7 @@ graph TB
     subgraph "Docker Host: hx-dev-server"
         subgraph "Docker Network: ag-ui-network"
             subgraph "Frontend Container"
-                FE_APP[Next.js Server<br/>:3001]
+                FE_APP[Nginx Static Server<br/>:3001]
                 FE_NODE[Node.js 20 Runtime]
                 FE_FILES[Static Assets<br/>/app/.next]
             end
@@ -2156,7 +2156,7 @@ stateDiagram-v2
 
 | Technology | Reason | Alternative Considered |
 |------------|--------|------------------------|
-| **Next.js 14** | SSR, performance, React ecosystem | Vanilla React, Vue.js |
+| **Vite 5.4 + React 18** | Fast SPA builds, existing codebase (6,500 LOC) | Next.js, Vanilla React |
 | **FastAPI** | Async, performance, Python ecosystem | Flask, Django |
 | **Docker** | Isolation, portability, easy ops | Native install, Kubernetes |
 | **Redis Streams** | Durable events, at-least-once delivery | Kafka, RabbitMQ |
