@@ -73,3 +73,5 @@ playbooks/validate-mcp-prereqs\.yml:
 # FQDN policy checker itself and allowlist
 scripts/check-fqdn\.sh:
 \.fqdn-allowlist:
+docs/deployment/ansible_infra_assessment.md
+ANSIBLE_INFRASTRUCTURE_ANALYSIS.md
