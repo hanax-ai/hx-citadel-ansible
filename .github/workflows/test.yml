@@ -1,11 +1,10 @@
 name: Test Suite
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only
+  # push: Disabled to prevent notification spam - re-enable when tests are stable
 
 jobs:
   test:
