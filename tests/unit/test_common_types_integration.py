@@ -28,16 +28,14 @@ class TestTypeIntegration:
     def test_error_response_in_crawl_response(self):
         """Test that error responses work in crawl response"""
         error = create_error_response(
-            error="Connection failed",
-            error_type="http_error",
-            status_code=500
+            error="Connection failed", error_type="http_error", status_code=500
         )
 
         resp = CrawlWebResponse(
             status=MCPResponseStatusEnum.ERROR,
             pages_crawled=0,
             error=error["error"],
-            error_type=error["error_type"]
+            error_type=error["error_type"],
         )
         assert resp.status == MCPResponseStatusEnum.ERROR
         assert resp.error == "Connection failed"
@@ -50,7 +48,7 @@ class TestTypeIntegration:
             job_status=JobStatusEnum.PENDING,
             progress=0,
             created_at="2025-10-11T10:00:00Z",
-            updated_at="2025-10-11T10:00:00Z"
+            updated_at="2025-10-11T10:00:00Z",
         )
         assert pending["job_status"] == JobStatusEnum.PENDING
 
@@ -60,7 +58,7 @@ class TestTypeIntegration:
             job_status=JobStatusEnum.PROCESSING,
             progress=50,
             created_at="2025-10-11T10:00:00Z",
-            updated_at="2025-10-11T10:05:00Z"
+            updated_at="2025-10-11T10:05:00Z",
         )
         assert processing["progress"] == 50
 
@@ -71,6 +69,6 @@ class TestTypeIntegration:
             progress=100,
             created_at="2025-10-11T10:00:00Z",
             updated_at="2025-10-11T10:10:00Z",
-            result={"success": True}
+            result={"success": True},
         )
         assert completed["result"]["success"] is True

@@ -20,38 +20,35 @@ import time
 class CircuitBreakerUser(HttpUser):
     """
     Test circuit breaker behavior under various failure scenarios
-    
+
     Usage:
     - Normal load: locust -f circuit_breaker.py --users 100 --spawn-rate 10 --run-time 60s
     - Stress test: locust -f circuit_breaker.py --users 500 --spawn-rate 50 --run-time 300s
     """
-    
+
     host = os.getenv("MCP_SERVER_URL", "http://hx-mcp1-server:8081")
     wait_time = between(1, 3)
-    
+
     @task
     def test_tool_with_circuit_breaker(self):
         """
         Test MCP tool that uses circuit breaker for orchestrator calls
-        
+
         This simulates Scenario 1 (Normal Load) or Scenario 4 (High Load)
         depending on user count and orchestrator availability.
         """
-        payload = {
-            "query": "Test circuit breaker behavior",
-            "mode": "hybrid"
-        }
-        
+        payload = {"query": "Test circuit breaker behavior", "mode": "hybrid"}
+
         start_time = time.time()
-        
+
         with self.client.post(
             "/tools/lightrag_query",
             json=payload,
             catch_response=True,
-            name="lightrag_query_with_circuit_breaker"
+            name="lightrag_query_with_circuit_breaker",
         ) as response:
             response_time = (time.time() - start_time) * 1000
-            
+
             if response.status_code == 200:
                 response.success()
             elif response.status_code == 202:
@@ -70,12 +67,12 @@ class CircuitBreakerUser(HttpUser):
                     response.failure(f"Circuit breaker slow ({response_time:.0f}ms)")
             else:
                 response.failure(f"Request failed: {response.status_code}")
-    
+
     @task(5)
     def check_circuit_breaker_state(self):
         """
         Monitor circuit breaker state via health endpoint
-        
+
         High frequency to track state transitions
         """
         with self.client.get("/health", catch_response=True) as response:
@@ -85,8 +82,7 @@ class CircuitBreakerUser(HttpUser):
                     if "circuit_breakers" in data:
                         cb_state = data["circuit_breakers"].get("orchestrator", {})
                         state = cb_state.get("state", "unknown")
-                        fail_count = cb_state.get("fail_counter", 0)
-                        
+
                         events.request.fire(
                             request_type="GET",
                             name=f"circuit_breaker_state_{state}",
@@ -104,9 +100,9 @@ class CircuitBreakerUser(HttpUser):
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Print circuit breaker test info"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Circuit Breaker Load Test")
-    print("="*60)
+    print("=" * 60)
     print(f"Target: {CircuitBreakerUser.host}")
     print("\nExpected behavior:")
     print("- If orchestrator is UP: All requests succeed (circuit CLOSED)")
@@ -114,4 +110,4 @@ def on_test_start(environment, **kwargs):
     print("  - First 5 requests timeout (~30s each)")
     print("  - Subsequent requests fail fast (<100ms)")
     print("  - Circuit state: OPEN")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")

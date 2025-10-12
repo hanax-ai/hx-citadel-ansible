@@ -30,7 +30,7 @@ import pytest
 import json
 import uuid
 from typing import Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from datetime import datetime
 
 
@@ -55,7 +55,15 @@ class MockRedisStreamsClient:
         """Close Redis connection"""
         pass
 
-    async def add_task(self, job_id: str, chunk_id: str, content: str, source_uri: str, source_type: str, metadata: Optional[dict] = None) -> str:
+    async def add_task(
+        self,
+        job_id: str,
+        chunk_id: str,
+        content: str,
+        source_uri: str,
+        source_type: str,
+        metadata: Optional[dict] = None,
+    ) -> str:
         """Add task to ingestion queue"""
         message_id = f"{int(datetime.utcnow().timestamp() * 1000)}-0"
         task = {
@@ -67,27 +75,36 @@ class MockRedisStreamsClient:
             "source_type": source_type,
             "metadata": json.dumps(metadata or {}),
             "retry_count": "0",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         self.tasks.append(task)
         return message_id
 
-    async def read_tasks(self, consumer_group: str, consumer_name: str, count: int = 10, block_ms: int = 5000) -> list:
+    async def read_tasks(
+        self,
+        consumer_group: str,
+        consumer_name: str,
+        count: int = 10,
+        block_ms: int = 5000,
+    ) -> list:
         """Read tasks from ingestion queue"""
         # Return up to 'count' tasks
         tasks_to_return = self.tasks[:count]
         # Convert back to expected format
-        return [{
-            "message_id": t["message_id"],
-            "job_id": t["job_id"],
-            "chunk_id": t["chunk_id"],
-            "content": t["content"],
-            "source_uri": t["source_uri"],
-            "source_type": t["source_type"],
-            "metadata": json.loads(t["metadata"]),
-            "retry_count": int(t["retry_count"]),
-            "timestamp": t["timestamp"]
-        } for t in tasks_to_return]
+        return [
+            {
+                "message_id": t["message_id"],
+                "job_id": t["job_id"],
+                "chunk_id": t["chunk_id"],
+                "content": t["content"],
+                "source_uri": t["source_uri"],
+                "source_type": t["source_type"],
+                "metadata": json.loads(t["metadata"]),
+                "retry_count": int(t["retry_count"]),
+                "timestamp": t["timestamp"],
+            }
+            for t in tasks_to_return
+        ]
 
     async def ack_task(self, consumer_group: str, message_id: str):
         """Acknowledge task completion"""
@@ -105,7 +122,13 @@ class MockRedisStreamsClient:
         if group_name not in self.consumer_groups[stream_name]:
             self.consumer_groups[stream_name].append(group_name)
 
-    async def emit_event(self, event_type: str, job_id: Optional[str] = None, data: Optional[dict] = None, metadata: Optional[dict] = None) -> str:
+    async def emit_event(
+        self,
+        event_type: str,
+        job_id: Optional[str] = None,
+        data: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+    ) -> str:
         """Emit event to event bus"""
         event_id = str(uuid.uuid4())
         message_id = f"{int(datetime.utcnow().timestamp() * 1000)}-0"
@@ -116,23 +139,33 @@ class MockRedisStreamsClient:
             "timestamp": datetime.utcnow().isoformat(),
             "job_id": job_id or "",
             "data": json.dumps(data or {}),
-            "metadata": json.dumps(metadata or {})
+            "metadata": json.dumps(metadata or {}),
         }
         self.events.append(event)
         return message_id
 
-    async def read_events(self, consumer_group: str, consumer_name: str, last_id: str = ">", count: int = 100, block_ms: int = 5000) -> list:
+    async def read_events(
+        self,
+        consumer_group: str,
+        consumer_name: str,
+        last_id: str = ">",
+        count: int = 100,
+        block_ms: int = 5000,
+    ) -> list:
         """Read events from event stream"""
         events_to_return = self.events[:count]
-        return [{
-            "message_id": e["message_id"],
-            "event_id": e["event_id"],
-            "type": e["type"],
-            "timestamp": e["timestamp"],
-            "job_id": e["job_id"],
-            "data": json.loads(e["data"]),
-            "metadata": json.loads(e["metadata"])
-        } for e in events_to_return]
+        return [
+            {
+                "message_id": e["message_id"],
+                "event_id": e["event_id"],
+                "type": e["type"],
+                "timestamp": e["timestamp"],
+                "job_id": e["job_id"],
+                "data": json.loads(e["data"]),
+                "metadata": json.loads(e["metadata"]),
+            }
+            for e in events_to_return
+        ]
 
     async def ack_event(self, consumer_group: str, message_id: str):
         """Acknowledge event received"""
@@ -155,7 +188,7 @@ class TestRedisStreamsTaskQueue:
             chunk_id="chunk-1",
             content="Test content",
             source_uri="http://example.com",
-            source_type="web"
+            source_type="web",
         )
 
         assert message_id is not None
@@ -173,7 +206,7 @@ class TestRedisStreamsTaskQueue:
             content="Test content",
             source_uri="http://example.com",
             source_type="web",
-            metadata={"page": 1, "section": "intro"}
+            metadata={"page": 1, "section": "intro"},
         )
 
         assert len(client.tasks) == 1
@@ -192,8 +225,7 @@ class TestRedisStreamsTaskQueue:
 
         # Read tasks
         tasks = await client.read_tasks(
-            consumer_group="workers",
-            consumer_name="worker-1"
+            consumer_group="workers", consumer_name="worker-1"
         )
 
         assert len(tasks) == 2
@@ -207,13 +239,13 @@ class TestRedisStreamsTaskQueue:
 
         # Add 5 tasks
         for i in range(5):
-            await client.add_task(f"job-{i}", f"chunk-{i}", f"Content {i}", "uri", "web")
+            await client.add_task(
+                f"job-{i}", f"chunk-{i}", f"Content {i}", "uri", "web"
+            )
 
         # Read only 3
         tasks = await client.read_tasks(
-            consumer_group="workers",
-            consumer_name="worker-1",
-            count=3
+            consumer_group="workers", consumer_name="worker-1", count=3
         )
 
         assert len(tasks) == 3
@@ -278,9 +310,7 @@ class TestRedisStreamsEventBus:
         await client.connect()
 
         message_id = await client.emit_event(
-            event_type="ingestion.started",
-            job_id="job-123",
-            data={"chunks_total": 10}
+            event_type="ingestion.started", job_id="job-123", data={"chunks_total": 10}
         )
 
         assert message_id is not None
@@ -296,7 +326,7 @@ class TestRedisStreamsEventBus:
             event_type="test.event",
             job_id="job-123",
             data={"key": "value"},
-            metadata={"source": "test"}
+            metadata={"source": "test"},
         )
 
         event = client.events[0]
@@ -317,8 +347,7 @@ class TestRedisStreamsEventBus:
 
         # Read events
         events = await client.read_events(
-            consumer_group="listeners",
-            consumer_name="listener-1"
+            consumer_group="listeners", consumer_name="listener-1"
         )
 
         assert len(events) == 2
@@ -336,9 +365,7 @@ class TestRedisStreamsEventBus:
 
         # Read only 3
         events = await client.read_events(
-            consumer_group="listeners",
-            consumer_name="listener-1",
-            count=3
+            consumer_group="listeners", consumer_name="listener-1", count=3
         )
 
         assert len(events) == 3
@@ -374,7 +401,7 @@ class TestRedisStreamsJSONHandling:
             content="Content",
             source_uri="uri",
             source_type="web",
-            metadata=metadata
+            metadata=metadata,
         )
 
         tasks = await client.read_tasks("workers", "worker-1")
@@ -387,10 +414,7 @@ class TestRedisStreamsJSONHandling:
         await client.connect()
 
         data = {"complex": {"structure": True}, "numbers": [1.5, 2.7]}
-        await client.emit_event(
-            event_type="test.event",
-            data=data
-        )
+        await client.emit_event(event_type="test.event", data=data)
 
         events = await client.read_events("listeners", "listener-1")
         assert events[0]["data"]["complex"]["structure"] is True

@@ -12,6 +12,7 @@ import respx
 
 # Add project root to Python path
 import sys
+
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -20,22 +21,20 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # PYTEST CONFIGURATION
 # ============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest with custom settings"""
-    config.addinivalue_line(
-        "markers", "unit: Unit tests for individual components"
-    )
+    config.addinivalue_line("markers", "unit: Unit tests for individual components")
     config.addinivalue_line(
         "markers", "integration: Integration tests for end-to-end flows"
     )
-    config.addinivalue_line(
-        "markers", "mcp: Tests for MCP server functionality"
-    )
+    config.addinivalue_line("markers", "mcp: Tests for MCP server functionality")
 
 
 # ============================================================================
 # TEST ENVIRONMENT FIXTURES
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def test_config() -> Dict[str, Any]:
@@ -87,14 +86,17 @@ def roles_dir(project_root: Path) -> Path:
 @pytest.fixture
 def templates_dir(roles_dir: Path) -> Path:
     """Get templates directory for a specific role"""
+
     def _get_templates(role_name: str) -> Path:
         return roles_dir / role_name / "templates"
+
     return _get_templates
 
 
 # ============================================================================
 # HTTP CLIENT FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
@@ -114,8 +116,11 @@ def mock_http() -> Generator[respx.MockRouter, None, None]:
 # MCP SERVER FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
-async def mcp_client(test_config: Dict[str, Any]) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def mcp_client(
+    test_config: Dict[str, Any],
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """HTTP client configured for MCP server"""
     base_url = test_config["mcp_server"]["url"]
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
@@ -132,8 +137,11 @@ def mcp_server_url(test_config: Dict[str, Any]) -> str:
 # ORCHESTRATOR FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
-async def orchestrator_client(test_config: Dict[str, Any]) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def orchestrator_client(
+    test_config: Dict[str, Any],
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """HTTP client configured for orchestrator"""
     base_url = test_config["orchestrator"]["url"]
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
@@ -150,8 +158,11 @@ def orchestrator_url(test_config: Dict[str, Any]) -> str:
 # QDRANT FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
-async def qdrant_client(test_config: Dict[str, Any]) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def qdrant_client(
+    test_config: Dict[str, Any],
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """HTTP client configured for Qdrant"""
     base_url = test_config["qdrant"]["url"]
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
@@ -167,6 +178,7 @@ def qdrant_url(test_config: Dict[str, Any]) -> str:
 # ============================================================================
 # TEST DATA FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def sample_text() -> str:
@@ -203,20 +215,21 @@ def sample_job_id() -> str:
 # MOCK FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
-def mock_orchestrator_response(mock_http: respx.MockRouter, orchestrator_url: str) -> respx.MockRouter:
+def mock_orchestrator_response(
+    mock_http: respx.MockRouter, orchestrator_url: str
+) -> respx.MockRouter:
     """Mock successful orchestrator responses"""
     # Health check
-    mock_http.get(f"{orchestrator_url}/healthz").respond(
-        json={"status": "healthy"}
-    )
+    mock_http.get(f"{orchestrator_url}/healthz").respond(json={"status": "healthy"})
 
     # Job status
     mock_http.get(f"{orchestrator_url}/jobs/test-job-12345").respond(
         json={
             "status": "completed",
             "job_id": "test-job-12345",
-            "result": {"success": True}
+            "result": {"success": True},
         }
     )
 
@@ -224,33 +237,28 @@ def mock_orchestrator_response(mock_http: respx.MockRouter, orchestrator_url: st
 
 
 @pytest.fixture
-def mock_qdrant_response(mock_http: respx.MockRouter, qdrant_url: str) -> respx.MockRouter:
+def mock_qdrant_response(
+    mock_http: respx.MockRouter, qdrant_url: str
+) -> respx.MockRouter:
     """Mock successful Qdrant responses"""
     # Health check
-    mock_http.get(f"{qdrant_url}/health").respond(
-        json={"status": "ok"}
-    )
+    mock_http.get(f"{qdrant_url}/health").respond(json={"status": "ok"})
 
     # Collections list
     mock_http.get(f"{qdrant_url}/collections").respond(
-        json={
-            "result": {
-                "collections": [
-                    {"name": "shield_knowledge_base"}
-                ]
-            }
-        }
+        json={"result": {"collections": [{"name": "shield_knowledge_base"}]}}
     )
 
     return mock_http
 
 
 @pytest.fixture
-def mock_circuit_breaker_open(mock_http: respx.MockRouter, orchestrator_url: str) -> respx.MockRouter:
+def mock_circuit_breaker_open(
+    mock_http: respx.MockRouter, orchestrator_url: str
+) -> respx.MockRouter:
     """Mock circuit breaker open state (service down)"""
     mock_http.route(url__startswith=orchestrator_url).respond(
-        status_code=503,
-        json={"error": "Service temporarily unavailable"}
+        status_code=503, json={"error": "Service temporarily unavailable"}
     )
     return mock_http
 
@@ -258,6 +266,7 @@ def mock_circuit_breaker_open(mock_http: respx.MockRouter, orchestrator_url: str
 # ============================================================================
 # CLEANUP FIXTURES
 # ============================================================================
+
 
 @pytest.fixture(autouse=True)
 def reset_test_state():

@@ -26,8 +26,7 @@ class TestCreateErrorResponse:
     def test_minimal_error(self):
         """Test creating minimal error response"""
         resp = create_error_response(
-            error="Something went wrong",
-            error_type="generic_error"
+            error="Something went wrong", error_type="generic_error"
         )
         assert resp["status"] == "error"
         assert resp["error"] == "Something went wrong"
@@ -38,18 +37,14 @@ class TestCreateErrorResponse:
     def test_error_with_status_code(self):
         """Test error response with HTTP status code"""
         resp = create_error_response(
-            error="Not found",
-            error_type="http_error",
-            status_code=404
+            error="Not found", error_type="http_error", status_code=404
         )
         assert resp["status_code"] == 404
 
     def test_error_with_retry_after(self):
         """Test error response with retry delay"""
         resp = create_error_response(
-            error="Rate limited",
-            error_type="rate_limit_error",
-            retry_after=120
+            error="Rate limited", error_type="rate_limit_error", retry_after=120
         )
         assert resp["retry_after"] == 120
 
@@ -59,7 +54,7 @@ class TestCreateErrorResponse:
             error="Service unavailable",
             error_type="service_error",
             status_code=503,
-            retry_after=60
+            retry_after=60,
         )
         assert resp["status"] == "error"
         assert resp["error"] == "Service unavailable"
@@ -80,7 +75,7 @@ class TestCreateJobStatusResponse:
             job_status=JobStatusEnum.PENDING,
             progress=0,
             created_at="2025-10-11T10:00:00Z",
-            updated_at="2025-10-11T10:00:00Z"
+            updated_at="2025-10-11T10:00:00Z",
         )
         assert resp["job_id"] == "job-123"
         assert resp["job_status"] == JobStatusEnum.PENDING
@@ -95,7 +90,7 @@ class TestCreateJobStatusResponse:
             progress=50,
             created_at="2025-10-11T10:00:00Z",
             updated_at="2025-10-11T10:05:00Z",
-            metadata={"pages_processed": 25}
+            metadata={"pages_processed": 25},
         )
         assert resp["progress"] == 50
         assert resp["job_status"] == JobStatusEnum.PROCESSING
@@ -109,7 +104,7 @@ class TestCreateJobStatusResponse:
             progress=100,
             created_at="2025-10-11T10:00:00Z",
             updated_at="2025-10-11T10:10:00Z",
-            result={"documents_indexed": 100, "vectors_created": 100}
+            result={"documents_indexed": 100, "vectors_created": 100},
         )
         assert resp["progress"] == 100
         assert resp["job_status"] == JobStatusEnum.COMPLETED
@@ -123,7 +118,7 @@ class TestCreateJobStatusResponse:
             progress=30,
             created_at="2025-10-11T10:00:00Z",
             updated_at="2025-10-11T10:03:00Z",
-            error="Connection timeout to Qdrant"
+            error="Connection timeout to Qdrant",
         )
         assert resp["job_status"] == JobStatusEnum.FAILED
         assert resp["error"] == "Connection timeout to Qdrant"
@@ -136,7 +131,7 @@ class TestCreateJobStatusResponse:
             job_status=JobStatusEnum.PENDING,
             progress=-10,
             created_at="2025-10-11T10:00:00Z",
-            updated_at="2025-10-11T10:00:00Z"
+            updated_at="2025-10-11T10:00:00Z",
         )
         assert resp["progress"] == 0
 
@@ -146,6 +141,6 @@ class TestCreateJobStatusResponse:
             job_status=JobStatusEnum.COMPLETED,
             progress=150,
             created_at="2025-10-11T10:00:00Z",
-            updated_at="2025-10-11T10:00:00Z"
+            updated_at="2025-10-11T10:00:00Z",
         )
         assert resp["progress"] == 100

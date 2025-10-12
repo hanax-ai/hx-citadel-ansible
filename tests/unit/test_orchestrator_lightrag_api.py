@@ -30,15 +30,15 @@ Test Coverage:
 
 import pytest
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
 
 # Mock Pydantic models
 class MockQueryRequest:
     """Mock QueryRequest model"""
 
-    def __init__(self, query: str, mode: str = "hybrid", top_k: int = 10, max_depth: int = 2):
+    def __init__(
+        self, query: str, mode: str = "hybrid", top_k: int = 10, max_depth: int = 2
+    ):
         self.query = query
         self.mode = mode
         self.top_k = top_k
@@ -93,7 +93,9 @@ class MockLightRAGService:
         self.kg_entities = 100
         self.kg_relationships = 250
 
-    async def query(self, query: str, mode: str = "hybrid", top_k: int = 10, max_depth: int = 2):
+    async def query(
+        self, query: str, mode: str = "hybrid", top_k: int = 10, max_depth: int = 2
+    ):
         """Execute query"""
         return {
             "answer": f"Answer to: {query} (mode: {mode})",
@@ -101,8 +103,8 @@ class MockLightRAGService:
                 "mode": mode,
                 "top_k": top_k,
                 "max_depth": max_depth,
-                "processing_time": 0.5
-            }
+                "processing_time": 0.5,
+            },
         }
 
     async def get_stats(self):
@@ -113,7 +115,7 @@ class MockLightRAGService:
             "llm_model": "llama3.2:latest",
             "embedding_model": "mxbai-embed-large",
             "kg_entities": self.kg_entities,
-            "kg_relationships": self.kg_relationships
+            "kg_relationships": self.kg_relationships,
         }
 
 
@@ -124,13 +126,15 @@ class MockJobTracker:
     def __init__(self):
         self.jobs = {}
 
-    async def create_job(self, job_id: str, job_type: str, chunks_total: int, metadata: dict = None):
+    async def create_job(
+        self, job_id: str, job_type: str, chunks_total: int, metadata: dict = None
+    ):
         """Create job"""
         self.jobs[job_id] = {
             "job_id": job_id,
             "job_type": job_type,
             "chunks_total": chunks_total,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
 
@@ -141,16 +145,26 @@ class MockRedisStreams:
     def __init__(self):
         self.tasks = []
 
-    async def add_task(self, job_id: str, chunk_id: str, content: str, source_uri: str, source_type: str, metadata: dict):
+    async def add_task(
+        self,
+        job_id: str,
+        chunk_id: str,
+        content: str,
+        source_uri: str,
+        source_type: str,
+        metadata: dict,
+    ):
         """Add task to stream"""
-        self.tasks.append({
-            "job_id": job_id,
-            "chunk_id": chunk_id,
-            "content": content,
-            "source_uri": source_uri,
-            "source_type": source_type,
-            "metadata": metadata
-        })
+        self.tasks.append(
+            {
+                "job_id": job_id,
+                "chunk_id": chunk_id,
+                "content": content,
+                "source_uri": source_uri,
+                "source_type": source_type,
+                "metadata": metadata,
+            }
+        )
 
 
 # Mock event bus
@@ -160,14 +174,22 @@ class MockEventBus:
     def __init__(self):
         self.events = []
 
-    async def emit_event(self, event_type: str, job_id: str = None, data: dict = None, metadata: dict = None):
+    async def emit_event(
+        self,
+        event_type: str,
+        job_id: str = None,
+        data: dict = None,
+        metadata: dict = None,
+    ):
         """Emit event"""
-        self.events.append({
-            "event_type": event_type,
-            "job_id": job_id,
-            "data": data,
-            "metadata": metadata
-        })
+        self.events.append(
+            {
+                "event_type": event_type,
+                "job_id": job_id,
+                "data": data,
+                "metadata": metadata,
+            }
+        )
 
 
 @pytest.mark.unit
@@ -185,7 +207,7 @@ class TestLightRAGQueryEndpoint:
             query=request.query,
             mode=request.mode,
             top_k=request.top_k,
-            max_depth=request.max_depth
+            max_depth=request.max_depth,
         )
 
         assert "answer" in result
@@ -236,9 +258,7 @@ class TestLightRAGQueryEndpoint:
         request = MockQueryRequest(query="Test query", top_k=20)
 
         result = await service.query(
-            query=request.query,
-            mode=request.mode,
-            top_k=request.top_k
+            query=request.query, mode=request.mode, top_k=request.top_k
         )
 
         assert result["metadata"]["top_k"] == 20
@@ -249,9 +269,7 @@ class TestLightRAGQueryEndpoint:
         request = MockQueryRequest(query="Test query", max_depth=3)
 
         result = await service.query(
-            query=request.query,
-            mode=request.mode,
-            max_depth=request.max_depth
+            query=request.query, mode=request.mode, max_depth=request.max_depth
         )
 
         assert result["metadata"]["max_depth"] == 3
@@ -313,7 +331,7 @@ class TestLightRAGIngestionEndpoint:
             job_id=job_id,
             job_type="lightrag_ingestion",
             chunks_total=len(request.chunks),
-            metadata={"source_type": request.source_type}
+            metadata={"source_type": request.source_type},
         )
 
         # Queue chunks
@@ -325,14 +343,17 @@ class TestLightRAGIngestionEndpoint:
                 content=chunk.text,
                 source_uri=chunk.source_uri,
                 source_type=request.source_type,
-                metadata={"chunk_index": idx}
+                metadata={"chunk_index": idx},
             )
 
         # Emit event
         await event_bus.emit_event(
             event_type="ingestion.queued",
             job_id=job_id,
-            data={"chunks_total": len(request.chunks), "source_type": request.source_type}
+            data={
+                "chunks_total": len(request.chunks),
+                "source_type": request.source_type,
+            },
         )
 
         # Verify job created
@@ -351,15 +372,14 @@ class TestLightRAGIngestionEndpoint:
         """Test that ingest-async returns job_id for tracking"""
         job_tracker = MockJobTracker()
         request = MockIngestRequest(
-            chunks=[MockChunkData(text="Test")],
-            source_type="web"
+            chunks=[MockChunkData(text="Test")], source_type="web"
         )
 
         job_id = str(uuid.uuid4())
         await job_tracker.create_job(
             job_id=job_id,
             job_type="lightrag_ingestion",
-            chunks_total=len(request.chunks)
+            chunks_total=len(request.chunks),
         )
 
         assert job_id in job_tracker.jobs
@@ -370,7 +390,7 @@ class TestLightRAGIngestionEndpoint:
         chunks = [
             MockChunkData(text="Chunk 1"),
             MockChunkData(text="Chunk 2"),
-            MockChunkData(text="Chunk 3")
+            MockChunkData(text="Chunk 3"),
         ]
         request = MockIngestRequest(chunks=chunks, source_type="document")
 
@@ -384,7 +404,7 @@ class TestLightRAGIngestionEndpoint:
                 content=chunk.text,
                 source_uri=chunk.source_uri,
                 source_type=request.source_type,
-                metadata={"chunk_index": idx}
+                metadata={"chunk_index": idx},
             )
 
         assert len(redis_streams.tasks) == 3
@@ -397,7 +417,7 @@ class TestLightRAGIngestionEndpoint:
         request = MockIngestRequest(
             chunks=[MockChunkData(text="Test")],
             source_type="web",
-            metadata={"test": "data"}
+            metadata={"test": "data"},
         )
 
         job_id = str(uuid.uuid4())
@@ -408,8 +428,8 @@ class TestLightRAGIngestionEndpoint:
             data={
                 "chunks_total": len(request.chunks),
                 "source_type": request.source_type,
-                "metadata": request.metadata
-            }
+                "metadata": request.metadata,
+            },
         )
 
         assert len(event_bus.events) == 1

@@ -28,8 +28,7 @@ Test Coverage:
 
 import pytest
 from typing import Optional
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
 
 # Mock Qdrant client classes
@@ -96,7 +95,11 @@ class MockQdrantService:
             return False
 
     async def search(
-        self, query_vector: list, limit: int = 5, score_threshold: float = 0.5, filters: Optional[dict] = None
+        self,
+        query_vector: list,
+        limit: int = 5,
+        score_threshold: float = 0.5,
+        filters: Optional[dict] = None,
     ):
         """Search vectors"""
         if not self.client:
@@ -107,12 +110,20 @@ class MockQdrantService:
             MockSearchResult(
                 id="vec-1",
                 score=0.95,
-                payload={"text": "Result 1", "source_uri": "http://example.com", "source_type": "web"},
+                payload={
+                    "text": "Result 1",
+                    "source_uri": "http://example.com",
+                    "source_type": "web",
+                },
             ),
             MockSearchResult(
                 id="vec-2",
                 score=0.87,
-                payload={"text": "Result 2", "source_uri": "http://example.org", "source_type": "web"},
+                payload={
+                    "text": "Result 2",
+                    "source_uri": "http://example.org",
+                    "source_type": "web",
+                },
             ),
         ]
 
@@ -121,7 +132,10 @@ class MockQdrantService:
             # Filter results based on metadata (simplified)
             filtered = []
             for r in results:
-                if filters.get("source_type") and r.payload.get("source_type") == filters["source_type"]:
+                if (
+                    filters.get("source_type")
+                    and r.payload.get("source_type") == filters["source_type"]
+                ):
                     filtered.append(r)
             results = filtered
 

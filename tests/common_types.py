@@ -15,22 +15,29 @@ from typing import (
     Dict,
     List,
     Optional,
-    Union,
     TypeAlias,
     Literal,
     TypedDict,
     NotRequired,
 )
 from enum import Enum
-from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict, ValidationInfo
+from pydantic import (
+    BaseModel,
+    Field,
+    HttpUrl,
+    field_validator,
+    ConfigDict,
+    ValidationInfo,
+)
 
 
 # ==========================================
 # ==========================================
+
 
 class JobStatusEnum(str, Enum):
     """Job status enumeration for async operations"""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -40,6 +47,7 @@ class JobStatusEnum(str, Enum):
 
 class HealthStatusEnum(str, Enum):
     """Health check status levels"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -48,6 +56,7 @@ class HealthStatusEnum(str, Enum):
 
 class CircuitBreakerStateEnum(str, Enum):
     """Circuit breaker state enumeration"""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -55,6 +64,7 @@ class CircuitBreakerStateEnum(str, Enum):
 
 class LightRAGModeEnum(str, Enum):
     """LightRAG retrieval modes"""
+
     NAIVE = "naive"
     LOCAL = "local"
     GLOBAL = "global"
@@ -63,6 +73,7 @@ class LightRAGModeEnum(str, Enum):
 
 class MCPResponseStatusEnum(str, Enum):
     """MCP tool response status"""
+
     SUCCESS = "success"
     ACCEPTED = "accepted"
     ERROR = "error"
@@ -82,8 +93,10 @@ Timestamp: TypeAlias = str
 # ==========================================
 # ==========================================
 
+
 class HealthCheckResult(TypedDict):
     """Health check response structure"""
+
     overall_status: HealthStatusEnum
     timestamp: Timestamp
     services: Dict[str, "ServiceHealth"]
@@ -92,6 +105,7 @@ class HealthCheckResult(TypedDict):
 
 class ServiceHealth(TypedDict):
     """Individual service health status"""
+
     status: HealthStatusEnum
     response_time_ms: NotRequired[float]
     error: NotRequired[str]
@@ -100,6 +114,7 @@ class ServiceHealth(TypedDict):
 
 class CircuitBreakerHealth(TypedDict):
     """Circuit breaker state metrics"""
+
     state: CircuitBreakerStateEnum
     fail_counter: int
     fail_max: int
@@ -109,6 +124,7 @@ class CircuitBreakerHealth(TypedDict):
 
 class JobStatusResponse(TypedDict):
     """Job status query response (HTTP 202 pattern)"""
+
     status: MCPResponseStatusEnum
     job_id: JobID
     job_status: JobStatusEnum
@@ -122,6 +138,7 @@ class JobStatusResponse(TypedDict):
 
 class MCPErrorResponse(TypedDict):
     """Standardized error response"""
+
     status: Literal["error"]
     error: str
     error_type: str
@@ -131,6 +148,7 @@ class MCPErrorResponse(TypedDict):
 
 class CrawlWebMetadata(TypedDict):
     """Metadata for web crawl operations"""
+
     max_pages: int
     allowed_domains: List[str]
     max_depth: int
@@ -139,6 +157,7 @@ class CrawlWebMetadata(TypedDict):
 
 class DocumentMetadata(TypedDict):
     """Metadata for document ingestion"""
+
     file_name: str
     file_path: str
     file_size_bytes: int
@@ -150,6 +169,7 @@ class DocumentMetadata(TypedDict):
 
 class QdrantSearchResult(TypedDict):
     """Single search result from Qdrant"""
+
     id: PointID
     score: float
     payload: Dict[str, Any]
@@ -157,6 +177,7 @@ class QdrantSearchResult(TypedDict):
 
 class QdrantStoreResult(TypedDict):
     """Result from storing a vector in Qdrant"""
+
     status: MCPResponseStatusEnum
     message: str
     point_id: PointID
@@ -169,25 +190,33 @@ class QdrantStoreResult(TypedDict):
 # ==========================================
 # ==========================================
 
+
 class CrawlWebRequest(BaseModel):
     """Request model for crawl_web() tool"""
+
     url: HttpUrl = Field(..., description="Starting URL to crawl")
     max_pages: int = Field(10, ge=1, le=100, description="Maximum pages to crawl")
-    allowed_domains: Optional[List[str]] = Field(None, description="Allowed domains list")
+    allowed_domains: Optional[List[str]] = Field(
+        None, description="Allowed domains list"
+    )
     max_depth: int = Field(2, ge=1, le=5, description="Maximum crawl depth")
 
     @field_validator("allowed_domains", mode="before")
     @classmethod
-    def set_default_domains(cls, v: Optional[List[str]], info: ValidationInfo) -> List[str]:
+    def set_default_domains(
+        cls, v: Optional[List[str]], info: ValidationInfo
+    ) -> List[str]:
         """Set allowed_domains to URL's domain if not provided"""
         if v is None and "url" in info.data:
             from urllib.parse import urlparse
+
             return [urlparse(str(info.data["url"])).netloc]
         return v or []
 
 
 class IngestDocRequest(BaseModel):
     """Request model for ingest_doc() tool"""
+
     file_path: str = Field(..., description="Path to document file")
     source_name: Optional[str] = Field(None, description="Optional document name")
 
@@ -221,15 +250,21 @@ class IngestDocRequest(BaseModel):
 
 class QdrantFindRequest(BaseModel):
     """Request model for qdrant_find() tool"""
+
     query: str = Field(..., min_length=1, description="Search query text")
     collection: Optional[str] = Field(None, description="Qdrant collection name")
     limit: int = Field(10, ge=1, le=100, description="Number of results")
-    score_threshold: float = Field(0.0, ge=0.0, le=1.0, description="Minimum similarity score")
-    filter_conditions: Optional[Dict[str, Any]] = Field(None, description="Optional filters")
+    score_threshold: float = Field(
+        0.0, ge=0.0, le=1.0, description="Minimum similarity score"
+    )
+    filter_conditions: Optional[Dict[str, Any]] = Field(
+        None, description="Optional filters"
+    )
 
 
 class QdrantStoreRequest(BaseModel):
     """Request model for qdrant_store() tool"""
+
     text: str = Field(..., min_length=1, description="Text to embed and store")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata")
     collection: Optional[str] = Field(None, description="Qdrant collection name")
@@ -238,23 +273,31 @@ class QdrantStoreRequest(BaseModel):
 
 class LightRAGQueryRequest(BaseModel):
     """Request model for lightrag_query() tool"""
+
     query: str = Field(..., min_length=1, description="Query text")
-    mode: LightRAGModeEnum = Field(LightRAGModeEnum.HYBRID, description="Retrieval mode")
-    only_need_context: bool = Field(False, description="Return only context, no response")
+    mode: LightRAGModeEnum = Field(
+        LightRAGModeEnum.HYBRID, description="Retrieval mode"
+    )
+    only_need_context: bool = Field(
+        False, description="Return only context, no response"
+    )
 
     model_config = ConfigDict(use_enum_values=True)
 
 
 class JobStatusRequest(BaseModel):
     """Request model for get_job_status() tool"""
+
     job_id: JobID = Field(..., min_length=1, description="Job identifier")
 
 
 # ==========================================
 # ==========================================
 
+
 class CrawlWebResponse(BaseModel):
     """Response from crawl_web() tool (HTTP 202 pattern)"""
+
     status: MCPResponseStatusEnum
     message: Optional[str] = None
     job_id: Optional[JobID] = None
@@ -268,6 +311,7 @@ class CrawlWebResponse(BaseModel):
 
 class IngestDocResponse(BaseModel):
     """Response from ingest_doc() tool (HTTP 202 pattern)"""
+
     status: MCPResponseStatusEnum
     message: Optional[str] = None
     job_id: Optional[JobID] = None
@@ -283,6 +327,7 @@ class IngestDocResponse(BaseModel):
 
 class QdrantFindResponse(BaseModel):
     """Response from qdrant_find() tool"""
+
     status: MCPResponseStatusEnum
     query: Optional[str] = None
     collection: Optional[CollectionName] = None
@@ -296,6 +341,7 @@ class QdrantFindResponse(BaseModel):
 
 class LightRAGQueryResponse(BaseModel):
     """Response from lightrag_query() tool"""
+
     status: MCPResponseStatusEnum
     query: Optional[str] = None
     mode: Optional[LightRAGModeEnum] = None
@@ -310,11 +356,12 @@ class LightRAGQueryResponse(BaseModel):
 # ==========================================
 # ==========================================
 
+
 def create_error_response(
     error: str,
     error_type: str,
     status_code: Optional[int] = None,
-    retry_after: Optional[int] = None
+    retry_after: Optional[int] = None,
 ) -> MCPErrorResponse:
     """
     Create a standardized error response
@@ -351,7 +398,7 @@ def create_job_status_response(
     updated_at: Timestamp,
     result: Optional[Dict[str, Any]] = None,
     error: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> JobStatusResponse:
     """
     Create a standardized job status response
@@ -376,7 +423,7 @@ def create_job_status_response(
         status = MCPResponseStatusEnum.ACCEPTED
     else:  # FAILED or CANCELLED
         status = MCPResponseStatusEnum.ERROR
-    
+
     response: JobStatusResponse = {
         "status": status,
         "job_id": job_id,
@@ -400,6 +447,7 @@ def create_job_status_response(
 
 # ==========================================
 # ==========================================
+
 
 def is_valid_job_status(status: str) -> bool:
     """Check if a string is a valid job status"""
@@ -462,16 +510,18 @@ if __name__ == "__main__":
     print(f"✓ LightRAGModeEnum: {[s.value for s in LightRAGModeEnum]}")
     print(f"✓ MCPResponseStatusEnum: {[s.value for s in MCPResponseStatusEnum]}")
 
-    print(f"\n✓ create_error_response(): {type(create_error_response('test', 'test_error'))}")
+    print(
+        f"\n✓ create_error_response(): {type(create_error_response('test', 'test_error'))}"
+    )
 
-    print(f"\n✓ QdrantFindRequest validation works")
+    print("\n✓ QdrantFindRequest validation works")
     try:
         req = QdrantFindRequest(query="test", limit=5)
         print(f"  - Created request: query='{req.query}', limit={req.limit}")
     except Exception as e:
         print(f"  ✗ Error: {e}")
 
-    print(f"\n✓ LightRAGQueryRequest validation works")
+    print("\n✓ LightRAGQueryRequest validation works")
     try:
         req = LightRAGQueryRequest(query="test", mode=LightRAGModeEnum.HYBRID)
         print(f"  - Created request: query='{req.query}', mode={req.mode}")

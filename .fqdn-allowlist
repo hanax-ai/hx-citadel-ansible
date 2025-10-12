@@ -28,6 +28,7 @@ roles/postgresql/tasks/main\.yml:
 
 # Redis role - bind defaults (overridden in production playbooks)
 roles/redis/defaults/main\.yml:
+roles/redis/templates/redis\.conf\.j2:
 roles/redis_role/defaults/main\.yml:
 roles/redis_role/templates/redis\.conf\.j2:
 group_vars/db_nodes\.yml:.*redis_bind_interface

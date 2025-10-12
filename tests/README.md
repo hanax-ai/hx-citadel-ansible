@@ -364,6 +364,149 @@ After each test run, the following artifacts are available:
 - `coverage-report`: HTML coverage report and XML coverage data
 - All artifacts are retained for 30 days
 
+## Pre-commit Hooks
+
+**Phase 2 Sprint 2.2**: TASK-037 (Pre-commit Hooks)
+
+Pre-commit hooks automatically check code quality before each commit, catching issues early and ensuring consistent code standards.
+
+### Setup
+
+Install pre-commit hooks once per repository clone:
+
+```bash
+# Install pre-commit package (already in requirements-dev.txt)
+pip install pre-commit
+
+# Install git hooks
+pre-commit install
+
+# Verify installation
+pre-commit --version
+```
+
+### Configured Hooks
+
+The `.pre-commit-config.yaml` file configures the following hooks:
+
+#### 1. Ruff Linter (auto-fix)
+- **Purpose**: Catches code style issues, unused imports, and common bugs
+- **Auto-fixes**: Yes (when possible)
+- **Speed**: Fast (< 1s for most files)
+
+#### 2. Ruff Formatter
+- **Purpose**: Formats Python code consistently (replaces Black)
+- **Auto-fixes**: Yes
+- **Speed**: Fast (< 1s for most files)
+
+#### 3. Mypy Type Checker
+- **Purpose**: Validates type hints and catches type errors
+- **Auto-fixes**: No (manual fixes required)
+- **Scope**: Excludes tests/ and scripts/ directories
+- **Speed**: Moderate (2-5s)
+
+#### 4. FQDN Policy Enforcer
+- **Purpose**: Ensures no localhost/127.0.0.1 in configuration files
+- **Auto-fixes**: No (manual fixes required)
+- **Scope**: All files
+- **Speed**: Fast (< 1s)
+
+#### 5. Fast Unit Tests (on push only)
+- **Purpose**: Runs fast unit tests before pushing
+- **Auto-fixes**: No (fix failing tests manually)
+- **Scope**: Unit tests marked with `@pytest.mark.fast`
+- **Speed**: Fast (1-3s)
+
+### Usage
+
+Hooks run automatically on `git commit` and `git push`:
+
+```bash
+# Normal commit - hooks run automatically
+git add myfile.py
+git commit -m "feat: add new feature"
+
+# Hooks will run and may:
+# - Auto-fix formatting/linting issues
+# - Fail if type errors or test failures are found
+# - Block commit until issues are resolved
+```
+
+### Manual Execution
+
+Run hooks manually without committing:
+
+```bash
+# Run all hooks on all files
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run ruff --all-files
+pre-commit run mypy --all-files
+
+# Run hooks on staged files only
+pre-commit run
+
+# Run hooks on specific files
+pre-commit run --files myfile.py
+```
+
+### Skipping Hooks
+
+In rare cases, you may need to skip hooks (not recommended):
+
+```bash
+# Skip all hooks for one commit
+git commit --no-verify -m "emergency fix"
+
+# Skip specific hook (set SKIP environment variable)
+SKIP=mypy git commit -m "commit without type checking"
+```
+
+### Troubleshooting
+
+#### Hook Installation Failed
+
+```bash
+# Reinstall hooks
+pre-commit uninstall
+pre-commit install
+
+# Clear cache and reinstall
+pre-commit clean
+pre-commit install --install-hooks
+```
+
+#### Hooks Running Slowly
+
+```bash
+# Update hooks to latest versions
+pre-commit autoupdate
+
+# Skip slow hooks during development
+SKIP=mypy,pytest-fast git commit -m "wip"
+```
+
+#### Type Checking Errors
+
+```bash
+# Run mypy manually to see full output
+mypy --ignore-missing-imports --show-error-codes myfile.py
+
+# Fix type errors or add type: ignore comments
+result: Any = some_function()  # type: ignore[misc]
+```
+
+### Best Practices
+
+1. **Run hooks before committing**: Use `pre-commit run --all-files` to catch issues early
+2. **Don't skip hooks**: They exist to maintain code quality
+3. **Fix issues, don't bypass**: Address the root cause rather than skipping hooks
+4. **Update regularly**: Run `pre-commit autoupdate` monthly to get latest versions
+
+---
+
+
 ---
 
 ## Troubleshooting

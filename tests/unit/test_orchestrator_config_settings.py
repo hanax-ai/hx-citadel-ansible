@@ -29,7 +29,6 @@ Test Coverage:
 """
 
 import pytest
-import os
 from urllib.parse import quote
 from pydantic import SecretStr
 
@@ -50,7 +49,7 @@ class TestSettingsInitialization:
         monkeypatch.delenv("ORCHESTRATOR_PORT", raising=False)
         monkeypatch.delenv("ORCHESTRATOR_WORKERS", raising=False)
         monkeypatch.delenv("LOG_LEVEL", raising=False)
-        
+
         settings = Settings()
 
         assert settings.orchestrator_env == "production"
@@ -78,7 +77,7 @@ class TestSettingsInitialization:
         monkeypatch.delenv("POSTGRES_PORT", raising=False)
         monkeypatch.delenv("POSTGRES_DB", raising=False)
         monkeypatch.delenv("POSTGRES_USER", raising=False)
-        
+
         settings = Settings()
 
         assert settings.postgres_host == "hx-sqldb-server.dev-test.hana-x.ai"
@@ -92,7 +91,7 @@ class TestSettingsInitialization:
         monkeypatch.delenv("REDIS_HOST", raising=False)
         monkeypatch.delenv("REDIS_PORT", raising=False)
         monkeypatch.delenv("REDIS_DB", raising=False)
-        
+
         settings = Settings()
 
         assert settings.redis_host == "hx-sqldb-server.dev-test.hana-x.ai"
@@ -108,7 +107,7 @@ class TestDatabaseURLProperty:
     def test_database_url_constructs_correctly(self, monkeypatch):
         """Test that database_url property constructs valid asyncpg URL"""
         monkeypatch.setenv("POSTGRES_PASSWORD", "test_password")
-        
+
         settings = Settings()
         url = settings.database_url
 
@@ -120,21 +119,21 @@ class TestDatabaseURLProperty:
     def test_database_url_encodes_special_characters_in_password(self, monkeypatch):
         """Test that database_url encodes special characters in password"""
         monkeypatch.setenv("POSTGRES_PASSWORD", "p@ssw0rd!#$")
-        
+
         settings = Settings()
         url = settings.database_url
 
         # Password should be URL-encoded
         encoded_password = quote("p@ssw0rd!#$", safe="")
         assert f":{encoded_password}@" in url
-        
+
         # Verify the secret value is accessible via get_secret_value()
         assert settings.postgres_password.get_secret_value() == "p@ssw0rd!#$"
 
     def test_database_url_uses_quote_not_quote_plus(self, monkeypatch):
         """Test that database_url uses quote() not quote_plus() for asyncpg compatibility"""
         monkeypatch.setenv("POSTGRES_PASSWORD", "pass word")  # Space in password
-        
+
         settings = Settings()
         url = settings.database_url
 
@@ -154,7 +153,7 @@ class TestRedisURLProperty:
         monkeypatch.delenv("REDIS_HOST", raising=False)
         monkeypatch.delenv("REDIS_PORT", raising=False)
         monkeypatch.delenv("REDIS_DB", raising=False)
-        
+
         settings = Settings()
         url = settings.redis_url
 
@@ -163,7 +162,7 @@ class TestRedisURLProperty:
     def test_redis_url_uses_custom_db(self, monkeypatch):
         """Test that redis_url uses custom database number"""
         monkeypatch.setenv("REDIS_DB", "5")
-        
+
         settings = Settings()
         url = settings.redis_url
 
@@ -195,7 +194,7 @@ class TestSecretStrHandling:
         monkeypatch.setenv("QDRANT_API_KEY", "qdrant_key")
         monkeypatch.setenv("LLM_API_KEY", "llm_key")
         monkeypatch.setenv("JWT_SECRET_KEY", "jwt_secret")
-        
+
         settings = Settings()
 
         # All secret fields should be SecretStr instances
@@ -203,7 +202,7 @@ class TestSecretStrHandling:
         assert isinstance(settings.qdrant_api_key, SecretStr)
         assert isinstance(settings.llm_api_key, SecretStr)
         assert isinstance(settings.jwt_secret_key, SecretStr)
-        
+
         # Verify we can access the secret values
         assert settings.postgres_password.get_secret_value() == "db_password"
         assert settings.qdrant_api_key.get_secret_value() == "qdrant_key"
@@ -220,7 +219,7 @@ class TestSettingsConfiguration:
         """Test that cors_origins is a list"""
         # Clear any CORS environment variables to use defaults
         monkeypatch.delenv("CORS_ORIGINS", raising=False)
-        
+
         settings = Settings()
 
         assert isinstance(settings.cors_origins, list)
@@ -230,9 +229,13 @@ class TestSettingsConfiguration:
         """Test that cors_origins accepts multiple origin values"""
         # Pydantic can parse JSON array from environment variable
         import json
-        origins = ["http://hx-webui-server.dev-test.hana-x.ai:3000", "https://app.example.com"]
+
+        origins = [
+            "http://hx-webui-server.dev-test.hana-x.ai:3000",
+            "https://app.example.com",
+        ]
         monkeypatch.setenv("CORS_ORIGINS", json.dumps(origins))
-        
+
         settings = Settings()
 
         assert len(settings.cors_origins) == 2
@@ -243,7 +246,7 @@ class TestSettingsConfiguration:
         """Test that qdrant_verify_ssl is boolean"""
         # Clear to use default
         monkeypatch.delenv("QDRANT_VERIFY_SSL", raising=False)
-        
+
         settings = Settings()
 
         assert isinstance(settings.qdrant_verify_ssl, bool)
@@ -254,7 +257,7 @@ class TestSettingsConfiguration:
         # Clear JWT environment variables to use defaults
         monkeypatch.delenv("JWT_ALGORITHM", raising=False)
         monkeypatch.delenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", raising=False)
-        
+
         settings = Settings()
 
         assert settings.jwt_algorithm == "HS256"

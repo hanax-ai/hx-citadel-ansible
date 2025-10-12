@@ -12,11 +12,7 @@ from pathlib import Path
 import httpx
 
 
-async def wait_for_service(
-    url: str,
-    timeout: int = 30,
-    interval: float = 1.0
-) -> bool:
+async def wait_for_service(url: str, timeout: int = 30, interval: float = 1.0) -> bool:
     """
     Wait for a service to become available (healthy and responding with 2xx)
 
@@ -47,9 +43,7 @@ async def wait_for_service(
 
 
 async def poll_until(
-    condition: Callable[[], bool],
-    timeout: int = 30,
-    interval: float = 1.0
+    condition: Callable[[], bool], timeout: int = 30, interval: float = 1.0
 ) -> bool:
     """
     Poll until a condition is met or timeout
@@ -93,21 +87,20 @@ def load_test_data(filename: str) -> Dict[str, Any]:
 
     # Detect file extension and load accordingly
     extension = file_path.suffix.lower()
-    
-    if extension == '.json':
-        with open(file_path, 'r', encoding='utf-8') as f:
+
+    if extension == ".json":
+        with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
     else:
         raise ValueError(
-            f"Unsupported fixture format: {extension}. "
-            f"Supported formats: .json"
+            f"Unsupported fixture format: {extension}. " f"Supported formats: .json"
         )
 
 
 def assert_response_structure(
     response: Dict[str, Any],
     required_keys: list[str],
-    optional_keys: Optional[list[str]] = None
+    optional_keys: Optional[list[str]] = None,
 ) -> None:
     """
     Assert that a response has the required structure
@@ -129,10 +122,7 @@ def assert_response_structure(
 
 
 async def make_async_request(
-    client: httpx.AsyncClient,
-    method: str,
-    url: str,
-    **kwargs
+    client: httpx.AsyncClient, method: str, url: str, **kwargs
 ) -> httpx.Response:
     """
     Make an async HTTP request with error handling
@@ -177,13 +167,13 @@ def get_test_url(service: str, path: str = "") -> str:
 
     # Normalize base_url: strip trailing slashes
     normalized_base = base_url.rstrip("/")
-    
+
     # Normalize path: strip whitespace and ensure single leading slash
     normalized_path = path.strip()
     if normalized_path:
         # Ensure path starts with exactly one slash
         normalized_path = "/" + normalized_path.lstrip("/")
-    
+
     return f"{normalized_base}{normalized_path}"
 
 

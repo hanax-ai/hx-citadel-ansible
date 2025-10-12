@@ -20,9 +20,7 @@ from common_types import (
     CrawlWebRequest,
     IngestDocRequest,
     QdrantFindRequest,
-    QdrantStoreRequest,
     LightRAGQueryRequest,
-    JobStatusRequest,
     LightRAGModeEnum,
 )
 
@@ -37,7 +35,7 @@ class TestCrawlWebRequest:
         req = CrawlWebRequest(url="https://example.com")
         assert str(req.url) == "https://example.com/"
         assert req.max_pages == 10  # Default
-        assert req.max_depth == 2   # Default
+        assert req.max_depth == 2  # Default
 
     def test_valid_request_full(self):
         """Test creating request with all fields"""
@@ -45,7 +43,7 @@ class TestCrawlWebRequest:
             url="https://example.com/docs",
             max_pages=50,
             allowed_domains=["example.com", "docs.example.com"],
-            max_depth=3
+            max_depth=3,
         )
         assert req.max_pages == 50
         assert len(req.allowed_domains) == 2
@@ -128,7 +126,7 @@ class TestQdrantFindRequest:
             collection="my_collection",
             limit=50,
             score_threshold=0.7,
-            filter_conditions={"category": "tech"}
+            filter_conditions={"category": "tech"},
         )
         assert req.collection == "my_collection"
         assert req.limit == 50
@@ -186,7 +184,7 @@ class TestLightRAGQueryRequest:
         req = LightRAGQueryRequest(
             query="Explain vector databases",
             mode=LightRAGModeEnum.LOCAL,
-            only_need_context=True
+            only_need_context=True,
         )
         assert req.mode == LightRAGModeEnum.LOCAL
         assert req.only_need_context is True

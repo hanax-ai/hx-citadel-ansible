@@ -30,10 +30,8 @@ Test Coverage:
 
 import pytest
 import asyncio
-from unittest.mock import MagicMock
 from datetime import datetime
 from collections import deque
-from dataclasses import asdict
 from typing import Optional
 
 
@@ -41,7 +39,14 @@ from typing import Optional
 class MockEvent:
     """Mock Event for testing"""
 
-    def __init__(self, event_type: str, timestamp: str, job_id: Optional[str] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
+    def __init__(
+        self,
+        event_type: str,
+        timestamp: str,
+        job_id: Optional[str] = None,
+        data: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+    ):
         self.event_type = event_type
         self.timestamp = timestamp
         self.job_id = job_id
@@ -51,12 +56,13 @@ class MockEvent:
     def to_sse(self):
         """Convert to SSE format"""
         import json
+
         event_data = {
             "event_type": self.event_type,
             "timestamp": self.timestamp,
             "job_id": self.job_id,
             "data": self.data,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
         return f"event: {self.event_type}\ndata: {json.dumps(event_data)}\n\n"
 
@@ -65,7 +71,12 @@ class MockEvent:
 class MockEventBus:
     """Mock event bus for testing"""
 
-    def __init__(self, max_clients: int = 100, buffer_size: int = 100, keepalive_interval: int = 30):
+    def __init__(
+        self,
+        max_clients: int = 100,
+        buffer_size: int = 100,
+        keepalive_interval: int = 30,
+    ):
         self.max_clients = max_clients
         self.buffer_size = buffer_size
         self.keepalive_interval = keepalive_interval
@@ -74,7 +85,9 @@ class MockEventBus:
         self.events_emitted = 0
         self.events_dropped = 0
 
-    async def subscribe(self, event_types: Optional[list] = None, include_history: bool = False):
+    async def subscribe(
+        self, event_types: Optional[list] = None, include_history: bool = False
+    ):
         """Subscribe to events"""
         if len(self.subscribers) >= self.max_clients:
             raise RuntimeError("Max event bus clients reached")
@@ -98,14 +111,20 @@ class MockEventBus:
         if queue in self.subscribers:
             self.subscribers.remove(queue)
 
-    async def emit_event(self, event_type: str, job_id: Optional[str] = None, data: Optional[dict] = None, metadata: Optional[dict] = None):
+    async def emit_event(
+        self,
+        event_type: str,
+        job_id: Optional[str] = None,
+        data: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+    ):
         """Emit event to all subscribers"""
         event = MockEvent(
             event_type=event_type,
             timestamp=datetime.utcnow().isoformat(),
             job_id=job_id,
             data=data,
-            metadata=metadata
+            metadata=metadata,
         )
 
         # Add to buffer
@@ -134,7 +153,7 @@ class MockEventBus:
             "events_emitted": self.events_emitted,
             "events_dropped": self.events_dropped,
             "buffer_size": len(self.event_buffer),
-            "buffer_max": self.buffer_size
+            "buffer_max": self.buffer_size,
         }
 
 
@@ -149,7 +168,7 @@ class TestEventFormatting:
             event_type="test.event",
             timestamp="2025-01-01T00:00:00",
             job_id="job-123",
-            data={"key": "value"}
+            data={"key": "value"},
         )
 
         sse = event.to_sse()
@@ -161,9 +180,7 @@ class TestEventFormatting:
     def test_event_includes_job_id_in_sse(self):
         """Test that Event includes job_id in SSE data"""
         event = MockEvent(
-            event_type="test.event",
-            timestamp="2025-01-01T00:00:00",
-            job_id="job-456"
+            event_type="test.event", timestamp="2025-01-01T00:00:00", job_id="job-456"
         )
 
         sse = event.to_sse()

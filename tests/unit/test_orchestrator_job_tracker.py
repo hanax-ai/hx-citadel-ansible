@@ -28,7 +28,7 @@ Test Coverage:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from datetime import datetime
 from uuid import UUID
 
@@ -108,7 +108,11 @@ class MockJobTracker:
         self.redis_client = MockRedisClient()
 
     async def create_job(
-        self, job_type: str, chunks_total: int, metadata: dict = None, job_id: str = None
+        self,
+        job_type: str,
+        chunks_total: int,
+        metadata: dict = None,
+        job_id: str = None,
     ):
         """Create new job"""
         from uuid import uuid4
@@ -152,7 +156,9 @@ class MockJobTracker:
 
     async def increment_processed(self, job_id: str):
         """Increment chunks processed"""
-        new_count = await self.redis_client.hincrby(f"job:{job_id}", "chunks_processed", 1)
+        new_count = await self.redis_client.hincrby(
+            f"job:{job_id}", "chunks_processed", 1
+        )
         return int(new_count)
 
     async def get_progress(self, job_id: str):
@@ -187,7 +193,9 @@ class TestJobCreation:
         """Test that create_job generates UUID when job_id is None"""
         tracker = MockJobTracker()
 
-        job_id = await tracker.create_job(job_type="lightrag_ingestion", chunks_total=100)
+        job_id = await tracker.create_job(
+            job_type="lightrag_ingestion", chunks_total=100
+        )
 
         # Should be valid UUID
         assert job_id is not None

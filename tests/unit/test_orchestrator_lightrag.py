@@ -32,8 +32,7 @@ Test Coverage:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
-import asyncio
+from unittest.mock import MagicMock
 from typing import Optional
 
 
@@ -66,10 +65,12 @@ class MockLightRAGService:
             "text_length": len(text),
             "entities_extracted": 5,
             "relationships_extracted": 3,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
-    async def query(self, query: str, mode: str = "hybrid", top_k: int = 5, max_depth: int = 2):
+    async def query(
+        self, query: str, mode: str = "hybrid", top_k: int = 5, max_depth: int = 2
+    ):
         """Query LightRAG"""
         if not self.initialized:
             await self.initialize()
@@ -85,8 +86,8 @@ class MockLightRAGService:
                 "top_k": top_k,
                 "max_depth": max_depth,
                 "model": self.llm_model,
-                "embedding_model": self.embedding_model
-            }
+                "embedding_model": self.embedding_model,
+            },
         }
 
     async def get_stats(self):
@@ -98,7 +99,7 @@ class MockLightRAGService:
             "embedding_model": self.embedding_model,
             "kg_entities": 42,
             "kg_relationships": 67,
-            "vector_count": 128
+            "vector_count": 128,
         }
 
     async def close(self):
@@ -552,13 +553,9 @@ class TestLightRAGEdgeCases:
 
         complex_metadata = {
             "source": "web",
-            "nested": {
-                "level1": {
-                    "level2": "deep_value"
-                }
-            },
+            "nested": {"level1": {"level2": "deep_value"}},
             "list": [1, 2, 3],
-            "unicode": "测试"
+            "unicode": "测试",
         }
 
         result = await service.insert_text("test", metadata=complex_metadata)

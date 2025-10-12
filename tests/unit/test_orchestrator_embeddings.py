@@ -22,7 +22,6 @@ Test Coverage:
 """
 
 import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 
@@ -84,7 +83,7 @@ class TestGetEmbedding:
         mock_response = AsyncMock()
         mock_response.json.return_value = {
             "embedding": [0.1, 0.2, 0.3] * 341 + [0.1],  # 1024 dimensions
-            "model": "mxbai-embed-large"
+            "model": "mxbai-embed-large",
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -101,7 +100,7 @@ class TestGetEmbedding:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{service.ollama_url}/api/embeddings",
-                    json={"model": service.model, "prompt": "test text"}
+                    json={"model": service.model, "prompt": "test text"},
                 )
                 response.raise_for_status()
                 result = response.json()
@@ -130,7 +129,7 @@ class TestGetEmbedding:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{service.ollama_url}/api/embeddings",
-                    json={"model": service.model, "prompt": "test"}
+                    json={"model": service.model, "prompt": "test"},
                 )
                 embedding = response.json()["embedding"]
 
@@ -150,7 +149,7 @@ class TestGetEmbedding:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     await client.post(
                         f"{service.ollama_url}/api/embeddings",
-                        json={"model": service.model, "prompt": "test"}
+                        json={"model": service.model, "prompt": "test"},
                     )
 
     async def test_get_embedding_timeout(self):
@@ -167,7 +166,7 @@ class TestGetEmbedding:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     await client.post(
                         f"{service.ollama_url}/api/embeddings",
-                        json={"model": service.model, "prompt": "test"}
+                        json={"model": service.model, "prompt": "test"},
                     )
 
     async def test_get_embedding_model_not_found(self):
@@ -176,7 +175,7 @@ class TestGetEmbedding:
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "404 Not Found: model 'mxbai-embed-large' not found",
             request=MagicMock(),
-            response=MagicMock(status_code=404)
+            response=MagicMock(status_code=404),
         )
 
         mock_client = AsyncMock()
@@ -191,7 +190,7 @@ class TestGetEmbedding:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
                         f"{service.ollama_url}/api/embeddings",
-                        json={"model": service.model, "prompt": "test"}
+                        json={"model": service.model, "prompt": "test"},
                     )
                     response.raise_for_status()
 
@@ -224,7 +223,7 @@ class TestGetEmbeddingsBatch:
                 for text in texts:
                     response = await client.post(
                         f"{service.ollama_url}/api/embeddings",
-                        json={"model": service.model, "prompt": text}
+                        json={"model": service.model, "prompt": text},
                     )
                     response.raise_for_status()
                     result = response.json()
@@ -252,7 +251,7 @@ class TestGetEmbeddingsBatch:
         responses = [
             {"embedding": [0.1] * 1024},
             {"embedding": [0.2] * 1024},
-            None  # This will fail
+            None,  # This will fail
         ]
 
         mock_client = AsyncMock()
@@ -261,6 +260,7 @@ class TestGetEmbeddingsBatch:
 
         # Create side effect for post calls
         call_count = 0
+
         async def mock_post(*args, **kwargs):
             nonlocal call_count
             if call_count < 2:
@@ -273,7 +273,7 @@ class TestGetEmbeddingsBatch:
                 raise httpx.HTTPStatusError(
                     "500 Internal Server Error",
                     request=MagicMock(),
-                    response=MagicMock(status_code=500)
+                    response=MagicMock(status_code=500),
                 )
 
         mock_client.post = mock_post
@@ -287,7 +287,7 @@ class TestGetEmbeddingsBatch:
                     try:
                         response = await client.post(
                             f"{service.ollama_url}/api/embeddings",
-                            json={"model": service.model, "prompt": text}
+                            json={"model": service.model, "prompt": text},
                         )
                         response.raise_for_status()
                         result = response.json()
@@ -313,7 +313,7 @@ class TestOllamaHealthCheck:
             "models": [
                 {"name": "mxbai-embed-large:latest"},
                 {"name": "nomic-embed-text:latest"},
-                {"name": "all-minilm:latest"}
+                {"name": "all-minilm:latest"},
             ]
         }
         mock_response.raise_for_status = MagicMock()
@@ -341,7 +341,7 @@ class TestOllamaHealthCheck:
         mock_response.json.return_value = {
             "models": [
                 {"name": "mxbai-embed-large:latest"},
-                {"name": "nomic-embed-text:latest"}
+                {"name": "nomic-embed-text:latest"},
             ]
         }
         mock_response.raise_for_status = MagicMock()

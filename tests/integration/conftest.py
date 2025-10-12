@@ -53,7 +53,9 @@ def mcp_server_url():
 
 
 @pytest.fixture
-async def mcp_client(mcp_server_url: str, test_timeout: int) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def mcp_client(
+    mcp_server_url: str, test_timeout: int
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """
     Shared HTTP client for MCP server integration tests.
 
@@ -66,7 +68,9 @@ async def mcp_client(mcp_server_url: str, test_timeout: int) -> AsyncGenerator[h
             response = await mcp_client.get("/health")
             assert response.status_code == 200
     """
-    async with httpx.AsyncClient(base_url=mcp_server_url, timeout=test_timeout) as client:
+    async with httpx.AsyncClient(
+        base_url=mcp_server_url, timeout=test_timeout
+    ) as client:
         yield client
 
 

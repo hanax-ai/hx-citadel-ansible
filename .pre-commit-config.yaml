@@ -1,4 +1,28 @@
 repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: Ruff Linter (auto-fix)
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: Ruff Formatter
+        types_or: [python, pyi]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        name: Mypy Type Checker
+        args: [--ignore-missing-imports, --show-error-codes]
+        additional_dependencies:
+          - pydantic>=2.0
+          - pytest>=8.0
+          - httpx>=0.27.0
+        types: [python]
+        exclude: ^(tests/|scripts/)
+
   - repo: local
     hooks:
       - id: fqdn-policy-enforcer
@@ -6,4 +30,12 @@ repos:
         entry: bash scripts/check-fqdn.sh .
         language: system
         pass_filenames: false
-        stages: [commit, push]
+        stages: [pre-commit, pre-push]
+      
+      - id: pytest-fast
+        name: Run Fast Unit Tests
+        entry: pytest tests/unit/ -m fast -x --tb=short -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        always_run: true

@@ -32,7 +32,7 @@ class TestCrawlWebResponse:
             status=MCPResponseStatusEnum.SUCCESS,
             message="Crawl completed",
             pages_crawled=5,
-            source_url="https://example.com"
+            source_url="https://example.com",
         )
         assert resp.status == MCPResponseStatusEnum.SUCCESS
         assert resp.pages_crawled == 5
@@ -44,7 +44,7 @@ class TestCrawlWebResponse:
             message="Crawl started",
             job_id="job-123",
             pages_crawled=0,
-            check_status_endpoint="/jobs/job-123"
+            check_status_endpoint="/jobs/job-123",
         )
         assert resp.status == MCPResponseStatusEnum.ACCEPTED
         assert resp.job_id == "job-123"
@@ -57,7 +57,7 @@ class TestCrawlWebResponse:
             pages_crawled=0,
             error="Connection timeout",
             error_type="http_error",
-            retry_after=60
+            retry_after=60,
         )
         assert resp.status == MCPResponseStatusEnum.ERROR
         assert resp.error == "Connection timeout"
@@ -78,7 +78,7 @@ class TestIngestDocResponse:
             source_name="report.pdf",
             file_format=".pdf",
             content_length=15243,
-            page_count=10
+            page_count=10,
         )
         assert resp.status == MCPResponseStatusEnum.SUCCESS
         assert resp.job_id == "job-abc123"
@@ -99,9 +99,9 @@ class TestLightRAGQueryResponse:
             response="LightRAG is a hybrid retrieval system.",
             context=[
                 {"source": "doc1", "text": "Context 1"},
-                {"source": "doc2", "text": "Context 2"}
+                {"source": "doc2", "text": "Context 2"},
             ],
-            metadata={"confidence": 0.95, "model": "llama3"}
+            metadata={"confidence": 0.95, "model": "llama3"},
         )
         assert resp.status == MCPResponseStatusEnum.SUCCESS
         assert resp.query == "What is LightRAG?"
@@ -124,10 +124,10 @@ class TestQdrantFindResponse:
             results=[
                 {"id": "point-1", "score": 0.95, "payload": {"text": "ML content"}},
                 {"id": "point-2", "score": 0.87, "payload": {"text": "AI content"}},
-                {"id": "point-3", "score": 0.75, "payload": {"text": "Data content"}}
+                {"id": "point-3", "score": 0.75, "payload": {"text": "Data content"}},
             ],
             score_threshold=0.7,
-            embedding_model="nomic-embed-text"
+            embedding_model="nomic-embed-text",
         )
         assert resp.result_count == 3
         assert len(resp.results) == 3
@@ -139,7 +139,7 @@ class TestQdrantFindResponse:
             status=MCPResponseStatusEnum.SUCCESS,
             query="nonexistent term",
             result_count=0,
-            results=[]
+            results=[],
         )
         assert resp.result_count == 0
         assert len(resp.results) == 0

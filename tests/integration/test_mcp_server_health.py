@@ -6,7 +6,6 @@ Phase 2 Sprint 2.2: Automated Testing (TASK-033)
 
 import pytest
 import httpx
-from typing import Dict, Any
 
 
 @pytest.mark.integration
@@ -23,13 +22,13 @@ async def test_mcp_server_accessibility(mcp_server_url: str):
             # Try to connect to the server
             # Note: FastMCP in SSE mode doesn't have a /health endpoint,
             # but the /sse endpoint should be accessible
-            response = await client.get(
-                f"{mcp_server_url}/sse",
-                timeout=10.0
-            )
+            response = await client.get(f"{mcp_server_url}/sse", timeout=10.0)
             # Any response (even 404) means the server is up
-            assert response.status_code in [200, 404, 405], \
-                f"Unexpected status code: {response.status_code}"
+            assert response.status_code in [
+                200,
+                404,
+                405,
+            ], f"Unexpected status code: {response.status_code}"
         except httpx.ConnectError as e:
             pytest.fail(f"Could not connect to MCP server: {e}")
 
@@ -59,12 +58,12 @@ async def test_mcp_server_uptime(mcp_server_url: str):
     async with httpx.AsyncClient() as client:
         for i in range(5):
             try:
-                response = await client.get(
-                    f"{mcp_server_url}/sse",
-                    timeout=5.0
-                )
-                assert response.status_code in [200, 404, 405], \
-                    f"Request {i+1} failed with status {response.status_code}"
+                response = await client.get(f"{mcp_server_url}/sse", timeout=5.0)
+                assert response.status_code in [
+                    200,
+                    404,
+                    405,
+                ], f"Request {i+1} failed with status {response.status_code}"
             except httpx.RequestError as e:
                 pytest.fail(f"Request {i+1} failed: {e}")
 
