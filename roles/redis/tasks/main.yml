@@ -9,7 +9,7 @@
 - name: Configure Redis with template
   become: true
   ansible.builtin.template:
-    src: roles/redis_role/templates/redis.conf.j2
+    src: redis.conf.j2
     dest: /etc/redis/redis.conf
     owner: root
     group: root
