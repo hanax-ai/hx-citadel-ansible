@@ -226,19 +226,19 @@ roles/
     │   ├── 01-prerequisites.yml        # System packages, Docker
     │   ├── 02-user-setup.yml           # Service user/group
     │   ├── 03-directories.yml          # App directories
-    │   ├── 04-frontend-build.yml       # Next.js build
+    │   ├── 04-frontend-build.yml       # Vite build (static SPA)
     │   ├── 05-backend-setup.yml        # FastAPI backend
     │   ├── 06-docker-compose.yml       # Docker orchestration
     │   ├── 07-nginx-config.yml         # Reverse proxy
     │   └── 08-service-start.yml        # Start services
     ├── templates/
     │   ├── docker-compose.yml.j2       # Docker Compose config
-    │   ├── Dockerfile.frontend.j2      # Next.js Dockerfile
+    │   ├── Dockerfile.frontend.j2      # Vite SPA Dockerfile
     │   ├── Dockerfile.backend.j2       # FastAPI Dockerfile
     │   ├── nginx-ag-ui.conf.j2         # Nginx site config
     │   ├── backend-main.py.j2          # FastAPI application
     │   ├── backend-redis-consumer.py.j2 # Redis Streams consumer
-    │   ├── frontend-env.local.j2       # Next.js environment
+    │   ├── frontend-env.production.j2  # Vite environment variables
     │   └── ag-ui-config.json.j2        # AG-UI configuration
     ├── files/
     │   ├── requirements.txt            # Python dependencies
@@ -276,11 +276,14 @@ ag_ui_backend_port: 8002
 ag_ui_nginx_http_port: 80
 ag_ui_nginx_https_port: 443
 
-# Frontend configuration
+# Frontend configuration (Vite + React)
 ag_ui_app_name: "Shield AG-UI"
 ag_ui_app_description: "Power User Interface for HX-Citadel Shield"
 ag_ui_node_version: "20"
-ag_ui_next_version: "14"
+ag_ui_vite_version: "5.4"
+ag_ui_react_version: "18"
+ag_ui_frontend_source_repo: "https://github.com/hanax-ai/citadel-shield-ui.git"
+ag_ui_frontend_source_branch: "feature-1"
 
 # Backend configuration
 ag_ui_python_version: "3.12"
@@ -776,11 +779,11 @@ python-dotenv==1.0.0
 
 ### 5.3 Phase 3: Frontend Development (Day 4-7)
 
-**Sprint C: AG-UI Frontend (Next.js)**
+**Sprint C: AG-UI Frontend Integration (Vite + React)**
 
 | Task ID | Task Name | Effort | Dependencies | Deliverable |
 |---------|-----------|--------|--------------|-------------|
-| **DEV-013** | Initialize Next.js 14 project | 2 hours | DEV-005 | Next.js scaffold |
+| **DEV-013** | Clone and integrate existing Vite frontend | 2 hours | DEV-005 | Vite app ready |
 | **DEV-014** | Integrate AG-UI React SDK | 3 hours | DEV-013 | @ag-ui/react configured |
 | **DEV-015** | Create chat interface component | 4 hours | DEV-014 | Chat UI with streaming |
 | **DEV-016** | Build event timeline component | 4 hours | DEV-014 | Real-time event display |
@@ -831,7 +834,7 @@ python-dotenv==1.0.0
 version: '3.9'
 
 services:
-  # AG-UI Frontend (Next.js)
+  # AG-UI Frontend (Vite + React - existing)
   frontend:
     build:
       context: {{ ag_ui_frontend_dir }}
@@ -937,7 +940,7 @@ networks:
 **File**: `templates/Dockerfile.frontend.j2`
 
 ```dockerfile
-# Multi-stage build for Next.js application
+# Multi-stage build for Vite SPA application
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed
@@ -961,7 +964,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 
-# Build Next.js application
+# Build Vite application (static SPA)
 RUN npm run build
 
 # Production image, copy all files and run next
@@ -1305,7 +1308,7 @@ async def execute_crawl(request: Request):
 # Similar endpoints for other tools...
 ```
 
-### 7.2 Frontend Integration (Next.js + AG-UI React)
+### 7.2 Frontend Integration (Vite + React + shadcn-ui)
 
 **Example Component**: `components/AgentChat.tsx`
 
@@ -1608,7 +1611,7 @@ Week 1 (Days 1-5): Foundation & Backend
 ├── Day 4: Backend deployment (DEV-012)
 │   └─> Dockerfile created, backend containerized
 └── Day 5: Frontend setup begins (DEV-013 to DEV-014)
-    └─> Next.js initialized, AG-UI SDK integrated
+    └─> Vite app cloned, Supabase removed, backend API integrated
 
 Week 2 (Days 6-10): Frontend & Integration
 ├── Day 6: Frontend components (DEV-015 to DEV-016)
@@ -1631,7 +1634,7 @@ Week 2 (Days 6-10): Frontend & Integration
 |-----------|-----|--------------|------------------|
 | **M1: Infrastructure Ready** | 1 | Docker, user, directories | Ansible role works, Docker running |
 | **M2: Backend Operational** | 4 | FastAPI backend in Docker | Health check passes, Redis consuming |
-| **M3: Frontend Deployed** | 7 | Next.js app in Docker | UI accessible, static content loads |
+| **M3: Frontend Deployed** | 7 | Vite SPA in Docker (nginx) | UI accessible, static content loads |
 | **M4: Integration Complete** | 9 | Full stack with Nginx | Events streaming, tools working |
 | **M5: Production Ready** | 10 | Tests passing, docs complete | All acceptance criteria met |
 
