@@ -31,11 +31,7 @@ from datetime import datetime
 # Mock Pydantic models
 class MockJobStatusResponse:
     """Mock JobStatusResponse model"""
-
-import pytest
-from datetime import datetime
-from typing import Optional
-
+    
     def __init__(
         self,
         job_id: str,

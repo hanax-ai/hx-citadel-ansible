@@ -134,48 +134,45 @@ class MockWorkerPool:
                     continue
 
                 # Process messages
-                 # Process messages
-                 for _, message_list in messages:
-                     for message_id, fields in message_list:
-                         # Process task
-                         task = {k: v for k, v in fields.items()}
-                         task["message_id"] = message_id
+                for _, message_list in messages:
+                    for message_id, fields in message_list:
+                        # Process task
+                        task = {k: v for k, v in fields.items()}
+                        task["message_id"] = message_id
 
-                         try:
-                             await self.processor.process_chunk(task)
+                        try:
+                            await self.processor.process_chunk(task)
 
-                             # ACK task
-                             await self.redis_streams.client.xack(
-                                 self.stream_name, self.consumer_group, message_id
-                             )
+                            # ACK task
+                            await self.redis_streams.client.xack(
+                                self.stream_name, self.consumer_group, message_id
+                            )
 
-                             # Delete message
-                             await self.redis_streams.client.xdel(
-                                 self.stream_name, message_id
-                             )
+                            # Delete message
+                            await self.redis_streams.client.xdel(
+                                self.stream_name, message_id
+                            )
 
-                             tasks_processed += 1
+                            tasks_processed += 1
 
-                             # Check max tasks
-                             if tasks_processed >= max_tasks:
-                                 break
+                            # Check max tasks
+                            if tasks_processed >= max_tasks:
+                                break
 
-                         except (ValueError, RuntimeError, asyncio.CancelledError) as e:
-                             # Don't ACK failed tasks
-                             await self.event_bus.emit_event(
-                                 event_type="worker.task_failed",
-                                 metadata={"worker_id": worker_id, "error": str(e)},
-                             )
-                             # Re-raise CancelledError to allow graceful shutdown
-                             if isinstance(e, asyncio.CancelledError):
-                                 raise
+                        except (ValueError, RuntimeError, asyncio.CancelledError) as e:
+                            # Don't ACK failed tasks
+                            await self.event_bus.emit_event(
+                                event_type="worker.task_failed",
+                                metadata={"worker_id": worker_id, "error": str(e)},
+                            )
+                            # Re-raise CancelledError to allow graceful shutdown
+                            if isinstance(e, asyncio.CancelledError):
+                                raise
 
-             except asyncio.CancelledError:
-                 break
-             except (ConnectionError, TimeoutError):
-                 await asyncio.sleep(0.1)
             except asyncio.CancelledError:
                 break
+            except (ConnectionError, TimeoutError):
+                await asyncio.sleep(0.1)
             except Exception:
                 await asyncio.sleep(0.1)
 

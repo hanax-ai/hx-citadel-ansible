@@ -3,7 +3,13 @@ name: Test Suite
 on:
   pull_request:
     branches: [ main, develop ]
-  workflow_dispatch:  # Manual trigger only
+    paths:
+      - '**.py'
+      - 'tests/**'
+      - 'pytest.ini'
+      - 'requirements-dev.txt'
+      - '.github/workflows/test.yml'
+  workflow_dispatch:  # Manual trigger
   # push: Disabled to prevent notification spam - re-enable when tests are stable
 
 jobs:
@@ -36,9 +42,29 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
     
+    - name: Run Ruff linter (catches issues early)
+      run: |
+        ruff check tests/ --output-format=github
+      continue-on-error: true
+    
+    - name: Check for mutable defaults
+      run: |
+        echo "Checking for mutable defaults in Pydantic models..."
+        if grep -rn ":\s*\(List\|Dict\)\[.*\]\s*=\s*\(\[\]\|{}\)" tests/common_types.py 2>/dev/null; then
+          echo "::error::Found mutable defaults! Use Field(default_factory=...) instead"
+          exit 1
+        fi
+    
     - name: Run unit tests with coverage
       run: |
-        pytest tests/unit/
+        pytest tests/unit/ -v \
+          --cov=tests \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          -n auto \
+          --durations=10 \
+          --tb=short
     
     - name: Run integration tests
       if: false  # Disabled: Requires services (hx-mcp1-server, hx-orchestrator-server) not available in CI

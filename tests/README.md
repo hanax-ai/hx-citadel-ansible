@@ -239,14 +239,14 @@ Use pytest markers to organize and run tests selectively:
 
 ```bash
 # HTML report (interactive)
-pytest --cov=roles --cov-report=html
+pytest --cov=tests --cov-report=html
 open htmlcov/index.html
 
 # Terminal report
-pytest --cov=roles --cov-report=term-missing
+pytest --cov=tests --cov-report=term-missing
 
 # XML report (for CI/CD)
-pytest --cov=roles --cov-report=xml
+pytest --cov=tests --cov-report=xml
 ```
 
 ### Coverage Targets
@@ -344,11 +344,25 @@ async def test_end_to_end_flow(async_client: httpx.AsyncClient):
 
 Tests run automatically on:
 - Every push to `main`, `feature/**`, `develop`
-- Every pull request
+- Every pull request to `main` or `develop`
+- Manual workflow dispatch
 
-### Workflow
+### Workflow Features
 
-See `.github/workflows/test.yml` for CI/CD configuration.
+See `.github/workflows/test.yml` for the CI/CD test automation configuration.
+
+The workflow runs:
+- **Unit tests** on Python 3.12 with parallel execution
+- **Coverage reporting** with Codecov integration
+- **Test report artifacts** (HTML reports, coverage reports, logs)
+- **Integration tests** (currently disabled until test infrastructure is ready)
+
+### Workflow Artifacts
+
+After each test run, the following artifacts are available:
+- `test-report`: HTML test report with detailed results
+- `coverage-report`: HTML coverage report and XML coverage data
+- All artifacts are retained for 30 days
 
 ---
 
@@ -391,10 +405,10 @@ pytest -n auto
 
 ```bash
 # Debug coverage
-pytest --cov=roles --cov-report=term-missing -v
+pytest --cov=tests --cov-report=term-missing -v
 
 # Generate detailed HTML report
-pytest --cov=roles --cov-report=html
+pytest --cov=tests --cov-report=html
 ```
 
 ---
