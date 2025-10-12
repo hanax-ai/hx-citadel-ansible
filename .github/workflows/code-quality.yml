@@ -1,0 +1,112 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**.py'
+      - '**.yml'
+      - '**.yaml'
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  ruff-lint:
+    name: Ruff Linter (Python)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    
+    - name: Install Ruff
+      run: pip install ruff
+    
+    - name: Run Ruff linter
+      run: |
+        ruff check . --output-format=github --exit-zero
+      continue-on-error: true
+    
+    - name: Run Ruff formatter check
+      run: |
+        ruff format --check . --diff
+      continue-on-error: true
+
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run ansible-lint
+      uses: ansible/ansible-lint@main
+      with:
+        args: "roles/"
+      continue-on-error: true
+
+  yamllint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run yamllint
+      run: |
+        pip install yamllint
+        yamllint roles/ playbooks/ -f github
+      continue-on-error: true
+
+  security-scan:
+    name: Security Scan (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    
+    - name: Install Bandit
+      run: pip install bandit[toml]
+    
+    - name: Run Bandit security scan
+      run: |
+        bandit -r . -f json -o bandit-report.json --exit-zero || true
+        bandit -r . -f screen
+      continue-on-error: true
+    
+    - name: Upload Bandit report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bandit-security-report
+        path: bandit-report.json
+        retention-days: 30
+
+  check-mutable-defaults:
+    name: Check Mutable Defaults (Custom)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Check for mutable defaults in Pydantic models
+      run: |
+        echo "Checking for mutable defaults (Issues #38, #40)..."
+        if grep -rn ":\s*\(List\|Dict\)\[.*\]\s*=\s*\(\[\]\|{}\)" --include="*.py" .; then
+          echo "::error::Found mutable defaults! Use Field(default_factory=...) instead"
+          exit 1
+        else
+          echo "✓ No mutable defaults found"
+        fi
+      continue-on-error: true
+

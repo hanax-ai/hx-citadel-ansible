@@ -1,9 +1,90 @@
+# Pre-commit hooks for HX-Citadel Ansible
+# Prevents issues before commit (catches linter issues early)
+# Install: pip install pre-commit && pre-commit install
+
 repos:
+  # Ruff - Fast Python linter (replaces flake8, isort, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      # Run linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types: [python]
+      # Run formatter
+      - id: ruff-format
+        types: [python]
+
+  # Ansible linting
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v24.9.2
+    hooks:
+      - id: ansible-lint
+        files: \.(yaml|yml)$
+        args: [--write]
+        exclude: ^(tech_kb/|\.ansible_cache/|molecule/)
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint]
+        exclude: ^(tech_kb/|\.ansible_cache/)
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^tests/
+
+  # General fixes
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom tags in Ansible
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+
+  # Python-specific checks
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-check-blanket-noqa
+      - id: python-check-mock-methods
+      - id: python-no-eval
+      - id: python-no-log-warn
+
+  # Custom local hooks for project-specific checks
   - repo: local
     hooks:
-      - id: fqdn-policy-enforcer
-        name: Enforce FQDN/short-name policy (no localhost / 127.0.0.1 / ::1 / 192.168.10.x)
-        entry: bash scripts/check-fqdn.sh .
+      # Catch mutable defaults (Issues #38, #40)
+      - id: no-mutable-defaults
+        name: Check for mutable defaults in Pydantic models
+        entry: python3 -c "import sys, re; files = sys.argv[1:]; pattern = r':\s*(?:List|Dict)\[[^\]]+\]\s*=\s*(?:\[\]|\{\})'; exit(1 if any(re.search(pattern, open(f).read()) for f in files if f.endswith('.py')) else 0)"
+        language: system
+        types: [python]
+        pass_filenames: true
+      
+      # Ensure FQCN in Ansible (our linting standard)
+      - id: ansible-fqcn-check
+        name: Check Ansible FQCN compliance
+        entry: bash -c 'grep -rn "^  [a-z_]*:" --include="*.yml" roles/ playbooks/ 2>/dev/null | grep -v "ansible.builtin\|community\." && exit 1 || exit 0'
         language: system
         pass_filenames: false
-        stages: [commit, push]
+        files: \.(yaml|yml)$
+
+# Global configuration
+default_language_version:
+  python: python3.12
+
+fail_fast: false

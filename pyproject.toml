@@ -1,0 +1,117 @@
+# HX-Citadel Ansible - Python Tool Configuration
+# Centralizes configuration for Ruff, Bandit, MyPy, etc.
+
+[project]
+name = "hx-citadel-ansible"
+version = "1.0.0"
+description = "HX-Citadel Shield Infrastructure Automation"
+requires-python = ">=3.12"
+
+[tool.ruff]
+# Target Python 3.12
+target-version = "py312"
+
+# Line length
+line-length = 120
+
+# Exclude directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "tech_kb",
+    ".ansible_cache",
+    "htmlcov",
+]
+
+[tool.ruff.lint]
+# Enable rule sets
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "TRY", # tryceratops (exception handling)
+    "RUF", # Ruff-specific rules
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",    # Line too long (handled by formatter)
+    "TRY003",  # Long exception messages (acceptable in our codebase)
+    "TRY300",  # else-after-return (style preference)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files can have different rules
+"tests/**/*.py" = [
+    "S101",   # Allow assert in tests
+    "BLE001", # Allow broad exception catching in tests
+    "TRY002", # Allow generic exceptions in tests
+    "S110",   # Allow try-except-pass in tests
+]
+
+[tool.bandit]
+# Security scanning configuration
+exclude_dirs = [
+    "tests",
+    "tech_kb",
+    ".venv",
+]
+
+[tool.bandit.assert_used]
+# Allow assert in test files
+skips = ["*/test_*.py"]
+
+[tool.mypy]
+# Type checking configuration (from Sprint 2.1)
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+# Exclude paths
+exclude = [
+    "tech_kb/",
+    ".venv/",
+]
+
+[tool.pytest.ini_options]
+# Pytest configuration (links to pytest.ini)
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.coverage.run]
+# Coverage configuration
+source = ["tests/common_types.py"]
+omit = [
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/tech_kb/*",
+    "*/fixtures/*",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_empty = true
+

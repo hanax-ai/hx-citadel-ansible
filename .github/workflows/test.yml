@@ -37,6 +37,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
     
+    - name: Run Ruff linter (catches issues early)
+      run: |
+        ruff check tests/ --output-format=github
+      continue-on-error: true
+    
+    - name: Check for mutable defaults
+      run: |
+        echo "Checking for mutable defaults in Pydantic models..."
+        if grep -rn ":\s*\(List\|Dict\)\[.*\]\s*=\s*\(\[\]\|{}\)" tests/common_types.py 2>/dev/null; then
+          echo "::error::Found mutable defaults! Use Field(default_factory=...) instead"
+          exit 1
+        fi
+    
     - name: Run unit tests with coverage
       run: |
         pytest tests/unit/ -v \
