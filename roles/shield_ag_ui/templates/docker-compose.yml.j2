@@ -33,10 +33,10 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: "{{ shield_ag_ui_session_timeout // 60 }}"
       
       # Database
-      DATABASE_URL: "postgresql://{{ shield_ag_ui_db_user | default('shield') }}:{{ shield_ag_ui_db_password | default('shield') }}@{{ hostvars[groups['database_nodes'][0]]['ansible_host'] }}:5432/{{ shield_ag_ui_db_name | default('shield') }}"
+      DATABASE_URL: "postgresql://{{ shield_ag_ui_db_user }}:{{ shield_ag_ui_db_password }}@{{ hostvars[groups['db_nodes'][0]]['ansible_host'] }}:5432/{{ shield_ag_ui_db_name }}"
       
       # LiteLLM API Key
-      LITELLM_API_KEY: "{{ shield_ag_ui_litellm_api_key | default('sk-shield-lob-default') }}"
+      LITELLM_API_KEY: "{{ shield_ag_ui_litellm_api_key }}"
       
       # CORS Origins
       CORS_ORIGINS: '["http://{{ ansible_host }}:{{ shield_ag_ui_nginx_http_port }}", "http://{{ ansible_host }}:{{ shield_ag_ui_frontend_port }}"]'
@@ -81,7 +81,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"]
       interval: {{ shield_ag_ui_health_check_interval }}
       timeout: {{ shield_ag_ui_health_check_timeout }}
       retries: {{ shield_ag_ui_health_check_retries }}

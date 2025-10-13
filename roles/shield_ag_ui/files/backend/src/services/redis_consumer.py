@@ -87,6 +87,8 @@ class RedisStreamConsumer:
         """
         if not self.client:
             raise RuntimeError("Redis consumer not started")
+        
+        previous_message_id = None
             
         while self._running:
             try:
@@ -103,21 +105,33 @@ class RedisStreamConsumer:
                     
                 for stream_name, stream_messages in messages:
                     for message_id, message_data in stream_messages:
+                        if previous_message_id is not None:
+                            await self.client.xack(
+                                self.stream_name,
+                                self.consumer_group,
+                                previous_message_id
+                            )
+                        
                         yield {
                             "id": message_id,
                             "stream": stream_name,
                             "data": message_data
                         }
                         
-                        await self.client.xack(
-                            self.stream_name,
-                            self.consumer_group,
-                            message_id
-                        )
+                        previous_message_id = message_id
                         
             except redis.RedisError as e:
                 logger.error("redis_read_error", error=str(e))
                 await asyncio.sleep(5)
             except asyncio.CancelledError:
                 logger.info("redis_consumer_cancelled")
+                if previous_message_id is not None:
+                    try:
+                        await self.client.xack(
+                            self.stream_name,
+                            self.consumer_group,
+                            previous_message_id
+                        )
+                    except Exception:
+                        pass
                 break
