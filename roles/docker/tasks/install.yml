@@ -36,9 +36,19 @@
     state: present
   when: ansible_facts.os_family == "Debian"
 
+- name: "[Install:Debian] Map architecture to Debian-style"
+  ansible.builtin.set_fact:
+    docker_debian_arch: >-
+      {{ 'amd64' if ansible_facts.architecture == 'x86_64'
+         else 'arm64' if ansible_facts.architecture == 'aarch64'
+         else 'armhf' if ansible_facts.architecture == 'armv7l'
+         else 'i386' if ansible_facts.architecture == 'i386'
+         else ansible_facts.architecture }}
+  when: ansible_facts.os_family == "Debian"
+
 - name: "[Install:Debian] Add Docker apt repo"
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ ansible_facts.architecture }}] https://download.docker.com/linux/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} stable"
+    repo: "deb [arch={{ docker_debian_arch }}] https://download.docker.com/linux/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} stable"
     state: present
   when: ansible_facts.os_family == "Debian"
 
@@ -61,9 +71,14 @@
   when: ansible_facts.os_family == "RedHat"
 
 - name: "[Install:RHEL] Add Docker yum repo"
-  ansible.builtin.command: >
-    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-  args: { creates: /etc/yum.repos.d/docker-ce.repo }
+  ansible.builtin.yum_repository:
+    name: docker-ce-stable
+    description: Docker CE Stable
+    baseurl: https://download.docker.com/linux/centos/{{ ansible_facts.distribution_major_version }}/$basearch/stable
+    gpgcheck: yes
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    enabled: yes
+    state: present
   when: ansible_facts.os_family == "RedHat"
 
 - name: "[Install:RHEL] Install Docker packages"

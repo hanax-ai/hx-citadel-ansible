@@ -1,14 +1,6 @@
 ---
 # roles/docker/tasks/containers.yml
-# Uses community.docker.docker_container
-- name: "[Containers] Ensure community.docker collection is present (local)"
-  delegate_to: localhost
-  become: false
-  ansible.builtin.ansible_galaxy:
-    command: collection
-    name: community.docker
-    type: install
-  changed_when: false
+# Uses community.docker.docker_container (collection required in meta/main.yml)
 
 - name: "[Containers] Launch explicitly named containers"
   community.docker.docker_container:
