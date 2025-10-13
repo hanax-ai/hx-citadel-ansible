@@ -1,0 +1,78 @@
+#!/bin/bash
+#
+# Git Pre-Commit Hook with CodeRabbit Review (Template)
+#
+# To install this hook:
+#   cp .github/hooks/pre-commit.template .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# Inspired by: https://youtu.be/IqBKf4u5MtA?si=YDVcsMaw0vW13waz
+#
+# This hook automatically reviews staged changes BEFORE commit
+
+set -e
+
+# Add coderabbit to PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "   🤖 Pre-Commit CodeRabbit Review"
+echo "═══════════════════════════════════════════════════════════"
+echo ""
+
+# Check if CodeRabbit is installed
+if ! command -v coderabbit &> /dev/null; then
+    echo "⚠️  CodeRabbit CLI not installed"
+    echo "   Install: npm install -g @coderabbit/cli"
+    echo "   Skipping review..."
+    echo ""
+    exit 0
+fi
+
+# Check if there are staged changes
+if git diff --cached --quiet; then
+    echo "⚠️  No staged changes to review"
+    exit 0
+fi
+
+# Show what's being reviewed
+echo "📝 Staged files:"
+git diff --cached --name-only | sed 's/^/   - /'
+echo ""
+
+# Run CodeRabbit review
+echo "🔍 Running CodeRabbit review..."
+echo ""
+
+REVIEW_LOG="/tmp/coderabbit-pre-commit-$(date +%s).log"
+
+if coderabbit --prompt-only 2>&1 | tee "$REVIEW_LOG"; then
+    echo ""
+    echo "✅ CodeRabbit review completed"
+    echo "📝 Full review: $REVIEW_LOG"
+else
+    echo ""
+    echo "⚠️  CodeRabbit review had warnings"
+    echo "📝 Review: $REVIEW_LOG"
+fi
+
+# Check for critical issues
+if grep -qi "critical\|error\|failed" "$REVIEW_LOG" 2>/dev/null; then
+    echo ""
+    echo "⚠️  CRITICAL ISSUES FOUND"
+    echo ""
+    read -p "Proceed anyway? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Commit aborted"
+        exit 1
+    fi
+fi
+
+echo ""
+echo "✅ Pre-commit checks passed"
+echo ""
+
+exit 0
+
