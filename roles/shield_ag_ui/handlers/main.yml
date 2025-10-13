@@ -1,0 +1,31 @@
+---
+# Handlers for Shield AG-UI deployment
+
+- name: Rebuild frontend image
+  community.docker.docker_image:
+    name: "{{ shield_ag_ui_frontend_image }}"
+    build:
+      path: "{{ shield_ag_ui_home }}/frontend"
+    source: build
+    state: present
+    force_source: true
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"
+
+- name: Rebuild backend image
+  community.docker.docker_image:
+    name: "{{ shield_ag_ui_backend_image }}"
+    build:
+      path: "{{ shield_ag_ui_home }}/backend"
+    source: build
+    state: present
+    force_source: true
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"
+
+- name: Restart ag-ui services
+  community.docker.docker_compose_v2:
+    project_src: "{{ shield_ag_ui_home }}/docker"
+    state: restarted
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"

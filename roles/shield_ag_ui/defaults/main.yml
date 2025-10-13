@@ -1,0 +1,44 @@
+---
+# Shield AG-UI Deployment Variables
+
+# Target server
+shield_ag_ui_user: "agui"
+shield_ag_ui_group: "agui"
+shield_ag_ui_home: "/opt/ag-ui"
+
+# Application configuration
+shield_ag_ui_app_name: "shield-ag-ui"
+shield_ag_ui_frontend_port: 3001
+shield_ag_ui_backend_port: 8002
+shield_ag_ui_nginx_http_port: 80
+shield_ag_ui_nginx_https_port: 443
+
+# Docker configuration
+shield_ag_ui_docker_network: "ag-ui-network"
+shield_ag_ui_frontend_image: "shield-ag-ui-frontend"
+shield_ag_ui_backend_image: "shield-ag-ui-backend"
+shield_ag_ui_nginx_image: "nginx:alpine"
+
+# External service URLs (FQDNs)
+shield_ag_ui_litellm_url: "http://{{ hostvars[groups['api_nodes'][0]]['ansible_host'] }}:4000"
+shield_ag_ui_orchestrator_url: "http://{{ hostvars[groups['orchestrator_nodes'][0]]['ansible_host'] }}:8000"
+shield_ag_ui_redis_url: "redis://{{ hostvars[groups['db_nodes'][0]]['ansible_host'] }}:6379"
+shield_ag_ui_qdrant_url: "http://{{ hostvars[groups['vector_nodes'][0]]['ansible_host'] }}:6333"
+
+# Redis Streams configuration
+shield_ag_ui_redis_stream_name: "shield:events"
+shield_ag_ui_redis_consumer_group: "ag-ui-clients"
+shield_ag_ui_redis_consumer_name: "{{ ansible_hostname }}"
+
+# Authentication configuration (use Ansible Vault for production)
+shield_ag_ui_jwt_secret: "{{ vault_shield_ag_ui_jwt_secret }}"
+shield_ag_ui_litellm_api_key: "{{ vault_shield_ag_ui_litellm_api_key }}"
+shield_ag_ui_db_user: "shield"
+shield_ag_ui_db_password: "{{ vault_shield_ag_ui_db_password }}"
+shield_ag_ui_db_name: "shield"
+shield_ag_ui_session_timeout: 1800
+
+# Monitoring
+shield_ag_ui_health_check_interval: "30s"
+shield_ag_ui_health_check_timeout: "10s"
+shield_ag_ui_health_check_retries: 3

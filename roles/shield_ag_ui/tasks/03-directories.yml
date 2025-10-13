@@ -1,0 +1,27 @@
+---
+# Directory structure setup
+
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0755'
+  become: true
+  loop:
+    - "{{ shield_ag_ui_home }}"
+    - "{{ shield_ag_ui_home }}/frontend"
+    - "{{ shield_ag_ui_home }}/backend"
+    - "{{ shield_ag_ui_home }}/nginx"
+    - "{{ shield_ag_ui_home }}/logs"
+    - "{{ shield_ag_ui_home }}/data"
+
+- name: Create Docker Compose directory
+  ansible.builtin.file:
+    path: "{{ shield_ag_ui_home }}/docker"
+    state: directory
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0755'
+  become: true

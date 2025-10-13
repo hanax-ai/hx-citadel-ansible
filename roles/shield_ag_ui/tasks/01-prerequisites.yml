@@ -1,0 +1,35 @@
+---
+# Prerequisites check and installation
+
+- name: Check Docker is installed
+  ansible.builtin.command: docker --version
+  register: shield_ag_ui_docker_version
+  changed_when: false
+  failed_when: shield_ag_ui_docker_version.rc != 0
+
+- name: Check Docker Compose is installed
+  ansible.builtin.command: docker compose version
+  register: shield_ag_ui_docker_compose_version
+  changed_when: false
+  failed_when: shield_ag_ui_docker_compose_version.rc != 0
+
+- name: Display Docker versions
+  ansible.builtin.debug:
+    msg:
+      - "Docker: {{ shield_ag_ui_docker_version.stdout }}"
+      - "Docker Compose: {{ shield_ag_ui_docker_compose_version.stdout }}"
+
+- name: Ensure Python3 is installed
+  ansible.builtin.package:
+    name: python3
+    state: present
+  become: true
+
+- name: Ensure required system packages are installed
+  ansible.builtin.package:
+    name:
+      - python3-pip
+      - git
+      - curl
+    state: present
+  become: true

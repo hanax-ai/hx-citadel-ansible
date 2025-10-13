@@ -1,0 +1,31 @@
+---
+# Frontend Docker image build
+
+- name: Copy frontend Dockerfile
+  ansible.builtin.template:
+    src: frontend.Dockerfile.j2
+    dest: "{{ shield_ag_ui_home }}/frontend/Dockerfile"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0644'
+  become: true
+
+- name: Copy frontend application files
+  ansible.builtin.copy:
+    src: frontend/
+    dest: "{{ shield_ag_ui_home }}/frontend/"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0644'
+  become: true
+  notify: rebuild frontend image
+
+- name: Build frontend Docker image
+  community.docker.docker_image:
+    name: "{{ shield_ag_ui_frontend_image }}"
+    build:
+      path: "{{ shield_ag_ui_home }}/frontend"
+    source: build
+    state: present
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"

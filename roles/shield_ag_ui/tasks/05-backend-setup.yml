@@ -1,0 +1,31 @@
+---
+# Backend setup and Docker image build
+
+- name: Copy backend Dockerfile
+  ansible.builtin.template:
+    src: backend.Dockerfile.j2
+    dest: "{{ shield_ag_ui_home }}/backend/Dockerfile"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0644'
+  become: true
+
+- name: Copy backend application files
+  ansible.builtin.copy:
+    src: backend/
+    dest: "{{ shield_ag_ui_home }}/backend/"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0644'
+  become: true
+  notify: rebuild backend image
+
+- name: Build backend Docker image
+  community.docker.docker_image:
+    name: "{{ shield_ag_ui_backend_image }}"
+    build:
+      path: "{{ shield_ag_ui_home }}/backend"
+    source: build
+    state: present
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"

@@ -1,0 +1,70 @@
+---
+# Docker Compose configuration with error handling
+
+- name: Deploy Docker Compose configuration with error handling
+  block:
+    - name: Copy Docker Compose file
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ shield_ag_ui_home }}/docker/docker-compose.yml"
+        owner: "{{ shield_ag_ui_user }}"
+        group: "{{ shield_ag_ui_group }}"
+        mode: '0644'
+      become: true
+      notify: restart ag-ui services
+      register: shield_ag_ui_compose_template
+
+    - name: Deploy environment variables template
+      ansible.builtin.template:
+        src: .env.template.j2
+        dest: "{{ shield_ag_ui_home }}/docker/.env"
+        owner: "{{ shield_ag_ui_user }}"
+        group: "{{ shield_ag_ui_group }}"
+        mode: "0600"
+      become: true
+      register: shield_ag_ui_env_template
+
+    - name: Create Docker network
+      community.docker.docker_network:
+        name: "{{ shield_ag_ui_docker_network }}"
+        state: present
+      become: true
+
+    - name: Validate Docker Compose configuration
+      ansible.builtin.command:
+        cmd: docker compose -f {{ shield_ag_ui_home }}/docker/docker-compose.yml config
+      become: true
+      become_user: "{{ shield_ag_ui_user }}"
+      register: shield_ag_ui_compose_validation
+      changed_when: false
+
+    - name: Display validation result
+      ansible.builtin.debug:
+        msg: "Docker Compose configuration validated successfully"
+
+  rescue:
+    - name: Log configuration deployment failure
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Docker Compose configuration deployment failed
+          Compose Template: {{ 'Changed' if shield_ag_ui_compose_template.changed else 'No change' }}
+          Env Template: {{ 'Changed' if shield_ag_ui_env_template.changed else 'No change' }}
+          Error: {{ ansible_failed_result | default('Unknown error') }}
+
+    - name: Display compose validation errors
+      ansible.builtin.debug:
+        msg: "{{ shield_ag_ui_compose_validation.stderr }}"
+      when: shield_ag_ui_compose_validation is defined and shield_ag_ui_compose_validation.stderr is defined
+
+    - name: Fail deployment
+      ansible.builtin.fail:
+        msg: "Docker Compose configuration deployment failed. Check templates and variable values."
+
+  always:
+    - name: Record deployment details
+      ansible.builtin.debug:
+        msg: |
+          === Docker Compose Deployment ===
+          Compose file: {{ shield_ag_ui_home }}/docker/docker-compose.yml
+          Env file: {{ shield_ag_ui_home }}/docker/.env
+          Validation: {{ 'Success' if shield_ag_ui_compose_validation.rc == 0 else 'Failed' }}

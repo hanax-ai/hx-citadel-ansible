@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # Backend Service (FastAPI + Redis Consumer)
+  backend:
+    image: {{ shield_ag_ui_backend_image }}:latest
+    container_name: ag-ui-backend
+    build:
+      context: {{ shield_ag_ui_home }}/backend
+      dockerfile: Dockerfile
+    ports:
+      - "{{ shield_ag_ui_backend_port }}:8002"
+    environment:
+      # Application
+      APP_NAME: "shield-ag-ui-backend"
+      ENV: "{{ shield_ag_ui_env | default('production') }}"
+      PORT: "8002"
+      
+      # External Services (FQDNs)
+      LITELLM_URL: "{{ shield_ag_ui_litellm_url }}"
+      ORCHESTRATOR_URL: "{{ shield_ag_ui_orchestrator_url }}"
+      REDIS_URL: "{{ shield_ag_ui_redis_url }}"
+      QDRANT_URL: "{{ shield_ag_ui_qdrant_url }}"
+      
+      # Redis Streams
+      REDIS_STREAM_NAME: "{{ shield_ag_ui_redis_stream_name }}"
+      REDIS_CONSUMER_GROUP: "{{ shield_ag_ui_redis_consumer_group }}"
+      REDIS_CONSUMER_NAME: "{{ shield_ag_ui_redis_consumer_name }}"
+      
+      # Authentication
+      JWT_SECRET: "{{ shield_ag_ui_jwt_secret }}"
+      JWT_ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "{{ shield_ag_ui_session_timeout // 60 }}"
+      
+      # Database
+      DATABASE_URL: "postgresql://{{ shield_ag_ui_db_user }}:{{ shield_ag_ui_db_password }}@{{ hostvars[groups['db_nodes'][0]]['ansible_host'] }}:5432/{{ shield_ag_ui_db_name }}"
+      
+      # LiteLLM API Key
+      LITELLM_API_KEY: "{{ shield_ag_ui_litellm_api_key }}"
+      
+      # CORS Origins
+      CORS_ORIGINS: '["http://{{ ansible_host }}:{{ shield_ag_ui_nginx_http_port }}", "http://{{ ansible_host }}:{{ shield_ag_ui_frontend_port }}"]'
+    volumes:
+      - backend-data:/app/data
+      - backend-logs:/app/logs
+    networks:
+      - ag-ui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8002/health').raise_for_status()"]
+      interval: {{ shield_ag_ui_health_check_interval }}
+      timeout: {{ shield_ag_ui_health_check_timeout }}
+      retries: {{ shield_ag_ui_health_check_retries }}
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Frontend Service (Vite SPA - static)
+  frontend:
+    image: {{ shield_ag_ui_frontend_image }}:latest
+    container_name: ag-ui-frontend
+    build:
+      context: {{ shield_ag_ui_home }}/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "{{ shield_ag_ui_frontend_port }}:3001"
+    environment:
+      NODE_ENV: "production"
+      PORT: "3001"
+      NEXT_PUBLIC_BACKEND_URL: "http://backend:8002"
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - frontend-logs:/app/.next/logs
+    networks:
+      - ag-ui-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"]
+      interval: {{ shield_ag_ui_health_check_interval }}
+      timeout: {{ shield_ag_ui_health_check_timeout }}
+      retries: {{ shield_ag_ui_health_check_retries }}
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: {{ shield_ag_ui_nginx_image }}
+    container_name: ag-ui-nginx
+    ports:
+      - "{{ shield_ag_ui_nginx_http_port }}:80"
+      - "{{ shield_ag_ui_nginx_https_port }}:443"
+    volumes:
+      - {{ shield_ag_ui_home }}/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - {{ shield_ag_ui_home }}/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    networks:
+      - ag-ui-network
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: {{ shield_ag_ui_health_check_interval }}
+      timeout: {{ shield_ag_ui_health_check_timeout }}
+      retries: {{ shield_ag_ui_health_check_retries }}
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ag-ui-network:
+    name: {{ shield_ag_ui_docker_network }}
+    driver: bridge
+
+volumes:
+  backend-data:
+    name: ag-ui-backend-data
+  backend-logs:
+    name: ag-ui-backend-logs
+  frontend-logs:
+    name: ag-ui-frontend-logs
+  nginx-logs:
+    name: ag-ui-nginx-logs
