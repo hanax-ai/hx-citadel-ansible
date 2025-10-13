@@ -93,7 +93,7 @@ repos:
       description: "Validates Python syntax before commit (prevents syntax errors like Issue #45)"
     - id: coderabbit-review
       name: CodeRabbit Pre-Commit Review
-      entry: bash -c 'export PATH="$HOME/.local/bin:$PATH"; if command -v coderabbit &> /dev/null; then echo "🤖 Running CodeRabbit review..."; coderabbit --prompt-only 2>&1 | head -50; else echo "⚠️  CodeRabbit not installed, skipping"; fi'
+      entry: bash -c 'set -o pipefail; export PATH="$HOME/.local/bin:$PATH"; if command -v coderabbit &> /dev/null; then echo "🤖 Running CodeRabbit review..."; coderabbit --prompt-only 2>&1 | head -50; else echo "⚠️  CodeRabbit not installed, skipping"; exit 0; fi'
       language: system
       pass_filenames: false
       always_run: true

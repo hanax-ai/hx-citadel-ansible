@@ -10,7 +10,7 @@
 #
 # This hook automatically reviews staged changes BEFORE commit
 
-set -e
+set -eo pipefail
 
 # Add coderabbit to PATH
 export PATH="$HOME/.local/bin:$PATH"
@@ -47,13 +47,18 @@ echo ""
 
 REVIEW_LOG="/tmp/coderabbit-pre-commit-$(date +%s).log"
 
-if coderabbit --prompt-only 2>&1 | tee "$REVIEW_LOG"; then
+set +e  # Temporarily allow failures to capture exit code
+coderabbit --prompt-only 2>&1 | tee "$REVIEW_LOG"
+CR_EXIT_CODE=${PIPESTATUS[0]}
+set -e  # Re-enable exit on error
+
+if [ $CR_EXIT_CODE -eq 0 ]; then
     echo ""
     echo "✅ CodeRabbit review completed"
     echo "📝 Full review: $REVIEW_LOG"
 else
     echo ""
-    echo "⚠️  CodeRabbit review had warnings"
+    echo "⚠️  CodeRabbit review had warnings (exit code: $CR_EXIT_CODE)"
     echo "📝 Review: $REVIEW_LOG"
 fi
 
