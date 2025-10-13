@@ -58,7 +58,7 @@ jobs:
     - name: Run unit tests with coverage
       run: |
         pytest tests/unit/ -v \
-          --cov=tests \
+          --cov=tests/common_types.py \
           --cov-report=xml \
           --cov-report=html \
           --cov-report=term-missing \
