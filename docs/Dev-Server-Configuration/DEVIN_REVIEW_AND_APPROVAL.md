@@ -372,10 +372,16 @@ Based on your answers and our corrections:
 
 ### Immediate Actions:
 
-1. **Read 3 Documents** (30 minutes):
-   - DEVIN_QUESTIONS_ANSWERED.md (15 CodeRabbit issues)
-   - FRONTEND_SUPABASE_REMOVAL_GUIDE.md (API client code)
+1. **Read Scope Correction** (CRITICAL - 5 minutes):
+   - **DEVIN_SCOPE_CORRECTION.md** ← READ THIS FIRST!
+   - Your scope changed: NO frontend work (T003 removed)
+
+2. **Read Required Documents** (30 minutes):
+   - DEVIN_QUESTIONS_ANSWERED.md (role name, scope answers)
    - tasks/T001-create-ansible-role.md (role structure)
+   - tasks/T002-backend-fastapi-app.md (backend code)
+   - tasks/T004-docker-compose-config.md (Docker)
+   - tasks/T005-nginx-reverse-proxy.md (Nginx)
 
 2. **Update Your Plan** (5 minutes):
    - Change role name to `shield_ag_ui`
