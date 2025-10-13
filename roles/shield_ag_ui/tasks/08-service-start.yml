@@ -1,0 +1,35 @@
+---
+# Service startup
+
+- name: Stop existing AG-UI services
+  community.docker.docker_compose_v2:
+    project_src: "{{ shield_ag_ui_home }}/docker"
+    state: absent
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"
+  failed_when: false
+
+- name: Start AG-UI services
+  community.docker.docker_compose_v2:
+    project_src: "{{ shield_ag_ui_home }}/docker"
+    state: present
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"
+
+- name: Wait for backend to be healthy
+  ansible.builtin.uri:
+    url: "http://localhost:{{ shield_ag_ui_backend_port }}/health"
+    status_code: 200
+  register: shield_ag_ui_backend_health
+  until: shield_ag_ui_backend_health.status == 200
+  retries: 10
+  delay: 3
+
+- name: Wait for frontend to be healthy
+  ansible.builtin.uri:
+    url: "http://localhost:{{ shield_ag_ui_frontend_port }}"
+    status_code: 200
+  register: shield_ag_ui_frontend_health
+  until: shield_ag_ui_frontend_health.status == 200
+  retries: 10
+  delay: 3

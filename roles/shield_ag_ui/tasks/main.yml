@@ -1,0 +1,61 @@
+---
+# Main task orchestrator for Shield AG-UI deployment
+
+- name: Display deployment information
+  ansible.builtin.debug:
+    msg: |
+      ╔════════════════════════════════════════════════════════════╗
+      ║        Shield AG-UI Deployment Starting                    ║
+      ╠════════════════════════════════════════════════════════════╣
+      ║  Target: {{ ansible_hostname }} ({{ ansible_host }})
+      ║  Frontend Port: {{ shield_ag_ui_frontend_port }}
+      ║  Backend Port: {{ shield_ag_ui_backend_port }}
+      ║  Nginx HTTP: {{ shield_ag_ui_nginx_http_port }}
+      ║  LiteLLM: {{ shield_ag_ui_litellm_url }}
+      ║  Orchestrator: {{ shield_ag_ui_orchestrator_url }}
+      ║  Redis: {{ shield_ag_ui_redis_url }}
+      ╚════════════════════════════════════════════════════════════╝
+
+- name: Phase 1 - Prerequisites
+  ansible.builtin.include_tasks: 01-prerequisites.yml
+  tags: [prerequisites, setup]
+
+- name: Phase 2 - User Setup
+  ansible.builtin.include_tasks: 02-user-setup.yml
+  tags: [user, setup]
+
+- name: Phase 3 - Directories
+  ansible.builtin.include_tasks: 03-directories.yml
+  tags: [directories, setup]
+
+- name: Phase 4 - Frontend Build
+  ansible.builtin.include_tasks: 04-frontend-build.yml
+  tags: [frontend, build]
+
+- name: Phase 5 - Backend Setup
+  ansible.builtin.include_tasks: 05-backend-setup.yml
+  tags: [backend, build]
+
+- name: Phase 6 - Docker Compose
+  ansible.builtin.include_tasks: 06-docker-compose.yml
+  tags: [docker, deployment]
+
+- name: Phase 7 - Nginx Configuration
+  ansible.builtin.include_tasks: 07-nginx-config.yml
+  tags: [nginx, deployment]
+
+- name: Phase 8 - Service Start
+  ansible.builtin.include_tasks: 08-service-start.yml
+  tags: [service, deployment]
+
+- name: Display deployment success
+  ansible.builtin.debug:
+    msg: |
+      ╔════════════════════════════════════════════════════════════╗
+      ║        Shield AG-UI Deployment Complete! ✅                ║
+      ╠════════════════════════════════════════════════════════════╣
+      ║  Frontend: http://{{ ansible_host }}:{{ shield_ag_ui_frontend_port }}
+      ║  Backend: http://{{ ansible_host }}:{{ shield_ag_ui_backend_port }}
+      ║  Nginx: http://{{ ansible_host }}:{{ shield_ag_ui_nginx_http_port }}
+      ║  Access: http://{{ ansible_host }}/
+      ╚════════════════════════════════════════════════════════════╝

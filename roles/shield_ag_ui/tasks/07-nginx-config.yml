@@ -1,0 +1,65 @@
+---
+# Task: Deploy Nginx configuration
+
+- name: Create Nginx configuration directory
+  ansible.builtin.file:
+    path: "{{ shield_ag_ui_home }}/nginx"
+    state: directory
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0755'
+  tags: [nginx, config]
+
+- name: Create SSL directory
+  ansible.builtin.file:
+    path: "{{ shield_ag_ui_home }}/nginx/ssl"
+    state: directory
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0700'
+  tags: [nginx, ssl]
+
+- name: Generate self-signed SSL certificate (dev only)
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048
+      -keyout {{ shield_ag_ui_home }}/nginx/ssl/key.pem
+      -out {{ shield_ag_ui_home }}/nginx/ssl/cert.pem
+      -subj "/C=US/ST=State/L=City/O=HX-Citadel/CN={{ ansible_host }}"
+    creates: "{{ shield_ag_ui_home }}/nginx/ssl/cert.pem"
+  when: shield_ag_ui_env == "development"
+  tags: [nginx, ssl]
+
+- name: Set SSL certificate permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0600'
+  loop:
+    - "{{ shield_ag_ui_home }}/nginx/ssl/key.pem"
+    - "{{ shield_ag_ui_home }}/nginx/ssl/cert.pem"
+  when: shield_ag_ui_env == "development"
+  tags: [nginx, ssl]
+
+- name: Deploy Nginx configuration
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: "{{ shield_ag_ui_home }}/nginx/nginx.conf"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0644'
+    validate: 'docker run --rm -v %s:/etc/nginx/nginx.conf:ro nginx:alpine nginx -t -c /etc/nginx/nginx.conf'
+  tags: [nginx, config]
+
+- name: Display Nginx configuration summary
+  ansible.builtin.debug:
+    msg: |
+      Nginx configuration deployed:
+      - HTTP port: {{ shield_ag_ui_nginx_http_port }}
+      - HTTPS port: {{ shield_ag_ui_nginx_https_port }}
+      - SSL: Self-signed (dev) / Let's Encrypt (prod)
+      - Upstreams: frontend:3001, backend:8002
+      - SSE support: Enabled (/events)
+      - Rate limiting: 100 req/s (API), 1000 req/s (general)
+  tags: [nginx, config]

@@ -1,0 +1,18 @@
+---
+# Docker Compose configuration
+
+- name: Copy Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ shield_ag_ui_home }}/docker/docker-compose.yml"
+    owner: "{{ shield_ag_ui_user }}"
+    group: "{{ shield_ag_ui_group }}"
+    mode: '0644'
+  become: true
+  notify: restart ag-ui services
+
+- name: Create Docker network
+  community.docker.docker_network:
+    name: "{{ shield_ag_ui_docker_network }}"
+    state: present
+  become: true
