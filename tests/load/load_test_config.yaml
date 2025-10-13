@@ -1,0 +1,74 @@
+
+servers:
+  mcp_server: http://hx-mcp1-server:8081
+  orchestrator: http://hx-orchestrator-server:8000
+  qdrant: http://hx-vectordb-server:6333
+  ollama: http://hx-ollama1:11434
+
+scenarios:
+  normal_load:
+    description: "Baseline performance with healthy system"
+    users: 100
+    spawn_rate: 10
+    duration: 60s
+    locustfile: mcp_server.py
+    expected_rps: 50-100
+    expected_p95_latency: 5000ms
+    
+  stress_test:
+    description: "High load to identify bottlenecks"
+    users: 500
+    spawn_rate: 50
+    duration: 300s
+    locustfile: mcp_server.py
+    expected_rps: 200-400
+    expected_p95_latency: 10000ms
+    
+  spike_test:
+    description: "Rapid user increase (0 → 1000)"
+    users: 1000
+    spawn_rate: 100
+    duration: 120s
+    locustfile: mcp_server.py
+    expected_behavior: "System should handle spike gracefully"
+    
+  endurance_test:
+    description: "Long-running test for memory leaks"
+    users: 100
+    spawn_rate: 10
+    duration: 3600s
+    locustfile: mcp_server.py
+    expected_behavior: "No degradation over time"
+    
+  circuit_breaker_test:
+    description: "Circuit breaker protection validation"
+    users: 50
+    spawn_rate: 10
+    duration: 180s
+    locustfile: circuit_breaker.py
+    expected_behavior: "Fast-fail when orchestrator down"
+
+targets:
+  health_check:
+    p50_latency: 100ms
+    p95_latency: 500ms
+    success_rate: 99.9%
+    
+  lightrag_query:
+    p50_latency: 2000ms
+    p95_latency: 5000ms
+    success_rate: 95%
+    
+  qdrant_find:
+    p50_latency: 500ms
+    p95_latency: 2000ms
+    success_rate: 99%
+    
+  crawl_web:
+    p50_latency: 5000ms
+    p95_latency: 30000ms
+    success_rate: 90%
+    
+  circuit_breaker_fast_fail:
+    max_latency: 100ms
+    description: "Circuit breaker should fail fast"
