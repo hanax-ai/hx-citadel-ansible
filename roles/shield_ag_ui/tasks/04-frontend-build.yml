@@ -1,9 +1,26 @@
 ---
 # Frontend Docker image build
 
+- name: Remove existing frontend directory if present
+  ansible.builtin.file:
+    path: "{{ shield_ag_ui_home }}/frontend"
+    state: absent
+  become: true
+
+- name: Clone frontend repository
+  ansible.builtin.git:
+    repo: "https://{{ vault_github_token }}@github.com/hanax-ai/citadel-shield-ui.git"
+    dest: "{{ shield_ag_ui_home }}/frontend"
+    version: "feature-1"
+    update: yes
+    accept_hostkey: yes
+  become: true
+  become_user: "{{ shield_ag_ui_user }}"
+  no_log: true
+
 - name: Copy frontend Dockerfile
-  ansible.builtin.template:
-    src: frontend.Dockerfile.j2
+  ansible.builtin.copy:
+    src: frontend/Dockerfile
     dest: "{{ shield_ag_ui_home }}/frontend/Dockerfile"
     owner: "{{ shield_ag_ui_user }}"
     group: "{{ shield_ag_ui_group }}"

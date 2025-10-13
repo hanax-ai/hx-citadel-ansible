@@ -1,0 +1,72 @@
+---
+# Preflight checks for Shield AG-UI deployment
+# Verifies all prerequisites before deployment
+
+- name: Shield AG-UI Deployment - Preflight Checks
+  hosts: dev_servers
+  gather_facts: true
+  become: true
+  
+  tasks:
+    - name: Check Ubuntu version
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_version is version('24.04', '>=')
+        msg: "Requires Ubuntu 24.04 or newer"
+    
+    - name: Check Docker installed
+      ansible.builtin.command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Check Docker Compose installed
+      ansible.builtin.command: docker compose version
+      register: docker_compose_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Check connectivity to orchestrator
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['orchestrator_nodes'][0]]['ansible_host'] }}"
+        port: 8000
+        timeout: 5
+      failed_when: false
+      register: orchestrator_check
+    
+    - name: Check connectivity to Redis
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['db_nodes'][0]]['ansible_host'] }}"
+        port: 6379
+        timeout: 5
+      failed_when: false
+      register: redis_check
+    
+    - name: Check connectivity to LiteLLM
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['api_nodes'][0]]['ansible_host'] }}"
+        port: 4000
+        timeout: 5
+      failed_when: false
+      register: litellm_check
+    
+    - name: Display preflight results
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "   Preflight Check Results"
+          - "═══════════════════════════════════════════════════════════"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Docker: {{ 'INSTALLED' if docker_check.rc == 0 else 'NOT INSTALLED' }}"
+          - "Docker Compose: {{ 'INSTALLED' if docker_compose_check.rc == 0 else 'NOT INSTALLED' }}"
+          - "Orchestrator: {{ 'REACHABLE' if orchestrator_check.failed == false else 'UNREACHABLE' }}"
+          - "Redis: {{ 'REACHABLE' if redis_check.failed == false else 'UNREACHABLE' }}"
+          - "LiteLLM: {{ 'REACHABLE' if litellm_check.failed == false else 'UNREACHABLE' }}"
+          - "═══════════════════════════════════════════════════════════"
+    
+    - name: Fail if Docker not installed
+      ansible.builtin.fail:
+        msg: "Docker is required. Install with: playbooks/deploy-base-setup.yml"
+      when: docker_check.rc != 0
+

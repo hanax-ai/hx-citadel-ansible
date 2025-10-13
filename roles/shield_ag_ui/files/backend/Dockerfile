@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -13,16 +14,14 @@ WORKDIR /app
 # Stage 1: Dependencies
 FROM base as dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime
 FROM base as runtime
 
-# Copy installed packages from dependencies stage
-COPY --from=dependencies /root/.local /root/.local
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+# Copy installed packages from dependencies stage (system-wide)
+COPY --from=dependencies /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=dependencies /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY src/ /app/src/

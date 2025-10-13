@@ -15,25 +15,9 @@
   loop: "{{ docker_containers_explicit }}"
   when: docker_containers_explicit | length > 0
 
-- name: "[Containers] Launch N copies using base_name-<index>"
-  vars:
-    _count: "{{ def.count | default(1) | int }}"
-    _start: "{{ def.start_index | default(1) | int }}"
+- name: "[Containers] Process each container definition"
+  include_tasks: containers_by_count_inner.yml
   loop: "{{ docker_containers_by_count }}"
   loop_control:
     loop_var: def
   when: docker_containers_by_count | length > 0
-  block:
-    - name: "[Containers] Start series for {{ def.base_name }}"
-      community.docker.docker_container:
-        name: "{{ def.base_name }}-{{ idx }}"
-        image: "{{ def.image }}"
-        state: started
-        restart_policy: "{{ def.restart_policy | default('unless-stopped') }}"
-        env: "{{ def.env | default({}) }}"
-        ports: "{{ def.ports | default([]) }}"
-        volumes: "{{ def.volumes | default([]) }}"
-        command: "{{ def.command | default(omit) }}"
-      loop: "{{ range(_start, _start + _count) | list }}"
-      loop_control:
-        loop_var: idx

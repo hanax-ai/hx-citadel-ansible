@@ -21,8 +21,5 @@ vault_jwt_secret_key: "shield-orchestrator-jwt-secret-key-change-in-production"
 
 # Shield AG-UI Vault Variables
 vault_shield_ag_ui_jwt_secret: "hCosQnVo4mv1JCzYe0Mht4sJE6wwFJEMxCLLvd6w6ZGnYrxvm+WECXHkCRlVHf7q"
-vault_shield_ag_ui_litellm_api_key: "Major8859!"
+vault_shield_ag_ui_litellm_api_key: "sk-test-placeholder-key"
 vault_shield_ag_ui_db_password: "OGFcLLPI3DSVUQs7MHwNTqlPJzVirJIaU1e/stx15HU="
-
-# GitHub access token (will be rotated after initial deployment)
-vault_github_token: "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"

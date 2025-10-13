@@ -2,8 +2,8 @@
 # Backend setup and Docker image build
 
 - name: Copy backend Dockerfile
-  ansible.builtin.template:
-    src: backend.Dockerfile.j2
+  ansible.builtin.copy:
+    src: backend/Dockerfile
     dest: "{{ shield_ag_ui_home }}/backend/Dockerfile"
     owner: "{{ shield_ag_ui_user }}"
     group: "{{ shield_ag_ui_group }}"

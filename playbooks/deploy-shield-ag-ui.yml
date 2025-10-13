@@ -1,0 +1,152 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# Shield AG-UI Deployment Playbook
+# ═══════════════════════════════════════════════════════════════════════════════
+# Purpose: Deploy Shield AG-UI (power user interface) to dev-server
+# Target: hx-dev-server (192.168.10.12)
+# Role: shield_ag_ui (from PR #57)
+#
+# Prerequisites:
+#   - Ansible Vault configured with secrets
+#   - Docker installed on target server
+#   - Access to external services (orchestrator, Redis, LiteLLM, Qdrant)
+#
+# Usage:
+#   # Dry run (check mode)
+#   ansible-playbook playbooks/deploy-shield-ag-ui.yml --check --diff
+#
+#   # Deploy to dev-server
+#   ansible-playbook playbooks/deploy-shield-ag-ui.yml
+#
+#   # Deploy to test-server
+#   ansible-playbook playbooks/deploy-shield-ag-ui.yml --limit hx-test-server
+#
+#   # With vault password
+#   ansible-playbook playbooks/deploy-shield-ag-ui.yml --vault-password-file /tmp/.vault-pass
+#
+# Reference: docs/Dev-Server-Configuration/
+# ═══════════════════════════════════════════════════════════════════════════════
+
+- name: Deploy Shield AG-UI to Development Server
+  hosts: dev_servers
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  
+  vars:
+    # Override defaults if needed
+    shield_ag_ui_frontend_port: 3001
+    shield_ag_ui_backend_port: 8002
+    shield_ag_ui_health_host: "{{ ansible_host | default('127.0.0.1') }}"
+  
+  pre_tasks:
+    - name: Display deployment target
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "   🚀 Deploying Shield AG-UI"
+          - "═══════════════════════════════════════════════════════════"
+          - "Target: {{ inventory_hostname }} ({{ ansible_host }})"
+          - "Frontend Port: {{ shield_ag_ui_frontend_port }}"
+          - "Backend Port: {{ shield_ag_ui_backend_port }}"
+          - "═══════════════════════════════════════════════════════════"
+      tags: [always]
+    
+    - name: Preflight - Assert OS family
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == "Debian"
+        fail_msg: "Requires Debian/Ubuntu OS family"
+      tags: [preflight]
+    
+    - name: Preflight - Check Docker via docker_host_info
+      community.docker.docker_host_info:
+      register: docker_info
+      failed_when: false
+      tags: [preflight]
+    
+    - name: Preflight - Fail if Docker not accessible
+      ansible.builtin.fail:
+        msg: "Docker daemon not accessible. Install with: playbooks/docker-role-run.yml"
+      when: docker_info.failed | default(false)
+      tags: [preflight]
+    
+    - name: Preflight - Check ports not already bound
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ item }}"
+        state: stopped
+        timeout: 1
+      loop:
+        - "{{ shield_ag_ui_frontend_port }}"
+        - "{{ shield_ag_ui_backend_port }}"
+        - "{{ shield_ag_ui_nginx_http_port }}"
+      failed_when: false
+      register: port_check
+      tags: [preflight]
+    
+    - name: Preflight - Display results
+      ansible.builtin.debug:
+        msg: "✅ Preflight checks passed"
+      tags: [preflight]
+  
+  roles:
+    - role: shield_ag_ui
+      tags: [deploy]
+  
+  post_tasks:
+    - name: Smoke - Health check (localhost)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ shield_ag_ui_backend_port }}/health"
+        status_code: [200, 503]
+        timeout: 10
+      register: health_check_local
+      failed_when: false
+      changed_when: false
+      tags: [smoke]
+    
+    - name: Smoke - Verify containers running
+      ansible.builtin.command: docker ps --filter "name=ag-ui" --format "{{ '{{.Names}}' }}"
+      register: containers_running
+      changed_when: false
+      tags: [smoke]
+    
+    - name: Summary - Display deployment results
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "   ✅ Shield AG-UI Deployment Complete"
+          - "═══════════════════════════════════════════════════════════"
+          - "Target: {{ inventory_hostname }}"
+          - "Frontend: http://{{ shield_ag_ui_health_host }}:{{ shield_ag_ui_frontend_port }}"
+          - "Backend: http://{{ shield_ag_ui_health_host }}:{{ shield_ag_ui_backend_port }}"
+          - "Health: http://127.0.0.1:{{ shield_ag_ui_backend_port }}/health"
+          - "Health Status: {{ 'PASS ✅' if health_check_local.status == 200 else 'DEGRADED ⚠️' if health_check_local.status == 503 else 'UNKNOWN ⚠️' }}"
+          - "Containers: {{ containers_running.stdout_lines | default(['none']) | join(', ') }}"
+          - "═══════════════════════════════════════════════════════════"
+      tags: [summary]
+
+- name: "[DC] Verify deployment from hx-dc-server"
+  hosts: hx-dc-server
+  gather_facts: false
+  tasks:
+    - name: DC - Ping dev-server
+      ansible.builtin.command: ping -c 2 {{ hostvars['hx-dev-server']['ansible_host'] }}
+      register: dc_ping
+      changed_when: false
+      failed_when: false
+      tags: [smoke]
+    
+    - name: DC - DNS lookup dev-server
+      ansible.builtin.command: nslookup hx-dev-server
+      register: dc_dns
+      changed_when: false
+      failed_when: false
+      tags: [smoke]
+    
+    - name: DC - Display visibility check
+      ansible.builtin.debug:
+        msg: "DC visibility: {{ 'OK ✅' if dc_ping.rc == 0 else 'FAIL ❌' }}"
+      tags: [summary]
+

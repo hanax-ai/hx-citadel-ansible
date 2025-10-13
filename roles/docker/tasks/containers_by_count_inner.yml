@@ -1,0 +1,19 @@
+---
+# Inner loop for by-count container creation
+- name: "[Containers] Start {{ def.base_name }}-{{ idx }}"
+  vars:
+    _count: "{{ def.count | default(1) | int }}"
+    _start: "{{ def.start_index | default(1) | int }}"
+  community.docker.docker_container:
+    name: "{{ def.base_name }}-{{ idx }}"
+    image: "{{ def.image }}"
+    state: started
+    restart_policy: "{{ def.restart_policy | default('unless-stopped') }}"
+    env: "{{ def.env | default({}) }}"
+    ports: "{{ def.ports | default([]) }}"
+    volumes: "{{ def.volumes | default([]) }}"
+    command: "{{ def.command | default(omit) }}"
+  loop: "{{ range(_start, _start + _count) | list }}"
+  loop_control:
+    loop_var: idx
+

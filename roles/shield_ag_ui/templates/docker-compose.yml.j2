@@ -98,7 +98,8 @@ services:
     container_name: ag-ui-nginx
     ports:
       - "{{ shield_ag_ui_nginx_http_port }}:80"
-      - "{{ shield_ag_ui_nginx_https_port }}:443"
+      # HTTPS disabled - port 443 in use by system nginx
+      # - "{{ shield_ag_ui_nginx_https_port }}:443"
     volumes:
       - {{ shield_ag_ui_home }}/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - {{ shield_ag_ui_home }}/nginx/ssl:/etc/nginx/ssl:ro
@@ -126,7 +127,7 @@ services:
 networks:
   ag-ui-network:
     name: {{ shield_ag_ui_docker_network }}
-    driver: bridge
+    external: true
 
 volumes:
   backend-data:
