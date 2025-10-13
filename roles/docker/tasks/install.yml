@@ -1,0 +1,96 @@
+---
+# roles/docker/tasks/install.yml
+- name: "[Install] Gather facts"
+  ansible.builtin.setup:
+
+- name: "[Install] Disable host firewall per HX policy"
+  when: docker_manage_firewall
+  block:
+    - name: "[Firewall] Disable UFW if present (Debian/Ubuntu)"
+      ansible.builtin.command: ufw disable
+      args: { warn: false }
+      register: ufw_disable
+      failed_when: false
+      changed_when: "'already disabled' not in (ufw_disable.stdout | default('') | lower)"
+      when: ansible_facts.os_family == "Debian"
+
+    - name: "[Firewall] Stop & disable firewalld if present (RHEL/CentOS)"
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
+        enabled: no
+      register: fwld
+      failed_when: false
+      when: ansible_facts.os_family == "RedHat"
+
+- name: "[Install:Debian] Ensure apt dependencies"
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, gnupg, lsb-release]
+    state: present
+    update_cache: yes
+  when: ansible_facts.os_family == "Debian"
+
+- name: "[Install:Debian] Add Docker GPG"
+  ansible.builtin.apt_key:
+    url: "https://download.docker.com/linux/{{ ansible_facts.distribution | lower }}/gpg"
+    state: present
+  when: ansible_facts.os_family == "Debian"
+
+- name: "[Install:Debian] Add Docker apt repo"
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ ansible_facts.architecture }}] https://download.docker.com/linux/{{ ansible_facts.distribution | lower }} {{ ansible_facts.distribution_release }} stable"
+    state: present
+  when: ansible_facts.os_family == "Debian"
+
+- name: "[Install:Debian] Install Docker packages"
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: "{{ docker_package_state }}"
+    update_cache: yes
+  when: ansible_facts.os_family == "Debian"
+
+- name: "[Install:RHEL] Ensure yum-utils"
+  ansible.builtin.yum:
+    name: yum-utils
+    state: present
+  when: ansible_facts.os_family == "RedHat"
+
+- name: "[Install:RHEL] Add Docker yum repo"
+  ansible.builtin.command: >
+    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  args: { creates: /etc/yum.repos.d/docker-ce.repo }
+  when: ansible_facts.os_family == "RedHat"
+
+- name: "[Install:RHEL] Install Docker packages"
+  ansible.builtin.yum:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: "{{ docker_package_state }}"
+  when: ansible_facts.os_family == "RedHat"
+
+- name: "[Install] Ensure docker group"
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: "[Install] Add operators to docker group"
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop: "{{ docker_users }}"
+
+- name: "[Install] Start/enable Docker service"
+  ansible.builtin.service:
+    name: docker
+    state: "{{ docker_service_state }}"
+    enabled: "{{ docker_service_enabled }}"

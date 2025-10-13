@@ -1,0 +1,32 @@
+---
+# roles/docker/defaults/main.yml
+docker_users:
+  - agent0
+
+docker_package_state: present
+docker_manage_firewall: true           # HX policy: disable host firewalls
+
+# Strategy A: explicitly-named containers
+# Each item = a container with a fixed name.
+docker_containers_explicit: []
+# - name: hx-qdrant
+#   image: qdrant/qdrant:latest
+#   restart_policy: unless-stopped
+#   env: {}
+#   ports: ["6333:6333", "6334:6334"]
+#   volumes: ["/data/qdrant:/qdrant/storage"]
+
+# Strategy B: N copies per definition, auto-named: <base_name>-<index>
+docker_containers_by_count: []
+# - base_name: hx-worker
+#   image: alpine:3.20
+#   count: 3
+#   start_index: 1          # optional; default 1
+#   restart_policy: unless-stopped
+#   command: ["sh", "-c", "sleep 3600"]
+#   env: {}
+#   ports: []               # same schema as explicit
+#   volumes: []
+
+docker_service_state: started
+docker_service_enabled: true

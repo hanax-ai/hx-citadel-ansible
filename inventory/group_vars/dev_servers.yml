@@ -1,0 +1,8 @@
+---
+# Dev servers group variables
+# Docker configuration for development server
+
+# No containers by default - just install Docker
+docker_containers_explicit: []
+docker_containers_by_count: []
+

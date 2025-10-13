@@ -1,0 +1,9 @@
+---
+# roles/docker/tasks/main.yml
+- name: "Install Docker engine"
+  ansible.builtin.import_tasks: install.yml
+  tags: [install]
+
+- name: "Create/ensure containers (optional)"
+  ansible.builtin.import_tasks: containers.yml
+  tags: [containers]

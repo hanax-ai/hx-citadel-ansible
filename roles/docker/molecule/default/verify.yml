@@ -1,0 +1,20 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: "Check docker binary"
+      ansible.builtin.command: docker --version
+      changed_when: false
+
+    - name: "List containers"
+      ansible.builtin.command: docker ps --format '{{ "{{.Names}}" }}'
+      register: running
+      changed_when: false
+
+    - name: "Assert both test containers are running"
+      ansible.builtin.assert:
+        that:
+          - "'testbox-1' in running.stdout"
+          - "'testbox-2' in running.stdout"
+
