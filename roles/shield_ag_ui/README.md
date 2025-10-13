@@ -43,6 +43,28 @@ Key variables:
 - `deployment`: Run deployment tasks only
 - `prerequisites`, `user`, `directories`, `frontend`, `backend`, `docker`, `nginx`, `service`
 
+## Required Ansible Vault Variables
+
+The following secrets must be configured in your Ansible Vault before deployment:
+
+```yaml
+# In your vault file (e.g., group_vars/all/vault.yml)
+vault_shield_ag_ui_jwt_secret: "your-secure-jwt-secret-min-64-chars"
+vault_shield_ag_ui_litellm_api_key: "your-litellm-api-key"
+vault_shield_ag_ui_db_password: "your-secure-database-password"
+```
+
+Generate secure secrets using:
+```bash
+# JWT Secret (64 characters)
+openssl rand -base64 48
+
+# Database Password
+openssl rand -base64 32
+
+# LiteLLM API Key (obtain from your LiteLLM deployment)
+```
+
 ## License
 
 Proprietary

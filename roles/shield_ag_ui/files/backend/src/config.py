@@ -1,6 +1,7 @@
 """Configuration management using environment variables"""
 from pydantic_settings import BaseSettings
 from typing import List
+import os
 
 
 class Settings(BaseSettings):
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8002
     
-    CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:80"]
+    CORS_ORIGINS: List[str] = []
     
     LITELLM_URL: str = "http://hx-litellm-server:4000"
     ORCHESTRATOR_URL: str = "http://hx-orchestrator-server:8000"
@@ -35,6 +36,12 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.CORS_ORIGINS:
+            cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3001,http://localhost:80")
+            self.CORS_ORIGINS = [origin.strip() for origin in cors_env.split(",")]
 
 
 settings = Settings()

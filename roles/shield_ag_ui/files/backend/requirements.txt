@@ -3,8 +3,8 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
-# AG-UI SDK
-git+https://github.com/ag-ui-protocol/ag-ui.git
+# AG-UI SDK - pinned to specific commit for reproducibility
+git+https://github.com/ag-ui-protocol/ag-ui.git@39450298b749d6a7888237ecf596e34a9c925804
 
 # Redis
 redis[hiredis]==5.0.1

@@ -1,35 +1,99 @@
 ---
-# Service startup
+# Service startup with comprehensive error handling
 
-- name: Stop existing AG-UI services
-  community.docker.docker_compose_v2:
-    project_src: "{{ shield_ag_ui_home }}/docker"
-    state: absent
-  become: true
-  become_user: "{{ shield_ag_ui_user }}"
-  failed_when: false
+- name: Start Shield AG-UI services with error handling
+  block:
+    - name: Stop existing AG-UI services
+      community.docker.docker_compose_v2:
+        project_src: "{{ shield_ag_ui_home }}/docker"
+        state: absent
+      become: true
+      become_user: "{{ shield_ag_ui_user }}"
+      failed_when: false
 
-- name: Start AG-UI services
-  community.docker.docker_compose_v2:
-    project_src: "{{ shield_ag_ui_home }}/docker"
-    state: present
-  become: true
-  become_user: "{{ shield_ag_ui_user }}"
+    - name: Start AG-UI services
+      community.docker.docker_compose_v2:
+        project_src: "{{ shield_ag_ui_home }}/docker"
+        state: present
+      become: true
+      become_user: "{{ shield_ag_ui_user }}"
 
-- name: Wait for backend to be healthy
-  ansible.builtin.uri:
-    url: "http://localhost:{{ shield_ag_ui_backend_port }}/health"
-    status_code: 200
-  register: shield_ag_ui_backend_health
-  until: shield_ag_ui_backend_health.status == 200
-  retries: 10
-  delay: 3
+    - name: Wait for backend to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ shield_ag_ui_backend_port }}/health"
+        status_code: 200
+      register: shield_ag_ui_backend_health
+      until: shield_ag_ui_backend_health.status == 200
+      retries: 10
+      delay: 3
 
-- name: Wait for frontend to be healthy
-  ansible.builtin.uri:
-    url: "http://localhost:{{ shield_ag_ui_frontend_port }}"
-    status_code: 200
-  register: shield_ag_ui_frontend_health
-  until: shield_ag_ui_frontend_health.status == 200
-  retries: 10
-  delay: 3
+    - name: Wait for frontend to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ shield_ag_ui_frontend_port }}"
+        status_code: 200
+      register: shield_ag_ui_frontend_health
+      until: shield_ag_ui_frontend_health.status == 200
+      retries: 10
+      delay: 3
+
+    - name: Verify services are running
+      ansible.builtin.shell: docker ps --filter "name=ag-ui" --format "{{ '{{' }}.Names}}\t{{ '{{' }}.Status}}"
+      register: shield_ag_ui_service_status
+      changed_when: false
+
+    - name: Display service status
+      ansible.builtin.debug:
+        msg: |
+          === Shield AG-UI Services Started ===
+          {{ shield_ag_ui_service_status.stdout }}
+
+  rescue:
+    - name: Log service deployment failure
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Shield AG-UI service deployment encountered errors
+          Host: {{ ansible_hostname }}
+          Error: {{ ansible_failed_result | default('Unknown error') }}
+
+    - name: Attempt service recovery
+      community.docker.docker_compose_v2:
+        project_src: "{{ shield_ag_ui_home }}/docker"
+        state: restarted
+      become: true
+      become_user: "{{ shield_ag_ui_user }}"
+      register: shield_ag_ui_recovery_attempt
+      failed_when: false
+
+    - name: Check recovery status
+      ansible.builtin.shell: docker ps --filter "name=ag-ui" --format "{{ '{{' }}.Names}}\t{{ '{{' }}.Status}}"
+      register: shield_ag_ui_recovery_status
+      changed_when: false
+      failed_when: false
+
+    - name: Report recovery status
+      ansible.builtin.debug:
+        msg: |
+          Recovery Attempt Result:
+          {{ shield_ag_ui_recovery_status.stdout if shield_ag_ui_recovery_status.stdout else 'No containers running' }}
+
+    - name: Fail if services not running after recovery
+      ansible.builtin.fail:
+        msg: "Shield AG-UI services failed to start. Check logs: docker compose -f {{ shield_ag_ui_home }}/docker/docker-compose.yml logs"
+      when: shield_ag_ui_recovery_status.stdout is not defined or shield_ag_ui_recovery_status.stdout == ""
+
+  always:
+    - name: Collect service logs for debugging
+      ansible.builtin.shell: |
+        docker compose -f {{ shield_ag_ui_home }}/docker/docker-compose.yml logs --tail=50 > /tmp/shield-ag-ui-deployment.log 2>&1 || true
+      changed_when: false
+      failed_when: false
+
+    - name: Display final deployment status
+      ansible.builtin.debug:
+        msg: |
+          === Shield AG-UI Deployment Status ===
+          Backend Port: {{ shield_ag_ui_backend_port }}
+          Frontend Port: {{ shield_ag_ui_frontend_port }}
+          Nginx Ports: {{ shield_ag_ui_nginx_http_port }}/{{ shield_ag_ui_nginx_https_port }}
+          Logs: /tmp/shield-ag-ui-deployment.log
+          Check services: docker ps --filter "name=ag-ui"
