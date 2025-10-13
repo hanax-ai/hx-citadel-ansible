@@ -72,7 +72,10 @@
   tags: [validation]
 - name: Check orchestrator logs for worker pool
   ansible.builtin.shell: >
+    set -o pipefail &&
     journalctl -u shield-orchestrator.service --since '2 minutes ago' --no-pager | grep -Ei 'worker|event[._]bus' | tail -20
+  args:
+    executable: /bin/bash
   register: orchestrator_logs
   changed_when: false
   failed_when: false

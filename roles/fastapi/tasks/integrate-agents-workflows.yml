@@ -7,7 +7,7 @@
     sed -i '/# BEGIN ANSIBLE MANAGED BLOCK - Component 8 & 9/,/# END ANSIBLE MANAGED BLOCK - Component 8 & 9/d' {{ orchestrator_dir }}/main.py
   args:
     warn: false
-  ignore_errors: true
+  failed_when: false
   changed_when: false
 
 - name: Check if agent_manager is already imported in main.py

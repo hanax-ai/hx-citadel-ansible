@@ -29,7 +29,10 @@
   tags: [validation]
 - name: Verify embedding model available
   ansible.builtin.shell: >
+    set -o pipefail &&
     curl -s {{ ollama_url }}/api/tags | jq -r '.models[].name' | grep -q {{ ollama_embedding_model }}
+  args:
+    executable: /bin/bash
   register: embedding_model_check
   changed_when: false
   failed_when: false

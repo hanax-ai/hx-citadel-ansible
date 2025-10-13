@@ -15,6 +15,8 @@ exclude_paths:
   - molecule/
   - tech_kb/  # Reference materials, not our code
   - .ansible_cache/
+  - roles/postgresql_role/tasks/setup-Archlinux.yml  # Third-party role (geerlingguy)
+  - roles/postgresql_role/tasks/setup-Debian.yml  # Third-party role (geerlingguy)
 
 # MANDATORY: Rules that must pass (based on ANSIBLE-BEST-PRACTICES.md)
 enable_list:

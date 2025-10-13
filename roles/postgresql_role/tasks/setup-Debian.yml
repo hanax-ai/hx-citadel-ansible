@@ -17,7 +17,7 @@
   register: locale_gen_result
 
 - name: Force-restart PostgreSQL after new locales are generated.
-  ansible.builtin.service:
-    name: "{{ postgresql_daemon }}"
-    state: restarted
+  ansible.builtin.command: /bin/true
+  notify: restart postgresql
   when: locale_gen_result.changed
+  changed_when: locale_gen_result.changed
