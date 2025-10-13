@@ -111,23 +111,27 @@ jobs:
           script: |
             const prNumber = ${{ steps.extract.outputs.pr_number }};
             
+            const commentBody = [
+              '🤖 **Automated Issue Creation**',
+              '',
+              "I've parsed the code review and automatically created GitHub issues for all CRITICAL and MAJOR findings.",
+              '',
+              `Check the [Issues tab](${context.payload.repository.html_url}/issues) for the newly created issues.`,
+              '',
+              'All issues are labeled with:',
+              '- `code-review` - From automated review',
+              '- `automated` - Auto-created by workflow',
+              '- `critical` or `major` - Based on severity',
+              '',
+              '---',
+              '*Automated by: `.github/workflows/review-to-issues.yml`*'
+            ].join('\n');
+            
             github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: `🤖 **Automated Issue Creation**
-              
-I've parsed the code review and automatically created GitHub issues for all CRITICAL and MAJOR findings.
-
-Check the [Issues tab](${context.payload.repository.html_url}/issues) for the newly created issues.
-
-All issues are labeled with:
-- \`code-review\` - From automated review
-- \`automated\` - Auto-created by workflow
-- \`critical\` or \`major\` - Based on severity
-
----
-*Automated by: \`.github/workflows/review-to-issues.yml\`*`
+              body: commentBody
             });
       
       - name: Upload review file as artifact
